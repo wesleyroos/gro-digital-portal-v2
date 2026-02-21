@@ -16,6 +16,7 @@ import {
   getMetrics,
   getTasks,
   createTask,
+  updateTask,
   setTaskDone,
   deleteTask,
   getClientProfile,
@@ -249,6 +250,18 @@ export const appRouter = router({
       .input(z.object({ id: z.number(), done: z.boolean() }))
       .mutation(async ({ input }) => {
         await setTaskDone(input.id, input.done);
+        return { success: true };
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        text: z.string().min(1),
+        clientSlug: z.string().nullish(),
+        clientName: z.string().nullish(),
+      }))
+      .mutation(async ({ input }) => {
+        await updateTask(input.id, input.text, input.clientSlug, input.clientName);
         return { success: true };
       }),
 

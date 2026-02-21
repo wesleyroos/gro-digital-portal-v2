@@ -356,6 +356,12 @@ export async function setTaskDone(id: number, done: boolean) {
   await db.update(tasks).set({ done }).where(eq(tasks.id, id));
 }
 
+export async function updateTask(id: number, text: string, clientSlug?: string | null, clientName?: string | null) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(tasks).set({ text, clientSlug: clientSlug ?? null, clientName: clientName ?? null }).where(eq(tasks.id, id));
+}
+
 export async function deleteTask(id: number) {
   const db = await getDb();
   if (!db) return;

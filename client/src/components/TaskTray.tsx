@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CheckSquare, Square, Trash2, Plus, BellDot, Bell } from "lucide-react";
+import { CheckSquare, Square, Trash2, Plus, BellDot, Bell, Pencil, Check, X } from "lucide-react";
 import { Link } from "wouter";
 
 export default function TaskTray() {
@@ -13,6 +13,8 @@ export default function TaskTray() {
   const [open, setOpen] = useState(false);
   const [newText, setNewText] = useState("");
   const [selectedClientSlug, setSelectedClientSlug] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const openCount = tasks.filter(t => !t.done).length;
@@ -23,6 +25,13 @@ export default function TaskTray() {
       setNewText("");
       setSelectedClientSlug("");
       inputRef.current?.focus();
+    },
+  });
+
+  const updateTask = trpc.task.update.useMutation({
+    onSuccess: () => {
+      utils.task.list.invalidate();
+      setEditingId(null);
     },
   });
 
@@ -43,6 +52,17 @@ export default function TaskTray() {
       clientSlug: client?.clientSlug ?? null,
       clientName: client?.clientName ?? null,
     });
+  }
+
+  function startEdit(task: { id: number; text: string }) {
+    setEditingId(task.id);
+    setEditText(task.text);
+  }
+
+  function saveEdit(task: { id: number; clientSlug?: string | null; clientName?: string | null }) {
+    const text = editText.trim();
+    if (!text) return;
+    updateTask.mutate({ id: task.id, text, clientSlug: task.clientSlug, clientName: task.clientName });
   }
 
   const open_tasks = tasks.filter(t => !t.done);
@@ -88,8 +108,29 @@ export default function TaskTray() {
                 <Square className="w-3.5 h-3.5" />
               </button>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-foreground leading-snug">{task.text}</p>
-                {task.clientName && task.clientSlug && (
+                {editingId === task.id ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      autoFocus
+                      className="h-6 text-xs py-0 px-1.5"
+                      value={editText}
+                      onChange={e => setEditText(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") saveEdit(task);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                    />
+                    <button onClick={() => saveEdit(task)} className="text-emerald-600 hover:text-emerald-700">
+                      <Check className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-foreground leading-snug">{task.text}</p>
+                )}
+                {task.clientName && task.clientSlug && editingId !== task.id && (
                   <Link href={`/client/${task.clientSlug}`} onClick={() => setOpen(false)}>
                     <span className="text-[10px] text-primary hover:underline cursor-pointer">
                       {task.clientName}
@@ -97,12 +138,22 @@ export default function TaskTray() {
                   </Link>
                 )}
               </div>
-              <button
-                className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                onClick={() => deleteTask.mutate({ id: task.id })}
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+              {editingId !== task.id && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                  <button
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => startEdit(task)}
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                  <button
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteTask.mutate({ id: task.id })}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 
