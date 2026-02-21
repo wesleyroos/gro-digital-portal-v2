@@ -1,10 +1,12 @@
 import { trpc } from "@/lib/trpc";
+import { useState } from "react";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertCircle, CheckCircle2, Repeat, CalendarDays, Wrench,
-  Building2, Target, Plus, ArrowUpRight,
+  Building2, Target, Plus, ArrowUpRight, Pencil, Check, X,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 function fmt(n: number) {
   return `R${n.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -22,8 +24,23 @@ export default function Home() {
   const { data: tasks = [] } = trpc.task.list.useQuery(undefined, { enabled: isLoggedIn, retry: false });
   const { data: leads = [] } = trpc.lead.list.useQuery(undefined, { enabled: isLoggedIn, retry: false });
 
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editTaskText, setEditTaskText] = useState("");
+
   const utils = trpc.useUtils();
   const setTaskDone = trpc.task.setDone.useMutation({ onSuccess: () => utils.task.list.invalidate() });
+  const updateTask = trpc.task.update.useMutation({ onSuccess: () => { utils.task.list.invalidate(); setEditingTaskId(null); } });
+
+  function startEditTask(task: { id: number; text: string }) {
+    setEditingTaskId(task.id);
+    setEditTaskText(task.text);
+  }
+
+  function saveEditTask(task: { id: number; clientSlug?: string | null; clientName?: string | null }) {
+    const text = editTaskText.trim();
+    if (!text) return;
+    updateTask.mutate({ id: task.id, text, clientSlug: task.clientSlug, clientName: task.clientName });
+  }
 
   const openTasks = tasks.filter(t => !t.done);
   const pipelineMonthly = leads.reduce((sum, l) => sum + (l.monthlyValue ? parseFloat(l.monthlyValue) : 0), 0);
@@ -268,17 +285,46 @@ export default function Home() {
                 ) : (
                   <div className="space-y-3">
                     {openTasks.slice(0, 4).map((task) => (
-                      <div key={task.id} className="flex items-start gap-2.5">
+                      <div key={task.id} className="flex items-start gap-2.5 group">
                         <button
                           onClick={() => setTaskDone.mutate({ id: task.id, done: true })}
                           className="w-3.5 h-3.5 rounded border border-muted-foreground/40 hover:border-primary hover:bg-primary/10 transition-colors mt-0.5 shrink-0"
                         />
-                        <div className="min-w-0">
-                          <p className="text-xs text-foreground leading-snug">{task.text}</p>
-                          {task.clientName && (
+                        <div className="flex-1 min-w-0">
+                          {editingTaskId === task.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                autoFocus
+                                className="h-6 text-xs py-0 px-1.5"
+                                value={editTaskText}
+                                onChange={e => setEditTaskText(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") saveEditTask(task);
+                                  if (e.key === "Escape") setEditingTaskId(null);
+                                }}
+                              />
+                              <button onClick={() => saveEditTask(task)} className="text-emerald-600 hover:text-emerald-700 shrink-0">
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button onClick={() => setEditingTaskId(null)} className="text-muted-foreground hover:text-foreground shrink-0">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-foreground leading-snug">{task.text}</p>
+                          )}
+                          {task.clientName && editingTaskId !== task.id && (
                             <p className="text-[10px] text-muted-foreground mt-0.5">{task.clientName}</p>
                           )}
                         </div>
+                        {editingTaskId !== task.id && (
+                          <button
+                            className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground mt-0.5"
+                            onClick={() => startEditTask(task)}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     ))}
                     {openTasks.length > 4 && (
