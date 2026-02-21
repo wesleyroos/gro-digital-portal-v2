@@ -1,0 +1,32 @@
+# Project TODO
+
+- [x] Set up global theming with clean, professional invoice-appropriate design
+- [x] Design database schema for invoices and line items
+- [x] Create backend tRPC procedures for invoice data
+- [x] Build Invoice page with header (IGL002, date, client details)
+- [x] Display project summary (78 products vs 10 quoted, 7 articles vs 6 quoted)
+- [x] Present payment details table (R12,400.00 remaining 50%)
+- [x] Display banking details (FNB/RMB, Gro Digital, 62842244725, 250655, IGLCAFRICA-FINAL)
+- [x] Include payment terms "Due upon receipt"
+- [x] Add Gro Digital branding and contact information
+- [x] Implement responsive design for desktop and mobile
+- [x] Clean invoice typography and visual hierarchy
+- [x] Write vitest tests for invoice procedures
+- [x] Final checkpoint and delivery
+- [x] Add home navigation link on invoice page top bar
+- [x] Create monthly recurring fees invoice (IGL-M001) with hosting + optional services
+- [x] Create annual recurring fees invoice (IGL-A001) with domain renewal
+- [x] Add PayFast payment link buttons to recurring invoices
+- [x] Add client slug field to invoices table for multi-client support
+- [x] Create client listing page showing all invoices for a specific client
+- [x] Update routes for /client/:slug and /client/:slug/invoice/:number
+- [x] Update homepage to list clients or serve as a portal landing
+- [x] Update invoice page navigation for multi-client context
+- [x] Add backend procedures for client-based invoice queries
+- [x] Write tests for new procedures
+- [ ] Add Sensitive People Thriving (Eloise Davis) as a new client
+- [ ] Create once-off website build invoice (SPT001) for R17,000
+- [ ] Create monthly recurring invoice (SPT-M001) for R899/mo
+- [ ] Create annual recurring invoice (SPT-A001) for R249/yr
+- [ ] Verify new client appears on homepage and client portal
+- [ ] Write/update tests for new client data

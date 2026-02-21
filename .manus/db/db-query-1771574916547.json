@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `invoices` ADD `clientSlug` varchar(128) DEFAULT '' NOT NULL;\nALTER TABLE `invoices` ADD `invoiceType` enum('once-off','monthly','annual') DEFAULT 'once-off' NOT NULL;\nALTER TABLE `invoices` ADD `paymentUrl` varchar(512);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4H1UoWYPsU4mnvt.root --database DEK54DbxYyh6HbTnURinEE --execute ALTER TABLE `invoices` ADD `clientSlug` varchar(128) DEFAULT '' NOT NULL;\nALTER TABLE `invoices` ADD `invoiceType` enum('once-off','monthly','annual') DEFAULT 'once-off' NOT NULL;\nALTER TABLE `invoices` ADD `paymentUrl` varchar(512);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 896
+}

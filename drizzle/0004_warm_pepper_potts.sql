@@ -1,0 +1,1 @@
+ALTER TABLE `invoices` ADD `paymentToken` varchar(128);
