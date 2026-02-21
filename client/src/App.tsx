@@ -13,6 +13,7 @@ import CreateInvoice from "./pages/CreateInvoice";
 import EditInvoice from "./pages/EditInvoice";
 import Leads from "./pages/Leads";
 import Clients from "./pages/Clients";
+import Login from "./pages/Login";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
   return <DashboardLayout>{children}</DashboardLayout>;
@@ -21,6 +22,9 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
+      {/* Auth */}
+      <Route path={"/login"} component={Login} />
+
       {/* Public client-facing routes — no sidebar */}
       <Route path={"/client/:slug"} component={ClientPortal} />
       <Route path={"/client/:slug/invoice/:invoiceNumber"} component={Invoice} />
