@@ -12,31 +12,38 @@ function getQueryParam(req: Request, key: string): string | undefined {
 export function registerOAuthRoutes(app: Express) {
   // Password login – works in all environments when ADMIN_PASSWORD is set
   app.post("/api/auth/password-login", async (req: Request, res: Response) => {
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (!adminPassword) {
-      res.status(500).json({ error: "No admin password configured" });
-      return;
+    try {
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      if (!adminPassword) {
+        console.error("[Auth] ADMIN_PASSWORD env var is not set");
+        res.status(500).json({ error: "No admin password configured" });
+        return;
+      }
+      const { password } = req.body as { password?: string };
+      if (!password || password !== adminPassword) {
+        res.status(401).json({ error: "Invalid password" });
+        return;
+      }
+      const ownerOpenId = process.env.OWNER_OPEN_ID || "admin";
+      await db.upsertUser({
+        openId: ownerOpenId,
+        name: "Admin",
+        email: null,
+        loginMethod: "password",
+        role: "admin",
+        lastSignedIn: new Date(),
+      });
+      const sessionToken = await sdk.createSessionToken(ownerOpenId, {
+        name: "Admin",
+        expiresInMs: ONE_YEAR_MS,
+      });
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Auth] Password login error:", error);
+      res.status(500).json({ error: "Login failed, check server logs" });
     }
-    const { password } = req.body as { password?: string };
-    if (!password || password !== adminPassword) {
-      res.status(401).json({ error: "Invalid password" });
-      return;
-    }
-    const ownerOpenId = process.env.OWNER_OPEN_ID || "admin";
-    await db.upsertUser({
-      openId: ownerOpenId,
-      name: "Admin",
-      email: null,
-      loginMethod: "password",
-      lastSignedIn: new Date(),
-    });
-    const sessionToken = await sdk.createSessionToken(ownerOpenId, {
-      name: "Admin",
-      expiresInMs: ONE_YEAR_MS,
-    });
-    const cookieOptions = getSessionCookieOptions(req);
-    res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-    res.json({ success: true });
   });
 
   // Dev-only login bypass – creates a session without OAuth

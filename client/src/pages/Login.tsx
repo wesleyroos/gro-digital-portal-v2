@@ -20,8 +20,11 @@ export default function Login() {
       });
       if (res.ok) {
         window.location.href = "/";
-      } else {
+      } else if (res.status === 401) {
         setError("Invalid password");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Server error — check Railway logs");
       }
     } catch {
       setError("Something went wrong, try again");
