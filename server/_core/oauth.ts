@@ -66,7 +66,6 @@ export function registerOAuthRoutes(app: Express) {
       return;
     }
 
-    console.log(`[Henry] token length=${gatewayToken.length} first4=${gatewayToken.slice(0, 4)} url=${gatewayUrl}`);
     const { messages } = req.body as { messages: Array<{ role: string; content: string }> };
     try {
       const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
@@ -79,6 +78,12 @@ export function registerOAuthRoutes(app: Express) {
         body: JSON.stringify({ model: "openclaw", messages }),
         signal: AbortSignal.timeout(120_000),
       });
+      if (!upstream.ok) {
+        const text = await upstream.text();
+        console.error(`[Henry] Gateway error ${upstream.status}:`, text);
+        res.status(502).json({ error: "Henry unavailable" });
+        return;
+      }
       const data = await upstream.json() as { choices: Array<{ message: { content: string } }> };
       res.json({ reply: data.choices[0].message.content });
     } catch (e) {
