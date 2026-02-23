@@ -13,6 +13,7 @@ import CreateInvoice from "./pages/CreateInvoice";
 import EditInvoice from "./pages/EditInvoice";
 import Leads from "./pages/Leads";
 import Clients from "./pages/Clients";
+import Invoices from "./pages/Invoices";
 import Login from "./pages/Login";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -37,6 +38,7 @@ function Router() {
             <Switch>
               <Route path={"/"} component={Home} />
               <Route path={"/clients"} component={Clients} />
+              <Route path={"/invoices"} component={Invoices} />
               <Route path={"/leads"} component={Leads} />
               <Route path={"/invoice/new"} component={CreateInvoice} />
               <Route path={"/invoice/:invoiceNumber/edit"} component={EditInvoice} />

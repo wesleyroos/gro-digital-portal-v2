@@ -15,6 +15,52 @@ function fmtShort(n: number) {
   return `R${n.toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function NewTaskForm() {
+  const utils = trpc.useUtils();
+  const { data: clients = [] } = trpc.invoice.clients.useQuery(undefined, { retry: false });
+  const [text, setText] = useState("");
+  const [clientSlug, setClientSlug] = useState("");
+  const createTask = trpc.task.create.useMutation({
+    onSuccess: () => { utils.task.list.invalidate(); setText(""); setClientSlug(""); },
+  });
+  function handleAdd() {
+    const t = text.trim();
+    if (!t) return;
+    const client = clients.find(c => c.clientSlug === clientSlug);
+    createTask.mutate({ text: t, clientSlug: client?.clientSlug ?? null, clientName: client?.clientName ?? null });
+  }
+  return (
+    <div className="mt-4 pt-4 border-t border-border space-y-1.5">
+      <div className="flex gap-1.5">
+        <Input
+          className="h-7 text-xs"
+          placeholder="Add a task..."
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleAdd()}
+        />
+        <button
+          onClick={handleAdd}
+          disabled={!text.trim() || createTask.isPending}
+          className="h-7 w-7 shrink-0 rounded-md bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {clients.length > 0 && (
+        <select
+          className="w-full h-7 text-xs rounded-md border border-input bg-background px-2 text-muted-foreground"
+          value={clientSlug}
+          onChange={e => setClientSlug(e.target.value)}
+        >
+          <option value="">No client (general task)</option>
+          {clients.map(c => <option key={c.clientSlug} value={c.clientSlug}>{c.clientName}</option>)}
+        </select>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const { data: me } = trpc.auth.me.useQuery();
   const isLoggedIn = !!me;
@@ -329,14 +375,7 @@ export default function Home() {
                     ))}
                   </div>
                 )}
-                <div className="mt-4 pt-4 border-t border-border">
-                  <Link href="/invoice/new">
-                    <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      <Plus className="w-3.5 h-3.5" />
-                      New Invoice
-                    </button>
-                  </Link>
-                </div>
+                <NewTaskForm />
               </div>
             </CardContent>
           </Card>
