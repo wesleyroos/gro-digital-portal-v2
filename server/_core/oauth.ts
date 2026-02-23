@@ -59,9 +59,8 @@ export function registerOAuthRoutes(app: Express) {
       return;
     }
 
-    const h = "HENRY_GATEWAY_";
-    const gatewayUrl = process.env[h + "URL"];
-    const gatewayToken = process.env[h + "TOKEN"];
+    const gatewayUrl = process.env.HENRY_GATEWAY_URL;
+    const gatewayToken = process.env.HENRY_GATEWAY_TOKEN;
     if (!gatewayUrl || !gatewayToken) {
       res.status(503).json({ error: "Henry not configured" });
       return;
