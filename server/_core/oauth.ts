@@ -66,6 +66,7 @@ export function registerOAuthRoutes(app: Express) {
       return;
     }
 
+    console.log(`[Henry] token len=${gatewayToken.length} chars=${[...gatewayToken].map(c => c.charCodeAt(0)).slice(0, 6).join(',')}`);
     const { messages } = req.body as { messages: Array<{ role: string; content: string }> };
     try {
       const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
