@@ -283,8 +283,8 @@ export default function Home() {
                 {openTasks.length === 0 ? (
                   <p className="text-xs text-muted-foreground">All clear ✓</p>
                 ) : (
-                  <div className="space-y-3">
-                    {openTasks.slice(0, 4).map((task) => (
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                    {openTasks.map((task) => (
                       <div key={task.id} className="flex items-start gap-2.5 group">
                         <button
                           onClick={() => setTaskDone.mutate({ id: task.id, done: true })}
@@ -327,9 +327,6 @@ export default function Home() {
                         )}
                       </div>
                     ))}
-                    {openTasks.length > 4 && (
-                      <p className="text-[10px] text-muted-foreground pl-6">+{openTasks.length - 4} more</p>
-                    )}
                   </div>
                 )}
                 <div className="mt-4 pt-4 border-t border-border">
