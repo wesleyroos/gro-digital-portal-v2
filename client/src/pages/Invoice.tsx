@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
-import { ChevronLeft, Repeat, CalendarDays } from "lucide-react";
+import { ChevronLeft, Repeat, CalendarDays, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Printer,
-  Download,
   Mail,
   Phone,
   Globe,
@@ -28,7 +27,21 @@ import {
   Check,
   X,
   Send,
+  Trash2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function formatCurrency(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "R0.00";
@@ -125,6 +138,16 @@ export default function Invoice() {
     onError: () => toast.error("Failed to save link"),
   });
 
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  const deleteInvoice = trpc.invoice.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Invoice deleted");
+      window.location.href = clientSlug ? `/client/${clientSlug}` : "/invoices";
+    },
+    onError: () => toast.error("Failed to delete invoice"),
+  });
+
   const [editingPayFast, setEditingPayFast] = useState(false);
   const [payFastDraft, setPayFastDraft] = useState("");
   const [payFastTokenDraft, setPayFastTokenDraft] = useState("");
@@ -211,6 +234,7 @@ export default function Invoice() {
             <span className="font-semibold text-sm text-foreground tracking-tight">Gro Digital</span>
           </Link>
           <div className="flex items-center gap-2">
+            {/* Mark as Paid / Sent — kept standalone */}
             {isAdmin && data?.invoice && (
               data.invoice.status === "paid" ? (
                 <Button
@@ -235,75 +259,65 @@ export default function Invoice() {
                 </Button>
               )
             )}
-            {isAdmin && data?.invoice.shareToken && (
-              <>
-                {sendingEmail ? (
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      className="h-8 text-xs w-48"
-                      placeholder="Client email address..."
-                      value={emailDraft}
-                      onChange={e => setEmailDraft(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter" && emailDraft.trim()) sendEmail.mutate({ invoiceId: data.invoice.id, recipientEmail: emailDraft.trim() });
-                        if (e.key === "Escape") setSendingEmail(false);
-                      }}
-                      autoFocus
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 px-3 gap-1 text-xs"
-                      onClick={() => sendEmail.mutate({ invoiceId: data.invoice.id, recipientEmail: emailDraft.trim() })}
-                      disabled={!emailDraft.trim() || sendEmail.isPending}
-                    >
-                      <Send className="w-3 h-3" />
-                      Send
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setSendingEmail(false)}>
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => {
-                      setEmailDraft(data.invoice.clientEmail || "");
-                      setSendingEmail(true);
-                    }}
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Send to Client
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs"
-                  onClick={() => copyShareLink(data.invoice.shareToken)}
-                >
-                  <Link2 className="w-3.5 h-3.5" />
-                  Copy Link
-                </Button>
-              </>
-            )}
+
+            {/* Actions dropdown */}
             {isAdmin && (
-              <Link href={`/invoice/${invoiceNumber}/edit`}>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <Pencil className="w-3.5 h-3.5" />
-                  Edit
-                </Button>
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                    Actions
+                    <ChevronDown className="w-3 h-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  {data?.invoice.shareToken && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEmailDraft(data.invoice.clientEmail || "");
+                          setSendingEmail(true);
+                        }}
+                      >
+                        <Send className="w-3.5 h-3.5 mr-2" />
+                        Send to Client
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => copyShareLink(data?.invoice.shareToken)}>
+                        <Link2 className="w-3.5 h-3.5 mr-2" />
+                        Copy Share Link
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem asChild>
+                    <Link href={`/invoice/${invoiceNumber}/edit`} className="flex items-center">
+                      <Pencil className="w-3.5 h-3.5 mr-2" />
+                      Edit Invoice
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => window.print()} className="text-muted-foreground">
+                    <Printer className="w-3.5 h-3.5 mr-2" />
+                    Print / Save as PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setDeleteConfirm(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-2" />
+                    Delete Invoice
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => window.print()}>
-              <Printer className="w-3.5 h-3.5" />
-              Print
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => window.print()}>
-              <Download className="w-3.5 h-3.5" />
-              PDF
-            </Button>
+
+            {/* Print button for non-admin (public view) */}
+            {!isAdmin && (
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => window.print()}>
+                <Printer className="w-3.5 h-3.5" />
+                Print
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -701,6 +715,72 @@ export default function Invoice() {
           </p>
         </div>
       </div>
+
+      {/* Send email dialog */}
+      <Dialog open={sendingEmail} onOpenChange={setSendingEmail}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Send Invoice to Client</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            An email with a link to invoice <span className="font-mono font-semibold text-foreground">{invoiceNumber}</span> will be sent to the address below.
+          </p>
+          <Input
+            className="text-sm"
+            placeholder="Client email address..."
+            value={emailDraft}
+            onChange={e => setEmailDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && emailDraft.trim() && data?.invoice)
+                sendEmail.mutate({ invoiceId: data.invoice.id, recipientEmail: emailDraft.trim() });
+            }}
+            autoFocus
+          />
+          <div className="flex justify-end gap-2 mt-1">
+            <Button variant="outline" size="sm" onClick={() => setSendingEmail(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                if (emailDraft.trim() && data?.invoice)
+                  sendEmail.mutate({ invoiceId: data.invoice.id, recipientEmail: emailDraft.trim() });
+              }}
+              disabled={!emailDraft.trim() || sendEmail.isPending}
+            >
+              <Send className="w-3.5 h-3.5" />
+              Send
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteConfirm} onOpenChange={setDeleteConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Invoice</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete invoice <span className="font-mono font-semibold text-foreground">{invoiceNumber}</span>? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => deleteInvoice.mutate({ invoiceNumber })}
+              disabled={deleteInvoice.isPending}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              Delete Invoice
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

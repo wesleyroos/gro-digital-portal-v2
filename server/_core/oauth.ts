@@ -46,6 +46,46 @@ export function registerOAuthRoutes(app: Express) {
     }
   });
 
+  // Henry AI relay — proxies requests to the Henry gateway (admin only)
+  app.post("/api/henry", async (req: Request, res: Response) => {
+    try {
+      const user = await sdk.authenticateRequest(req);
+      if (user.role !== "admin") {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+    } catch {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const gatewayUrl = process.env.HENRY_GATEWAY_URL;
+    const gatewayToken = process.env.HENRY_GATEWAY_TOKEN;
+    if (!gatewayUrl || !gatewayToken) {
+      res.status(503).json({ error: "Henry not configured" });
+      return;
+    }
+
+    const { messages } = req.body as { messages: Array<{ role: string; content: string }> };
+    try {
+      const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${gatewayToken}`,
+          "Content-Type": "application/json",
+          "x-openclaw-agent-id": "main",
+        },
+        body: JSON.stringify({ model: "openclaw", messages }),
+        signal: AbortSignal.timeout(120_000),
+      });
+      const data = await upstream.json() as { choices: Array<{ message: { content: string } }> };
+      res.json({ reply: data.choices[0].message.content });
+    } catch (e) {
+      console.error("[Henry] Relay error:", e);
+      res.status(502).json({ error: "Henry unavailable" });
+    }
+  });
+
   // Dev-only login bypass – creates a session without OAuth
   if (process.env.NODE_ENV !== "production") {
     app.get("/api/dev/login", async (req: Request, res: Response) => {

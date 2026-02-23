@@ -162,6 +162,15 @@ export async function getInvoiceByShareToken(token: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function deleteInvoice(invoiceNumber: string) {
+  const db = await getDb();
+  if (!db) return;
+  const inv = await getInvoiceByNumber(invoiceNumber);
+  if (!inv) return;
+  await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, inv.id));
+  await db.delete(invoices).where(eq(invoices.invoiceNumber, invoiceNumber));
+}
+
 export async function updateInvoiceStatus(id: number, status: 'draft' | 'sent' | 'paid' | 'overdue') {
   const db = await getDb();
   if (!db) return;

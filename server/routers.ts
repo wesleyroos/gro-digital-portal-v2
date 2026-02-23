@@ -4,6 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import {
+  deleteInvoice,
   getInvoiceByNumber,
   getInvoiceByShareToken,
   getInvoiceItems,
@@ -67,6 +68,13 @@ export const appRouter = router({
     list: adminProcedure.query(async () => {
       return getAllInvoices();
     }),
+
+    delete: adminProcedure
+      .input(z.object({ invoiceNumber: z.string() }))
+      .mutation(async ({ input }) => {
+        await deleteInvoice(input.invoiceNumber);
+        return { success: true };
+      }),
 
     // Admin-only: list invoices for a specific client
     listByClient: adminProcedure
