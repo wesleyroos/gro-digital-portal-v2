@@ -21,7 +21,7 @@ export default function Home() {
 
   const { data: clients } = trpc.invoice.clients.useQuery(undefined, { enabled: isLoggedIn, retry: false });
   const { data: metrics } = trpc.invoice.metrics.useQuery(undefined, { enabled: isLoggedIn, retry: false });
-  const { data: tasks = [] } = trpc.task.list.useQuery(undefined, { enabled: isLoggedIn, retry: false });
+  const { data: tasks = [] } = trpc.task.list.useQuery(undefined, { enabled: isLoggedIn, retry: false, refetchInterval: 15000 });
   const { data: leads = [] } = trpc.lead.list.useQuery(undefined, { enabled: isLoggedIn, retry: false });
 
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);

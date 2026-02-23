@@ -8,7 +8,7 @@ import { Link } from "wouter";
 
 export default function TaskTray() {
   const utils = trpc.useUtils();
-  const { data: tasks = [] } = trpc.task.list.useQuery();
+  const { data: tasks = [] } = trpc.task.list.useQuery(undefined, { refetchInterval: 15000 });
   const { data: clients = [] } = trpc.invoice.clients.useQuery();
   const [open, setOpen] = useState(false);
   const [newText, setNewText] = useState("");
