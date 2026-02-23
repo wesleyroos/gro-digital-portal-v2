@@ -13,8 +13,9 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const TYPE_STYLES: Record<string, string> = {
-  "once-off":   "bg-violet-100 text-violet-700",
-  "recurring":  "bg-sky-100 text-sky-700",
+  "once-off": "bg-violet-100 text-violet-700",
+  "monthly":  "bg-sky-100 text-sky-700",
+  "annual":   "bg-sky-100 text-sky-700",
 };
 
 type SortKey = "invoiceNumber" | "clientName" | "invoiceDate" | "totalAmount";
@@ -25,7 +26,7 @@ function fmt(n: string | number) {
 }
 
 const STATUSES = ["all", "draft", "sent", "paid", "overdue"] as const;
-const TYPES = ["all", "once-off", "recurring"] as const;
+const TYPES = ["all", "once-off", "monthly", "annual"] as const;
 
 export default function Invoices() {
   const { data: invoices = [], isLoading } = trpc.invoice.list.useQuery();
@@ -128,7 +129,7 @@ export default function Invoices() {
                     : "bg-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {t === "all" ? "all" : t === "once-off" ? "once-off" : "recurring"}
+                {t === "all" ? "All" : t === "once-off" ? "Once-off" : t === "monthly" ? "Monthly" : "Annual"}
               </button>
             ))}
           </div>
@@ -169,8 +170,8 @@ export default function Invoices() {
                     </span>
                   </span>
                   <span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${TYPE_STYLES[inv.invoiceType ?? "recurring"]}`}>
-                      {inv.invoiceType === "once-off" ? "Once-off" : "Recurring"}
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${TYPE_STYLES[inv.invoiceType ?? "monthly"]}`}>
+                      {inv.invoiceType === "once-off" ? "Once-off" : inv.invoiceType === "annual" ? "Annual" : "Monthly"}
                     </span>
                   </span>
                 </div>
