@@ -64,6 +64,27 @@
       "when": 1771694000000,
       "tag": "0008_leads_revenue_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1771911314775,
+      "tag": "0009_regular_rick_jones",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1771920000000,
+      "tag": "0010_fix_paid_invoice_amount_due",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1771921000000,
+      "tag": "0011_create_henry_messages",
+      "breakpoints": true
     }
   ]
 }
