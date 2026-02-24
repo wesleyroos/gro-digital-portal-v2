@@ -3,6 +3,7 @@ import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import { registerGoogleOAuthRoutes } from "../google-oauth";
 
 async function buildHenrySystemMessage(): Promise<string> {
   const outstanding = await db.getOutstandingInvoices();
@@ -158,6 +159,8 @@ export function registerOAuthRoutes(app: Express) {
     });
   }
 
+
+  registerGoogleOAuthRoutes(app);
 
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");

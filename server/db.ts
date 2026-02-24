@@ -559,6 +559,34 @@ export async function appendHenryMessages(openId: string, messages: Array<{ role
   await db.insert(henryMessages).values(messages.map(m => ({ openId, role: m.role, content: m.content })));
 }
 
+// ── Google OAuth tokens ───────────────────────────────────────────────────────
+
+export async function storeGoogleTokens(openId: string, refreshToken: string, connectedEmail: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ googleRefreshToken: refreshToken, googleConnectedEmail: connectedEmail }).where(eq(users.openId, openId));
+}
+
+export async function clearGoogleTokens(openId: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ googleRefreshToken: null, googleConnectedEmail: null }).where(eq(users.openId, openId));
+}
+
+export async function getGoogleRefreshToken(openId: string): Promise<{ refreshToken: string; connectedEmail: string } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({ googleRefreshToken: users.googleRefreshToken, googleConnectedEmail: users.googleConnectedEmail })
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
+  if (result.length === 0) return null;
+  const { googleRefreshToken, googleConnectedEmail } = result[0];
+  if (!googleRefreshToken || !googleConnectedEmail) return null;
+  return { refreshToken: googleRefreshToken, connectedEmail: googleConnectedEmail };
+}
+
 export async function getOutstandingInvoices() {
   const db = await getDb();
   if (!db) return [];

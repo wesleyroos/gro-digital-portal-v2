@@ -14,6 +14,8 @@ import EditInvoice from "./pages/EditInvoice";
 import Leads from "./pages/Leads";
 import Clients from "./pages/Clients";
 import Invoices from "./pages/Invoices";
+import Calendar from "./pages/Calendar";
+import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -40,6 +42,8 @@ function Router() {
               <Route path={"/clients"} component={Clients} />
               <Route path={"/invoices"} component={Invoices} />
               <Route path={"/leads"} component={Leads} />
+              <Route path={"/calendar"} component={Calendar} />
+              <Route path={"/settings"} component={Settings} />
               <Route path={"/invoice/new"} component={CreateInvoice} />
               <Route path={"/invoice/:invoiceNumber/edit"} component={EditInvoice} />
               <Route path={"/invoice/:invoiceNumber"} component={Invoice} />

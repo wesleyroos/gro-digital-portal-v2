@@ -29,7 +29,10 @@ import {
   updateLead,
   deleteLead,
   getHenryHistory,
+  getGoogleRefreshToken,
+  clearGoogleTokens,
 } from "./db";
+import { getCalendarEvents } from "./calendar";
 
 export const appRouter = router({
   system: systemRouter,
@@ -332,6 +335,27 @@ export const appRouter = router({
       const openId = ctx.user!.openId;
       return getHenryHistory(openId);
     }),
+  }),
+
+  google: router({
+    status: adminProcedure.query(async ({ ctx }) => {
+      const data = await getGoogleRefreshToken(ctx.user!.openId);
+      if (!data) return { connected: false, email: null };
+      return { connected: true, email: data.connectedEmail };
+    }),
+
+    disconnect: adminProcedure.mutation(async ({ ctx }) => {
+      await clearGoogleTokens(ctx.user!.openId);
+      return { success: true };
+    }),
+  }),
+
+  calendar: router({
+    events: adminProcedure
+      .input(z.object({ timeMin: z.string(), timeMax: z.string() }))
+      .query(async ({ input, ctx }) => {
+        return getCalendarEvents(ctx.user!.openId, input.timeMin, input.timeMax);
+      }),
   }),
 });
 
