@@ -578,39 +578,42 @@ export default function Invoice() {
             {/* Totals */}
             <div className="border-t border-border bg-muted/30">
               <div className="max-w-xs ml-auto px-5 py-4 space-y-2">
-                {!isRecurring && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal</span>
-                      <span className="font-mono text-foreground">{formatCurrency(invoice.subtotal)}</span>
-                    </div>
-                    {invoice.discountPercent && parseFloat(String(invoice.discountPercent)) > 0 && (
+                {!isRecurring && (() => {
+                  const total = parseFloat(String(invoice.totalAmount)) || 0;
+                  const due = parseFloat(String(invoice.amountDue)) || 0;
+                  const paid = total - due;
+                  return (
+                    <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          Discount ({invoice.discountPercent}%)
-                        </span>
-                        <span className="font-mono text-emerald-600">
-                          -{formatCurrency(invoice.discountAmount)}
-                        </span>
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="font-mono text-foreground">{formatCurrency(invoice.subtotal)}</span>
                       </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total Project Value</span>
-                      <span className="font-mono font-medium text-foreground">{formatCurrency(invoice.totalAmount)}</span>
-                    </div>
-                    <Separator className="my-2" />
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Deposit Paid (IGL001)</span>
-                      <span className="font-mono text-emerald-600">
-                        -{formatCurrency(parseFloat(String(invoice.totalAmount)) - parseFloat(String(invoice.amountDue)))}
-                      </span>
-                    </div>
-                    <Separator className="my-2" />
-                  </>
-                )}
+                      {invoice.discountPercent && parseFloat(String(invoice.discountPercent)) > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Discount ({invoice.discountPercent}%)</span>
+                          <span className="font-mono text-emerald-600">-{formatCurrency(invoice.discountAmount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Invoice Total</span>
+                        <span className="font-mono font-medium text-foreground">{formatCurrency(total)}</span>
+                      </div>
+                      {paid > 0 && (
+                        <>
+                          <Separator className="my-2" />
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{invoice.status === "paid" ? "Amount Paid" : "Deposit Applied"}</span>
+                            <span className="font-mono text-emerald-600">-{formatCurrency(paid)}</span>
+                          </div>
+                        </>
+                      )}
+                      <Separator className="my-2" />
+                    </>
+                  );
+                })()}
                 <div className="flex justify-between items-center pt-1">
                   <span className="text-base font-semibold text-foreground">
-                    {isRecurring ? "Total" : "Amount Due"}
+                    {isRecurring ? "Invoice Total" : "Amount Due"}
                   </span>
                   <span className="text-xl font-bold font-mono text-primary">
                     {formatCurrency(isRecurring ? invoice.totalAmount : invoice.amountDue)}
@@ -618,6 +621,12 @@ export default function Invoice() {
                     {invoice.invoiceType === "annual" && <span className="text-xs font-normal text-muted-foreground">/yr</span>}
                   </span>
                 </div>
+                {isRecurring && parseFloat(String(invoice.amountDue)) !== parseFloat(String(invoice.totalAmount)) && (
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-muted-foreground">Amount Due</span>
+                    <span className="font-mono text-foreground">{formatCurrency(invoice.amountDue)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

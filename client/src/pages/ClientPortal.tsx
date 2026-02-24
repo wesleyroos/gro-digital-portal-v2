@@ -309,9 +309,12 @@ export default function ClientPortal() {
                       <h4 className="text-sm font-semibold text-foreground mb-0.5">Invoice {inv.invoiceNumber}</h4>
                       <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-lg font-bold font-mono text-primary">{formatCurrency(inv.amountDue)}</span>
+                        <span className="text-lg font-bold font-mono text-primary">{formatCurrency(inv.totalAmount)}</span>
                         <StatusBadge status={inv.status} />
                       </div>
+                      {parseFloat(String(inv.amountDue)) !== parseFloat(String(inv.totalAmount)) && (
+                        <p className="text-xs text-muted-foreground mt-1.5 font-mono">Due: {formatCurrency(inv.amountDue)}</p>
+                      )}
                     </CardContent>
                   </Card>
                 </Link>
@@ -341,9 +344,12 @@ export default function ClientPortal() {
                       <h4 className="text-sm font-semibold text-foreground mb-0.5">{inv.invoiceNumber}</h4>
                       <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-lg font-bold font-mono text-blue-700">{formatCurrency(inv.amountDue)}<span className="text-xs font-normal text-muted-foreground">/mo</span></span>
+                        <span className="text-lg font-bold font-mono text-blue-700">{formatCurrency(inv.totalAmount)}<span className="text-xs font-normal text-muted-foreground">/mo</span></span>
                         <StatusBadge status={inv.status} />
                       </div>
+                      {parseFloat(String(inv.amountDue)) !== parseFloat(String(inv.totalAmount)) && (
+                        <p className="text-xs text-muted-foreground mt-1.5 font-mono">Due: {formatCurrency(inv.amountDue)}</p>
+                      )}
                     </CardContent>
                   </Card>
                 </Link>
@@ -373,9 +379,12 @@ export default function ClientPortal() {
                       <h4 className="text-sm font-semibold text-foreground mb-0.5">{inv.invoiceNumber}</h4>
                       <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-lg font-bold font-mono text-purple-700">{formatCurrency(inv.amountDue)}<span className="text-xs font-normal text-muted-foreground">/yr</span></span>
+                        <span className="text-lg font-bold font-mono text-purple-700">{formatCurrency(inv.totalAmount)}<span className="text-xs font-normal text-muted-foreground">/yr</span></span>
                         <StatusBadge status={inv.status} />
                       </div>
+                      {parseFloat(String(inv.amountDue)) !== parseFloat(String(inv.totalAmount)) && (
+                        <p className="text-xs text-muted-foreground mt-1.5 font-mono">Due: {formatCurrency(inv.amountDue)}</p>
+                      )}
                     </CardContent>
                   </Card>
                 </Link>

@@ -236,7 +236,7 @@ export default function SharedInvoice() {
                     }`}
                   >
                     <CreditCard className="w-4 h-4" />
-                    Pay {formatCurrency(invoice.amountDue)}/{invoice.invoiceType === "monthly" ? "month" : "year"} via PayFast
+                    Pay {formatCurrency(invoice.totalAmount)}/{invoice.invoiceType === "monthly" ? "month" : "year"} via PayFast
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Button>
                 </a>
@@ -311,14 +311,20 @@ export default function SharedInvoice() {
                 )}
                 <div className="flex justify-between items-center pt-1">
                   <span className="text-base font-semibold text-foreground">
-                    {isRecurring ? "Total" : "Amount Due"}
+                    {isRecurring ? "Invoice Total" : "Amount Due"}
                   </span>
                   <span className="text-xl font-bold font-mono text-primary">
-                    {formatCurrency(invoice.amountDue)}
+                    {formatCurrency(isRecurring ? invoice.totalAmount : invoice.amountDue)}
                     {invoice.invoiceType === "monthly" && <span className="text-xs font-normal text-muted-foreground">/mo</span>}
                     {invoice.invoiceType === "annual" && <span className="text-xs font-normal text-muted-foreground">/yr</span>}
                   </span>
                 </div>
+                {isRecurring && parseFloat(String(invoice.amountDue)) !== parseFloat(String(invoice.totalAmount)) && (
+                  <div className="flex justify-between text-sm pt-1">
+                    <span className="text-muted-foreground">Amount Due</span>
+                    <span className="font-mono text-foreground">{formatCurrency(invoice.amountDue)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
