@@ -395,6 +395,12 @@ export default function Invoice() {
                     <span className="text-sm text-muted-foreground">{invoice.clientPhone}</span>
                   </div>
                 )}
+                {invoice.clientEmail && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{invoice.clientEmail}</span>
+                  </div>
+                )}
               </div>
               <div className="sm:text-right">
                 {invoice.projectName && (
@@ -460,7 +466,7 @@ export default function Invoice() {
                     }`}
                   >
                     <CreditCard className="w-4 h-4" />
-                    Pay {formatCurrency(invoice.amountDue)}/{invoice.invoiceType === "monthly" ? "month" : "year"} via PayFast
+                    Pay {formatCurrency(invoice.totalAmount)}/{invoice.invoiceType === "monthly" ? "month" : "year"} via PayFast
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Button>
                 </a>
@@ -607,7 +613,7 @@ export default function Invoice() {
                     {isRecurring ? "Total" : "Amount Due"}
                   </span>
                   <span className="text-xl font-bold font-mono text-primary">
-                    {formatCurrency(invoice.amountDue)}
+                    {formatCurrency(isRecurring ? invoice.totalAmount : invoice.amountDue)}
                     {invoice.invoiceType === "monthly" && <span className="text-xs font-normal text-muted-foreground">/mo</span>}
                     {invoice.invoiceType === "annual" && <span className="text-xs font-normal text-muted-foreground">/yr</span>}
                   </span>
