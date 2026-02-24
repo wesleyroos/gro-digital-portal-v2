@@ -174,11 +174,7 @@ export async function deleteInvoice(invoiceNumber: string) {
 export async function updateInvoiceStatus(id: number, status: 'draft' | 'sent' | 'paid' | 'overdue') {
   const db = await getDb();
   if (!db) return;
-  if (status === 'paid') {
-    await db.update(invoices).set({ status, amountDue: 0 }).where(eq(invoices.id, id));
-  } else {
-    await db.update(invoices).set({ status, amountDue: sql`${invoices.totalAmount}` }).where(eq(invoices.id, id));
-  }
+  await db.update(invoices).set({ status }).where(eq(invoices.id, id));
 }
 
 export async function updateInvoicePaymentUrl(id: number, paymentUrl: string | null, paymentToken: string | null = null) {
