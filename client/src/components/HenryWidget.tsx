@@ -3,7 +3,6 @@ import { trpc } from "@/lib/trpc";
 import { Send, X, Minimize2, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import ReactMarkdown from "react-markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -103,28 +102,13 @@ export default function HenryWidget() {
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                  className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                     msg.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
-                      : "bg-background border border-border text-foreground rounded-bl-sm shadow-sm prose prose-sm prose-neutral dark:prose-invert max-w-none"
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : "bg-background border border-border text-foreground rounded-bl-sm shadow-sm"
                   }`}
                 >
-                  {msg.role === "user" ? msg.content : (
-                    <ReactMarkdown
-                      components={{
-                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                        ul: ({ children }) => <ul className="mb-2 ml-3 space-y-0.5 list-disc">{children}</ul>,
-                        ol: ({ children }) => <ol className="mb-2 ml-3 space-y-0.5 list-decimal">{children}</ol>,
-                        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                        h1: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
-                        h2: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
-                        h3: ({ children }) => <p className="font-medium mb-1">{children}</p>,
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
-                  )}
+                  {msg.content}
                 </div>
               </div>
             ))}

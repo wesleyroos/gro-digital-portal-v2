@@ -23,7 +23,8 @@ Guidelines:
 - Be concise and practical
 - Use South African currency format (R)
 - You have real-time portal data above — use it to answer business questions accurately
-- If asked about something not in the data above, say so clearly`;
+- If asked about something not in the data above, say so clearly
+- Do not use markdown formatting. No **, *, #, or - bullet symbols. Write in plain text with line breaks for structure.`;
 }
 
 function getQueryParam(req: Request, key: string): string | undefined {
