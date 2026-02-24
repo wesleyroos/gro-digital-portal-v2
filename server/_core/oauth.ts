@@ -4,6 +4,28 @@ import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 
+async function buildHenrySystemMessage(): Promise<string> {
+  const outstanding = await db.getOutstandingInvoices();
+  const invoiceLines = outstanding.length === 0
+    ? "None"
+    : outstanding.map(inv => {
+        const amount = `R${parseFloat(String(inv.amountDue)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+        const due = inv.dueDate ? ` (due ${new Date(inv.dueDate).toLocaleDateString("en-ZA")})` : "";
+        return `  - ${inv.invoiceNumber} | ${inv.clientName}${inv.projectName ? ` — ${inv.projectName}` : ""} | ${amount} | ${inv.status}${due}`;
+      }).join("\n");
+
+  return `You are Henry, the AI assistant for GRO Digital — a web design and digital marketing agency run by Wes Roos in South Africa. You help Wes manage his business efficiently through the GRO Digital portal.
+
+OUTSTANDING INVOICES (sent/overdue):
+${invoiceLines}
+
+Guidelines:
+- Be concise and practical
+- Use South African currency format (R)
+- You have real-time portal data above — use it to answer business questions accurately
+- If asked about something not in the data above, say so clearly`;
+}
+
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
   return typeof value === "string" ? value : undefined;
@@ -48,9 +70,10 @@ export function registerOAuthRoutes(app: Express) {
 
   // Henry AI relay — proxies requests to the Henry gateway (admin only)
   app.post("/api/henry", async (req: Request, res: Response) => {
+    let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
     try {
-      const user = await sdk.authenticateRequest(req);
-      if (user.role !== "admin") {
+      authedUser = await sdk.authenticateRequest(req);
+      if (authedUser.role !== "admin") {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
@@ -66,8 +89,23 @@ export function registerOAuthRoutes(app: Express) {
       return;
     }
 
-    console.log(`[Henry] token len=${gatewayToken.length} chars=${[...gatewayToken].map(c => c.charCodeAt(0)).slice(0, 6).join(',')}`);
-    const { messages } = req.body as { messages: Array<{ role: string; content: string }> };
+    const { message } = req.body as { message: string };
+    if (!message?.trim()) {
+      res.status(400).json({ error: "message is required" });
+      return;
+    }
+
+    const [systemMessage, history] = await Promise.all([
+      buildHenrySystemMessage(),
+      db.getHenryHistory(authedUser.openId),
+    ]);
+
+    const messages = [
+      { role: "system", content: systemMessage },
+      ...history,
+      { role: "user", content: message.trim() },
+    ];
+
     try {
       const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
         method: "POST",
@@ -86,7 +124,12 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
       const data = await upstream.json() as { choices: Array<{ message: { content: string } }> };
-      res.json({ reply: data.choices[0].message.content });
+      const reply = data.choices[0].message.content;
+      await db.appendHenryMessages(authedUser.openId, [
+        { role: "user", content: message.trim() },
+        { role: "assistant", content: reply },
+      ]);
+      res.json({ reply });
     } catch (e) {
       console.error("[Henry] Relay error:", e);
       res.status(502).json({ error: "Henry unavailable" });

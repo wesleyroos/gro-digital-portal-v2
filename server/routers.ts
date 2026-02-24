@@ -28,6 +28,7 @@ import {
   createLead,
   updateLead,
   deleteLead,
+  getHenryHistory,
 } from "./db";
 
 export const appRouter = router({
@@ -324,6 +325,13 @@ export const appRouter = router({
         await deleteLead(input.id);
         return { success: true };
       }),
+  }),
+
+  henry: router({
+    history: adminProcedure.query(async ({ ctx }) => {
+      const openId = ctx.user!.openId;
+      return getHenryHistory(openId);
+    }),
   }),
 });
 

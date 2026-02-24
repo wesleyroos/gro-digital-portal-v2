@@ -8,11 +8,23 @@ type Message = { role: "user" | "assistant"; content: string };
 
 export default function HenryWidget() {
   const { data: me } = trpc.auth.me.useQuery();
+  const { data: savedHistory } = trpc.henry.history.useQuery(undefined, {
+    enabled: me?.role === "admin",
+  });
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load history from DB once on first open
+  useEffect(() => {
+    if (open && !historyLoaded && savedHistory) {
+      setMessages(savedHistory as Message[]);
+      setHistoryLoaded(true);
+    }
+  }, [open, historyLoaded, savedHistory]);
 
   useEffect(() => {
     if (open && bottomRef.current) {
@@ -27,15 +39,15 @@ export default function HenryWidget() {
     if (!text || loading) return;
     setInput("");
 
-    const newMessages: Message[] = [...messages, { role: "user", content: text }];
-    setMessages(newMessages);
+    const userMsg: Message = { role: "user", content: text };
+    setMessages(prev => [...prev, userMsg]);
     setLoading(true);
 
     try {
       const res = await fetch("/api/henry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ message: text }),
       });
       if (!res.ok) throw new Error("Henry unavailable");
       const data = await res.json() as { reply: string };

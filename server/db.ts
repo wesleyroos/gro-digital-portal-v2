@@ -1,7 +1,7 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -542,4 +542,40 @@ export async function deleteLead(id: number) {
   const db = await getDb();
   if (!db) throw new Error('DB not available');
   await db.delete(leads).where(eq(leads.id, id));
+}
+
+// ── Henry chat history ────────────────────────────────────────────────────────
+
+export async function getHenryHistory(openId: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ role: henryMessages.role, content: henryMessages.content })
+    .from(henryMessages)
+    .where(eq(henryMessages.openId, openId))
+    .orderBy(asc(henryMessages.createdAt))
+    .limit(100);
+}
+
+export async function appendHenryMessages(openId: string, messages: Array<{ role: "user" | "assistant"; content: string }>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(henryMessages).values(messages.map(m => ({ openId, role: m.role, content: m.content })));
+}
+
+export async function getOutstandingInvoices() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      invoiceNumber: invoices.invoiceNumber,
+      clientName: invoices.clientName,
+      projectName: invoices.projectName,
+      amountDue: invoices.amountDue,
+      status: invoices.status,
+      dueDate: invoices.dueDate,
+    })
+    .from(invoices)
+    .where(sql`${invoices.status} IN ('sent', 'overdue')`)
+    .orderBy(asc(invoices.dueDate));
 }
