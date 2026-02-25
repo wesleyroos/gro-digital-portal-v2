@@ -239,9 +239,18 @@ export const appRouter = router({
       .query(async ({ input }) => getClientProfile(input.clientSlug)),
 
     updateProfile: adminProcedure
-      .input(z.object({ clientSlug: z.string(), notes: z.string().nullish(), address: z.string().nullish() }))
+      .input(z.object({
+        clientSlug: z.string(),
+        notes: z.string().nullish(),
+        address: z.string().nullish(),
+        name: z.string().nullish(),
+        contact: z.string().nullish(),
+        email: z.string().nullish(),
+        phone: z.string().nullish(),
+      }))
       .mutation(async ({ input }) => {
-        await upsertClientProfile(input.clientSlug, { notes: input.notes, address: input.address });
+        const { clientSlug, ...fields } = input;
+        await upsertClientProfile(clientSlug, fields);
         return { success: true };
       }),
   }),

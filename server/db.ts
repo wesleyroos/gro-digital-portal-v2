@@ -411,13 +411,15 @@ export async function getClientProfile(clientSlug: string) {
   return result[0] ?? null;
 }
 
-export async function upsertClientProfile(clientSlug: string, fields: { notes?: string | null; address?: string | null }) {
+export async function upsertClientProfile(clientSlug: string, fields: { notes?: string | null; address?: string | null; name?: string | null; contact?: string | null; email?: string | null; phone?: string | null }) {
   const db = await getDb();
   if (!db) return;
   const values: Record<string, unknown> = { clientSlug };
   const updateSet: Record<string, unknown> = {};
-  if ('notes' in fields) { values.notes = fields.notes ?? null; updateSet.notes = fields.notes ?? null; }
-  if ('address' in fields) { values.address = fields.address ?? null; updateSet.address = fields.address ?? null; }
+  const fieldKeys = ['notes', 'address', 'name', 'contact', 'email', 'phone'] as const;
+  for (const key of fieldKeys) {
+    if (key in fields) { values[key] = fields[key] ?? null; updateSet[key] = fields[key] ?? null; }
+  }
   await db.insert(clientProfiles)
     .values(values as any)
     .onDuplicateKeyUpdate({ set: updateSet });

@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   FileText,
@@ -79,6 +80,8 @@ export default function ClientPortal() {
   const [notesDraft, setNotesDraft] = useState("");
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressDraft, setAddressDraft] = useState("");
+  const [editingContact, setEditingContact] = useState(false);
+  const [contactDraft, setContactDraft] = useState({ name: "", contact: "", email: "", phone: "" });
 
   const updateProfile = trpc.client.updateProfile.useMutation({
     onSuccess: () => {
@@ -100,10 +103,25 @@ export default function ClientPortal() {
     setEditingAddress(true);
   }
 
-  const clientName = invoices && invoices.length > 0 ? invoices[0].clientName : slug.replace(/-/g, " ");
-  const clientContact = invoices?.find(i => i.clientContact)?.clientContact;
-  const clientEmail = invoices?.find(i => i.clientEmail)?.clientEmail;
-  const clientPhone = invoices?.find(i => i.clientPhone)?.clientPhone;
+  const clientNameFromInvoices = invoices && invoices.length > 0 ? invoices[0].clientName : slug.replace(/-/g, " ");
+  const clientContactFromInvoices = invoices?.find(i => i.clientContact)?.clientContact;
+  const clientEmailFromInvoices = invoices?.find(i => i.clientEmail)?.clientEmail;
+  const clientPhoneFromInvoices = invoices?.find(i => i.clientPhone)?.clientPhone;
+
+  function startEditingContact() {
+    setContactDraft({
+      name: profile?.name || clientNameFromInvoices,
+      contact: profile?.contact || clientContactFromInvoices || "",
+      email: profile?.email || clientEmailFromInvoices || "",
+      phone: profile?.phone || clientPhoneFromInvoices || "",
+    });
+    setEditingContact(true);
+  }
+
+  const clientName = profile?.name || clientNameFromInvoices;
+  const clientContact = profile?.contact || clientContactFromInvoices;
+  const clientEmail = profile?.email || clientEmailFromInvoices;
+  const clientPhone = profile?.phone || clientPhoneFromInvoices;
 
   const totalPaid = invoices?.filter(i => i.status === "paid").reduce((s, i) => s + (parseFloat(String(i.totalAmount)) || 0), 0) || 0;
   const totalOutstanding = invoices?.filter(i => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + (parseFloat(String(i.amountDue)) || 0), 0) || 0;
@@ -164,45 +182,95 @@ export default function ClientPortal() {
             <CardContent className="p-6">
               <div className="flex items-start justify-between mb-3">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Client Profile</p>
-                {isAdmin && (
-                  <Link href={`/invoice/new?client=${slug}`}>
-                    <Button size="sm" className="gap-1.5 text-xs h-7">
-                      <Plus className="w-3 h-3" />
-                      New Invoice
+                <div className="flex items-center gap-2">
+                  {isAdmin && !editingContact && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-muted-foreground" onClick={startEditingContact}>
+                      Edit
                     </Button>
-                  </Link>
-                )}
+                  )}
+                  {isAdmin && (
+                    <Link href={`/invoice/new?client=${slug}`}>
+                      <Button size="sm" className="gap-1.5 text-xs h-7">
+                        <Plus className="w-3 h-3" />
+                        New Invoice
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
-              <h2 className="text-2xl font-bold text-foreground tracking-tight mb-4">{clientName}</h2>
-              <div className="space-y-2">
-                {clientContact && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="w-3.5 h-3.5 shrink-0" />
-                    <span>{clientContact}</span>
+              {editingContact ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">Client Name</p>
+                    <Input className="h-8 text-sm" value={contactDraft.name} onChange={e => setContactDraft(d => ({ ...d, name: e.target.value }))} />
                   </div>
-                )}
-                {clientEmail && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="w-3.5 h-3.5 shrink-0" />
-                    <a href={`mailto:${clientEmail}`} className="hover:text-primary transition-colors">{clientEmail}</a>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">Contact Person</p>
+                    <Input className="h-8 text-sm" value={contactDraft.contact} onChange={e => setContactDraft(d => ({ ...d, contact: e.target.value }))} placeholder="e.g. Jane Smith" />
                   </div>
-                )}
-                {clientPhone && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="w-3.5 h-3.5 shrink-0" />
-                    <a href={`tel:${clientPhone}`} className="hover:text-primary transition-colors">{clientPhone}</a>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">Email</p>
+                    <Input className="h-8 text-sm" type="email" value={contactDraft.email} onChange={e => setContactDraft(d => ({ ...d, email: e.target.value }))} placeholder="e.g. jane@example.com" />
                   </div>
-                )}
-                {profile?.address && (
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span className="whitespace-pre-line">{profile.address}</span>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">Phone</p>
+                    <Input className="h-8 text-sm" value={contactDraft.phone} onChange={e => setContactDraft(d => ({ ...d, phone: e.target.value }))} placeholder="e.g. +27 82 000 0000" />
                   </div>
-                )}
-                {!clientContact && !clientEmail && !clientPhone && !profile?.address && (
-                  <p className="text-xs text-muted-foreground">No contact details on file.</p>
-                )}
-              </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" className="h-7 text-xs gap-1" disabled={updateProfile.isPending} onClick={() => {
+                      updateProfile.mutate({
+                        clientSlug: slug,
+                        name: contactDraft.name || null,
+                        contact: contactDraft.contact || null,
+                        email: contactDraft.email || null,
+                        phone: contactDraft.phone || null,
+                        notes: profile?.notes ?? null,
+                        address: profile?.address ?? null,
+                      });
+                      setEditingContact(false);
+                      toast.success("Profile saved");
+                    }}>
+                      <Check className="w-3 h-3" /> Save
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingContact(false)}>
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-foreground tracking-tight mb-4">{clientName}</h2>
+                  <div className="space-y-2">
+                    {clientContact && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <User className="w-3.5 h-3.5 shrink-0" />
+                        <span>{clientContact}</span>
+                      </div>
+                    )}
+                    {clientEmail && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Mail className="w-3.5 h-3.5 shrink-0" />
+                        <a href={`mailto:${clientEmail}`} className="hover:text-primary transition-colors">{clientEmail}</a>
+                      </div>
+                    )}
+                    {clientPhone && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="w-3.5 h-3.5 shrink-0" />
+                        <a href={`tel:${clientPhone}`} className="hover:text-primary transition-colors">{clientPhone}</a>
+                      </div>
+                    )}
+                    {profile?.address && (
+                      <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span className="whitespace-pre-line">{profile.address}</span>
+                      </div>
+                    )}
+                    {!clientContact && !clientEmail && !clientPhone && !profile?.address && (
+                      <p className="text-xs text-muted-foreground">No contact details on file.</p>
+                    )}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 

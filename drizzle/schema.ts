@@ -105,6 +105,10 @@ export const clientProfiles = mysqlTable("clientProfiles", {
   clientSlug: varchar("clientSlug", { length: 128 }).primaryKey(),
   notes: text("notes"),
   address: text("address"),
+  name: varchar("name", { length: 255 }),
+  contact: varchar("contact", { length: 255 }),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 64 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
