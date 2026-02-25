@@ -215,7 +215,7 @@ export default function SharedInvoice() {
         )}
 
         {/* PayFast payment button for recurring invoices */}
-        {isRecurring && (
+        {isRecurring && invoice.paymentUrl && (
           <Card className={`mb-8 shadow-sm border-2 ${invoice.invoiceType === "monthly" ? "border-blue-200 bg-blue-50/30" : "border-purple-200 bg-purple-50/30"}`}>
             <CardContent className="p-5 sm:p-6 text-center">
               <div className="flex items-center justify-center gap-2 mb-3">
@@ -228,28 +228,20 @@ export default function SharedInvoice() {
                 Click the button below to securely set up your {invoice.invoiceType === "monthly" ? "monthly" : "annual"} recurring payment via PayFast.
                 Your card details will be stored securely by PayFast.
               </p>
-              {invoice.paymentUrl ? (
-                <a href={invoice.paymentUrl} target="_blank" rel="noopener noreferrer">
-                  <Button
-                    size="lg"
-                    className={`gap-2 text-sm font-semibold px-8 ${
-                      invoice.invoiceType === "monthly"
-                        ? "bg-blue-600 hover:bg-blue-700 text-white"
-                        : "bg-purple-600 hover:bg-purple-700 text-white"
-                    }`}
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    Pay {formatCurrency(invoice.totalAmount)}/{invoice.invoiceType === "monthly" ? "month" : "year"} via PayFast
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </Button>
-                </a>
-              ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md mx-auto">
-                  <p className="text-xs text-amber-700 font-medium">
-                    PayFast payment link will be available shortly. In the meantime, you may pay via EFT using the banking details below.
-                  </p>
-                </div>
-              )}
+              <a href={invoice.paymentUrl!} target="_blank" rel="noopener noreferrer">
+                <Button
+                  size="lg"
+                  className={`gap-2 text-sm font-semibold px-8 ${
+                    invoice.invoiceType === "monthly"
+                      ? "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-purple-600 hover:bg-purple-700 text-white"
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Pay {formatCurrency(invoice.totalAmount)}/{invoice.invoiceType === "monthly" ? "month" : "year"} via PayFast
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Button>
+              </a>
             </CardContent>
           </Card>
         )}
