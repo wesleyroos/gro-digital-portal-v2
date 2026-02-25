@@ -71,7 +71,7 @@ export default function ClientPortal() {
   const { data: profile } = trpc.client.getProfile.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: allTasks = [] } = trpc.task.list.useQuery(undefined, { enabled: isAdmin });
 
-  const openTasks = allTasks.filter(t => !t.done && t.clientSlug === slug);
+  const openTasks = allTasks.filter(t => t.status !== 'done' && t.clientSlug === slug);
 
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");

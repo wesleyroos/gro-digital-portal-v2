@@ -252,9 +252,18 @@ export const appRouter = router({
         text: z.string().min(1),
         clientSlug: z.string().nullish(),
         clientName: z.string().nullish(),
+        status: z.string().nullish(),
+        dueDate: z.string().nullish(),
+        priority: z.string().nullish(),
+        notes: z.string().nullish(),
       }))
       .mutation(async ({ input }) => {
-        await createTask(input.text, input.clientSlug, input.clientName);
+        await createTask(input.text, input.clientSlug, input.clientName, {
+          status: input.status ?? undefined,
+          dueDate: input.dueDate,
+          priority: input.priority,
+          notes: input.notes,
+        });
         return { success: true };
       }),
 
@@ -271,9 +280,18 @@ export const appRouter = router({
         text: z.string().min(1),
         clientSlug: z.string().nullish(),
         clientName: z.string().nullish(),
+        status: z.string().nullish(),
+        dueDate: z.string().nullish(),
+        priority: z.string().nullish(),
+        notes: z.string().nullish(),
       }))
       .mutation(async ({ input }) => {
-        await updateTask(input.id, input.text, input.clientSlug, input.clientName);
+        await updateTask(input.id, input.text, input.clientSlug, input.clientName, {
+          status: input.status ?? undefined,
+          dueDate: input.dueDate,
+          priority: input.priority,
+          notes: input.notes,
+        });
         return { success: true };
       }),
 

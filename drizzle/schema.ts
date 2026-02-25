@@ -1,4 +1,4 @@
-import { boolean, decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { date, decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -87,7 +87,10 @@ export const tasks = mysqlTable("tasks", {
   text: varchar("text", { length: 512 }).notNull(),
   clientSlug: varchar("clientSlug", { length: 128 }),
   clientName: varchar("clientName", { length: 255 }),
-  done: boolean("done").default(false).notNull(),
+  status: varchar("status", { length: 32 }).notNull().default("todo"),
+  dueDate: date("dueDate"),
+  priority: varchar("priority", { length: 16 }),
+  notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

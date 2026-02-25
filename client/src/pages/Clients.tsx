@@ -15,11 +15,11 @@ export default function Clients() {
   );
 
   const openTaskSlugs = new Set(
-    tasks.filter(t => !t.done && t.clientSlug).map(t => t.clientSlug!)
+    tasks.filter(t => t.status !== 'done' && t.clientSlug).map(t => t.clientSlug!)
   );
 
   const openTaskCount = tasks
-    .filter(t => !t.done && t.clientSlug)
+    .filter(t => t.status !== 'done' && t.clientSlug)
     .reduce<Record<string, number>>((acc, t) => {
       acc[t.clientSlug!] = (acc[t.clientSlug!] ?? 0) + 1;
       return acc;

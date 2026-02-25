@@ -6,7 +6,12 @@ import { sdk } from "./sdk";
 import { registerGoogleOAuthRoutes } from "../google-oauth";
 
 async function buildHenrySystemMessage(): Promise<string> {
-  const outstanding = await db.getOutstandingInvoices();
+  const [outstanding, tasks, clients] = await Promise.all([
+    db.getOutstandingInvoices(),
+    db.getTasks(),
+    db.getDistinctClients(),
+  ]);
+
   const invoiceLines = outstanding.length === 0
     ? "None"
     : outstanding.map(inv => {
@@ -15,17 +20,147 @@ async function buildHenrySystemMessage(): Promise<string> {
         return `  - ${inv.invoiceNumber} | ${inv.clientName}${inv.projectName ? ` — ${inv.projectName}` : ""} | ${amount} | ${inv.status}${due}`;
       }).join("\n");
 
+  const openTasks = tasks.filter(t => t.status !== "done");
+  const taskLines = openTasks.length === 0
+    ? "None"
+    : openTasks.map(t => {
+        const due = t.dueDate ? ` | due ${new Date(t.dueDate).toISOString().slice(0, 10)}` : "";
+        const pri = t.priority ? ` | ${t.priority}` : "";
+        const client = t.clientName ? ` | ${t.clientName}` : "";
+        return `  - [id:${t.id}] ${t.text} | ${t.status}${pri}${due}${client}`;
+      }).join("\n");
+
+  const clientLines = clients.length === 0
+    ? "None"
+    : clients.map(c => `  - ${c.clientName} (slug: ${c.clientSlug})`).join("\n");
+
   return `You are Henry, the AI assistant for GRO Digital — a web design and digital marketing agency run by Wes Roos in South Africa. You help Wes manage his business efficiently through the GRO Digital portal.
+
+Today's date: ${new Date().toISOString().slice(0, 10)}
 
 OUTSTANDING INVOICES (sent/overdue):
 ${invoiceLines}
+
+OPEN TASKS:
+${taskLines}
+
+CLIENTS:
+${clientLines}
 
 Guidelines:
 - Be concise and practical
 - Use South African currency format (R)
 - You have real-time portal data above — use it to answer business questions accurately
 - If asked about something not in the data above, say so clearly
-- Do not use markdown formatting. No **, *, #, or - bullet symbols. Write in plain text with line breaks for structure.`;
+- Do not use markdown formatting. No **, *, #, or - bullet symbols. Write in plain text with line breaks for structure.
+- When creating or updating tasks, use the available tools. Always confirm what you did after using a tool.
+- For dueDate, use YYYY-MM-DD format. Status values: todo, in_progress, blocked, done. Priority values: low, medium, high.
+- Before creating a task, if the request is vague or missing important details (like what the task is for, which client, or when it's due), ask Wes for clarification first rather than guessing. Only proceed once you have enough information.`;
+}
+
+const HENRY_TOOLS = [
+  {
+    type: "function" as const,
+    function: {
+      name: "create_task",
+      description: "Create a new task in the portal",
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "The task description (required)" },
+          status: { type: "string", enum: ["todo", "in_progress", "blocked", "done"], description: "Task status (default: todo)" },
+          priority: { type: "string", enum: ["low", "medium", "high"], description: "Task priority (optional)" },
+          dueDate: { type: "string", description: "Due date in YYYY-MM-DD format (optional)" },
+          clientSlug: { type: "string", description: "Client slug to associate the task with (optional, must match a known client)" },
+          notes: { type: "string", description: "Additional notes (optional)" },
+        },
+        required: ["text"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "update_task",
+      description: "Update an existing task by its id",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "number", description: "The task id (from the OPEN TASKS list)" },
+          text: { type: "string", description: "New task description" },
+          status: { type: "string", enum: ["todo", "in_progress", "blocked", "done"], description: "New status" },
+          priority: { type: "string", enum: ["low", "medium", "high"], description: "New priority" },
+          dueDate: { type: "string", description: "New due date in YYYY-MM-DD format" },
+          clientSlug: { type: "string", description: "New client slug" },
+          notes: { type: "string", description: "New notes" },
+        },
+        required: ["id", "text"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "set_task_done",
+      description: "Mark a task as done or reopen it",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "number", description: "The task id" },
+          done: { type: "boolean", description: "true to mark done, false to reopen" },
+        },
+        required: ["id", "done"],
+      },
+    },
+  },
+] as const;
+
+async function executeHenryTool(name: string, args: Record<string, unknown>, clients: { clientSlug: string; clientName: string }[]): Promise<string> {
+  try {
+    if (name === "create_task") {
+      const clientSlug = args.clientSlug as string | undefined;
+      const client = clientSlug ? clients.find(c => c.clientSlug === clientSlug) : null;
+      await db.createTask(
+        args.text as string,
+        client?.clientSlug ?? null,
+        client?.clientName ?? null,
+        {
+          status: args.status as string | undefined,
+          dueDate: args.dueDate as string | null | undefined,
+          priority: args.priority as string | null | undefined,
+          notes: args.notes as string | null | undefined,
+        },
+      );
+      return `Task created: "${args.text}"`;
+    }
+
+    if (name === "update_task") {
+      const clientSlug = args.clientSlug as string | undefined;
+      const client = clientSlug ? clients.find(c => c.clientSlug === clientSlug) : null;
+      await db.updateTask(
+        args.id as number,
+        args.text as string,
+        client?.clientSlug ?? null,
+        client?.clientName ?? null,
+        {
+          status: args.status as string | undefined,
+          dueDate: args.dueDate as string | null | undefined,
+          priority: args.priority as string | null | undefined,
+          notes: args.notes as string | null | undefined,
+        },
+      );
+      return `Task ${args.id} updated`;
+    }
+
+    if (name === "set_task_done") {
+      await db.setTaskDone(args.id as number, args.done as boolean);
+      return `Task ${args.id} marked as ${args.done ? "done" : "open"}`;
+    }
+
+    return `Unknown tool: ${name}`;
+  } catch (e) {
+    return `Error executing ${name}: ${String(e)}`;
+  }
 }
 
 function getQueryParam(req: Request, key: string): string | undefined {
@@ -97,36 +232,70 @@ export function registerOAuthRoutes(app: Express) {
       return;
     }
 
-    const [systemMessage, history] = await Promise.all([
+    const [systemMessage, history, clients] = await Promise.all([
       buildHenrySystemMessage(),
       db.getHenryHistory(authedUser.openId),
+      db.getDistinctClients(),
     ]);
 
-    const messages = [
+    type AnyMessage = Record<string, unknown>;
+    const messages: AnyMessage[] = [
       { role: "system", content: systemMessage },
       ...history,
       { role: "user", content: message.trim() },
     ];
 
     try {
-      const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${gatewayToken}`,
-          "Content-Type": "application/json",
-          "x-openclaw-agent-id": "main",
-        },
-        body: JSON.stringify({ model: "openclaw", messages }),
-        signal: AbortSignal.timeout(120_000),
-      });
-      if (!upstream.ok) {
-        const text = await upstream.text();
-        console.error(`[Henry] Gateway error ${upstream.status}:`, text);
-        res.status(502).json({ error: "Henry unavailable" });
-        return;
+      let reply = "";
+      // Agentic loop — max 5 rounds to handle tool calls
+      for (let round = 0; round < 5; round++) {
+        const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${gatewayToken}`,
+            "Content-Type": "application/json",
+            "x-openclaw-agent-id": "main",
+          },
+          body: JSON.stringify({ model: "openclaw", messages, tools: HENRY_TOOLS }),
+          signal: AbortSignal.timeout(120_000),
+        });
+
+        if (!upstream.ok) {
+          const text = await upstream.text();
+          console.error(`[Henry] Gateway error ${upstream.status}:`, text);
+          res.status(502).json({ error: "Henry unavailable" });
+          return;
+        }
+
+        type ToolCall = { id: string; type: string; function: { name: string; arguments: string } };
+        const data = await upstream.json() as {
+          choices: Array<{
+            message: { role: string; content: string | null; tool_calls?: ToolCall[] };
+            finish_reason: string;
+          }>;
+        };
+
+        const assistantMsg = data.choices[0].message;
+        messages.push({ role: "assistant", content: assistantMsg.content ?? null, tool_calls: assistantMsg.tool_calls });
+
+        // No tool calls — we have the final reply
+        if (!assistantMsg.tool_calls || assistantMsg.tool_calls.length === 0) {
+          reply = assistantMsg.content ?? "";
+          break;
+        }
+
+        // Execute each tool call and append results
+        for (const toolCall of assistantMsg.tool_calls) {
+          let toolArgs: Record<string, unknown> = {};
+          try { toolArgs = JSON.parse(toolCall.function.arguments); } catch { /* ignore */ }
+          const result = await executeHenryTool(toolCall.function.name, toolArgs, clients);
+          console.log(`[Henry] Tool ${toolCall.function.name}(${toolCall.function.arguments}) → ${result}`);
+          messages.push({ role: "tool", tool_call_id: toolCall.id, content: result });
+        }
       }
-      const data = await upstream.json() as { choices: Array<{ message: { content: string } }> };
-      const reply = data.choices[0].message.content;
+
+      if (!reply) reply = "Done.";
+
       await db.appendHenryMessages(authedUser.openId, [
         { role: "user", content: message.trim() },
         { role: "assistant", content: reply },

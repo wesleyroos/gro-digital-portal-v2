@@ -349,22 +349,49 @@ export async function getTasks() {
   return db.select().from(tasks).orderBy(tasks.createdAt);
 }
 
-export async function createTask(text: string, clientSlug?: string | null, clientName?: string | null) {
+export async function createTask(
+  text: string,
+  clientSlug?: string | null,
+  clientName?: string | null,
+  opts?: { status?: string; dueDate?: string | null; priority?: string | null; notes?: string | null },
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.insert(tasks).values({ text, clientSlug: clientSlug ?? null, clientName: clientName ?? null });
+  await db.insert(tasks).values({
+    text,
+    clientSlug: clientSlug ?? null,
+    clientName: clientName ?? null,
+    status: opts?.status ?? 'todo',
+    dueDate: opts?.dueDate ? new Date(opts.dueDate) : null,
+    priority: opts?.priority ?? null,
+    notes: opts?.notes ?? null,
+  });
 }
 
 export async function setTaskDone(id: number, done: boolean) {
   const db = await getDb();
   if (!db) return;
-  await db.update(tasks).set({ done }).where(eq(tasks.id, id));
+  await db.update(tasks).set({ status: done ? 'done' : 'todo' }).where(eq(tasks.id, id));
 }
 
-export async function updateTask(id: number, text: string, clientSlug?: string | null, clientName?: string | null) {
+export async function updateTask(
+  id: number,
+  text: string,
+  clientSlug?: string | null,
+  clientName?: string | null,
+  opts?: { status?: string; dueDate?: string | null; priority?: string | null; notes?: string | null },
+) {
   const db = await getDb();
   if (!db) return;
-  await db.update(tasks).set({ text, clientSlug: clientSlug ?? null, clientName: clientName ?? null }).where(eq(tasks.id, id));
+  await db.update(tasks).set({
+    text,
+    clientSlug: clientSlug ?? null,
+    clientName: clientName ?? null,
+    ...(opts?.status !== undefined ? { status: opts.status } : {}),
+    ...(opts && 'dueDate' in opts ? { dueDate: opts.dueDate ? new Date(opts.dueDate) : null } : {}),
+    ...(opts && 'priority' in opts ? { priority: opts.priority ?? null } : {}),
+    ...(opts && 'notes' in opts ? { notes: opts.notes ?? null } : {}),
+  }).where(eq(tasks.id, id));
 }
 
 export async function deleteTask(id: number) {

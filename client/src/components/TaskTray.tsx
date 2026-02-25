@@ -17,7 +17,7 @@ export default function TaskTray() {
   const [editText, setEditText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const openCount = tasks.filter(t => !t.done).length;
+  const openCount = tasks.filter(t => t.status !== 'done').length;
 
   const createTask = trpc.task.create.useMutation({
     onSuccess: () => {
@@ -65,8 +65,8 @@ export default function TaskTray() {
     updateTask.mutate({ id: task.id, text, clientSlug: task.clientSlug, clientName: task.clientName });
   }
 
-  const open_tasks = tasks.filter(t => !t.done);
-  const done_tasks = tasks.filter(t => t.done);
+  const open_tasks = tasks.filter(t => t.status !== 'done');
+  const done_tasks = tasks.filter(t => t.status === 'done');
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

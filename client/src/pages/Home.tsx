@@ -88,7 +88,7 @@ export default function Home() {
     updateTask.mutate({ id: task.id, text, clientSlug: task.clientSlug, clientName: task.clientName });
   }
 
-  const openTasks = tasks.filter(t => !t.done);
+  const openTasks = tasks.filter(t => t.status !== 'done');
   const pipelineMonthly = leads.reduce((sum, l) => sum + (l.monthlyValue ? parseFloat(l.monthlyValue) : 0), 0);
   const pipelineOnceOff = leads.reduce((sum, l) => sum + (l.onceOffValue ? parseFloat(l.onceOffValue) : 0), 0);
 
