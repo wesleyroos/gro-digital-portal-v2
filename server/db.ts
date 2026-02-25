@@ -334,9 +334,11 @@ export async function getDistinctClients() {
       clientSlug: invoices.clientSlug,
       clientName: sql<string>`MAX(${invoices.clientName})`,
       clientContact: sql<string>`MAX(${invoices.clientContact})`,
+      address: clientProfiles.address,
     })
     .from(invoices)
-    .groupBy(invoices.clientSlug);
+    .leftJoin(clientProfiles, eq(invoices.clientSlug, clientProfiles.clientSlug))
+    .groupBy(invoices.clientSlug, clientProfiles.address);
 
   return result;
 }
@@ -409,12 +411,16 @@ export async function getClientProfile(clientSlug: string) {
   return result[0] ?? null;
 }
 
-export async function upsertClientNotes(clientSlug: string, notes: string) {
+export async function upsertClientProfile(clientSlug: string, fields: { notes?: string | null; address?: string | null }) {
   const db = await getDb();
   if (!db) return;
+  const values: Record<string, unknown> = { clientSlug };
+  const updateSet: Record<string, unknown> = {};
+  if ('notes' in fields) { values.notes = fields.notes ?? null; updateSet.notes = fields.notes ?? null; }
+  if ('address' in fields) { values.address = fields.address ?? null; updateSet.address = fields.address ?? null; }
   await db.insert(clientProfiles)
-    .values({ clientSlug, notes })
-    .onDuplicateKeyUpdate({ set: { notes } });
+    .values(values as any)
+    .onDuplicateKeyUpdate({ set: updateSet });
 }
 
 // ── Invoice update ──

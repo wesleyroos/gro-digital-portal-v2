@@ -177,6 +177,9 @@ export default function SharedInvoice() {
               <div>
                 <p className="text-base font-semibold text-foreground">{invoice.clientName}</p>
                 {invoice.clientContact && <p className="text-sm text-muted-foreground mt-1">{invoice.clientContact}</p>}
+                {invoice.clientAddress && (
+                  <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{invoice.clientAddress}</p>
+                )}
                 {invoice.clientPhone && (
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <Phone className="w-3.5 h-3.5 text-muted-foreground" />

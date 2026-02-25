@@ -1,6 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
-import { useLocation, Link } from "wouter";
+import { useLocation, useSearch, Link } from "wouter";
+import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ type FormData = {
   clientContact: string;
   clientPhone: string;
   clientEmail: string;
+  clientAddress: string;
   projectName: string;
   projectSummary: string;
   invoiceType: "once-off" | "monthly" | "annual";
@@ -50,6 +52,8 @@ function formatCurrency(n: number) {
 
 export default function CreateInvoice() {
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const preselectedSlug = new URLSearchParams(search).get("client");
   const { data: existingClients } = trpc.invoice.clients.useQuery();
 
   const {
@@ -68,6 +72,7 @@ export default function CreateInvoice() {
       clientContact: "",
       clientPhone: "",
       clientEmail: "",
+      clientAddress: "",
       projectName: "",
       projectSummary: "",
       invoiceType: "once-off",
@@ -83,6 +88,13 @@ export default function CreateInvoice() {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
+
+  useEffect(() => {
+    if (preselectedSlug && existingClients) {
+      onSelectExistingClient(preselectedSlug);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedSlug, existingClients]);
 
   const watchedItems = useWatch({ control, name: "items" });
   const discountPercent = useWatch({ control, name: "discountPercent" }) || 0;
@@ -119,11 +131,12 @@ export default function CreateInvoice() {
       setValue("clientSlug", client.clientSlug);
       setValue("clientContact", client.clientContact || "");
       setValue("clientPhone", "");
+      setValue("clientAddress", client.address || "");
     }
   }
 
   function onSubmit(data: FormData) {
-    const clientSlug = data.existingClient !== "__new__" ? data.existingClient : slugify(data.clientName);
+    const clientSlug = data.clientSlug || slugify(data.clientName);
 
     create.mutate({
       invoiceNumber: data.invoiceNumber,
@@ -150,6 +163,7 @@ export default function CreateInvoice() {
       accountType: "Gold Business Account",
       branchCode: "250655",
       notes: data.notes || null,
+      clientAddress: data.clientAddress || null,
       invoiceDate: data.invoiceDate,
       dueDate: data.dueDate || null,
       items: watchedItems.map((item) => ({
@@ -247,7 +261,7 @@ export default function CreateInvoice() {
               {existingClients && existingClients.length > 0 && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Select Existing Client</Label>
-                  <Select defaultValue="__new__" onValueChange={onSelectExistingClient}>
+                  <Select value={existingClientVal} onValueChange={onSelectExistingClient}>
                     <SelectTrigger className="h-9 text-sm">
                       <SelectValue placeholder="New client..." />
                     </SelectTrigger>
@@ -262,13 +276,21 @@ export default function CreateInvoice() {
                   </Select>
                 </div>
               )}
+              <input type="hidden" {...register("clientSlug")} />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Client Name *</Label>
                   <Input
                     placeholder="e.g. Bison Mining Supplies"
                     className="h-9 text-sm"
-                    {...register("clientName", { required: true })}
+                    {...register("clientName", {
+                      required: true,
+                      onChange: (e) => {
+                        if (existingClientVal === "__new__") {
+                          setValue("clientSlug", slugify(e.target.value));
+                        }
+                      },
+                    })}
                     readOnly={existingClientVal !== "__new__"}
                   />
                   {errors.clientName && <p className="text-xs text-destructive">Required</p>}
@@ -292,6 +314,15 @@ export default function CreateInvoice() {
                   <Label className="text-xs">Email</Label>
                   <Input placeholder="client@example.com" className="h-9 text-sm" {...register("clientEmail")} />
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Billing Address</Label>
+                <Textarea
+                  placeholder={"12 Main Road\nSandton, 2196\nSouth Africa"}
+                  className="text-sm resize-none"
+                  rows={3}
+                  {...register("clientAddress")}
+                />
               </div>
             </CardContent>
           </Card>

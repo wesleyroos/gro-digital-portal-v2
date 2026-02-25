@@ -21,7 +21,7 @@ import {
   setTaskDone,
   deleteTask,
   getClientProfile,
-  upsertClientNotes,
+  upsertClientProfile,
   sendInvoiceEmail,
   updateInvoice,
   getLeads,
@@ -124,6 +124,7 @@ export const appRouter = router({
         accountType: z.string().default('Gold Business Account'),
         branchCode: z.string().default('250655'),
         notes: z.string().nullish(),
+        clientAddress: z.string().nullish(),
         invoiceDate: z.string(),
         dueDate: z.string().nullish(),
         items: z.array(z.object({
@@ -185,6 +186,7 @@ export const appRouter = router({
         accountType: z.string(),
         branchCode: z.string(),
         notes: z.string().nullish(),
+        clientAddress: z.string().nullish(),
         invoiceDate: z.string(),
         dueDate: z.string().nullish(),
         items: z.array(z.object({
@@ -236,10 +238,10 @@ export const appRouter = router({
       .input(z.object({ clientSlug: z.string() }))
       .query(async ({ input }) => getClientProfile(input.clientSlug)),
 
-    updateNotes: adminProcedure
-      .input(z.object({ clientSlug: z.string(), notes: z.string() }))
+    updateProfile: adminProcedure
+      .input(z.object({ clientSlug: z.string(), notes: z.string().nullish(), address: z.string().nullish() }))
       .mutation(async ({ input }) => {
-        await upsertClientNotes(input.clientSlug, input.notes);
+        await upsertClientProfile(input.clientSlug, { notes: input.notes, address: input.address });
         return { success: true };
       }),
   }),

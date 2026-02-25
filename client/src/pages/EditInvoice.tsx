@@ -26,6 +26,7 @@ type FormData = {
   clientContact: string;
   clientPhone: string;
   clientEmail: string;
+  clientAddress: string;
   projectName: string;
   projectSummary: string;
   invoiceType: "once-off" | "monthly" | "annual";
@@ -70,6 +71,7 @@ export default function EditInvoice() {
       clientContact: "",
       clientPhone: "",
       clientEmail: "",
+      clientAddress: "",
       projectName: "",
       projectSummary: "",
       invoiceType: "once-off",
@@ -99,6 +101,7 @@ export default function EditInvoice() {
       clientContact: invoice.clientContact || "",
       clientPhone: invoice.clientPhone || "",
       clientEmail: invoice.clientEmail || "",
+      clientAddress: invoice.clientAddress || "",
       projectName: invoice.projectName || "",
       projectSummary: invoice.projectSummary || "",
       invoiceType: invoice.invoiceType as FormData["invoiceType"],
@@ -160,6 +163,7 @@ export default function EditInvoice() {
       accountType: "Gold Business Account",
       branchCode: "250655",
       notes: formData.notes || null,
+      clientAddress: formData.clientAddress || null,
       invoiceDate: formData.invoiceDate,
       dueDate: formData.dueDate || null,
       items: watchedItems.map((item) => ({
@@ -289,6 +293,14 @@ export default function EditInvoice() {
                   <Label className="text-xs">Email</Label>
                   <Input className="h-9 text-sm" {...register("clientEmail")} />
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Billing Address</Label>
+                <Textarea
+                  className="text-sm resize-none"
+                  rows={3}
+                  {...register("clientAddress")}
+                />
               </div>
             </CardContent>
           </Card>

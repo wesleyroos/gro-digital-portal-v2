@@ -50,6 +50,7 @@ export const invoices = mysqlTable("invoices", {
   accountType: varchar("accountType", { length: 64 }),
   branchCode: varchar("branchCode", { length: 32 }),
   notes: text("notes"),
+  clientAddress: text("clientAddress"),
   shareToken: varchar("shareToken", { length: 21 }).unique(),
   invoiceDate: timestamp("invoiceDate").notNull(),
   dueDate: timestamp("dueDate"),
@@ -103,6 +104,7 @@ export type InsertTask = typeof tasks.$inferInsert;
 export const clientProfiles = mysqlTable("clientProfiles", {
   clientSlug: varchar("clientSlug", { length: 128 }).primaryKey(),
   notes: text("notes"),
+  address: text("address"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 

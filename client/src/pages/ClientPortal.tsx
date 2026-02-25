@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
+import { Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   Mail,
   Phone,
   User,
+  MapPin,
   NotebookPen,
   CheckCircle2,
   Check,
@@ -75,12 +77,12 @@ export default function ClientPortal() {
 
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressDraft, setAddressDraft] = useState("");
 
-  const updateNotes = trpc.client.updateNotes.useMutation({
+  const updateProfile = trpc.client.updateProfile.useMutation({
     onSuccess: () => {
       utils.client.getProfile.invalidate({ clientSlug: slug });
-      setEditingNotes(false);
-      toast.success("Notes saved");
     },
   });
 
@@ -91,6 +93,11 @@ export default function ClientPortal() {
   function startEditingNotes() {
     setNotesDraft(profile?.notes || "");
     setEditingNotes(true);
+  }
+
+  function startEditingAddress() {
+    setAddressDraft(profile?.address || "");
+    setEditingAddress(true);
   }
 
   const clientName = invoices && invoices.length > 0 ? invoices[0].clientName : slug.replace(/-/g, " ");
@@ -155,7 +162,17 @@ export default function ClientPortal() {
           {/* Contact info */}
           <Card className="shadow-sm sm:col-span-2">
             <CardContent className="p-6">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-primary mb-3">Client Profile</p>
+              <div className="flex items-start justify-between mb-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Client Profile</p>
+                {isAdmin && (
+                  <Link href={`/invoice/new?client=${slug}`}>
+                    <Button size="sm" className="gap-1.5 text-xs h-7">
+                      <Plus className="w-3 h-3" />
+                      New Invoice
+                    </Button>
+                  </Link>
+                )}
+              </div>
               <h2 className="text-2xl font-bold text-foreground tracking-tight mb-4">{clientName}</h2>
               <div className="space-y-2">
                 {clientContact && (
@@ -176,7 +193,13 @@ export default function ClientPortal() {
                     <a href={`tel:${clientPhone}`} className="hover:text-primary transition-colors">{clientPhone}</a>
                   </div>
                 )}
-                {!clientContact && !clientEmail && !clientPhone && (
+                {profile?.address && (
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="whitespace-pre-line">{profile.address}</span>
+                  </div>
+                )}
+                {!clientContact && !clientEmail && !clientPhone && !profile?.address && (
                   <p className="text-xs text-muted-foreground">No contact details on file.</p>
                 )}
               </div>
@@ -237,7 +260,7 @@ export default function ClientPortal() {
                       autoFocus
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" className="h-7 text-xs gap-1" onClick={() => updateNotes.mutate({ clientSlug: slug, notes: notesDraft })} disabled={updateNotes.isPending}>
+                      <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { updateProfile.mutate({ clientSlug: slug, notes: notesDraft, address: profile?.address ?? null }); setEditingNotes(false); toast.success("Notes saved"); }} disabled={updateProfile.isPending}>
                         <Check className="w-3 h-3" /> Save
                       </Button>
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingNotes(false)}>
@@ -248,6 +271,47 @@ export default function ClientPortal() {
                 ) : (
                   <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
                     {profile?.notes || <span className="italic">No notes yet. Click Edit to add some.</span>}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Billing Address */}
+            <Card className="shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Billing Address</p>
+                  </div>
+                  {!editingAddress && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-muted-foreground" onClick={startEditingAddress}>
+                      Edit
+                    </Button>
+                  )}
+                </div>
+                {editingAddress ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      className="text-xs resize-none"
+                      rows={4}
+                      value={addressDraft}
+                      onChange={e => setAddressDraft(e.target.value)}
+                      placeholder={"12 Main Road\nSandton, 2196\nSouth Africa"}
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { updateProfile.mutate({ clientSlug: slug, notes: profile?.notes ?? null, address: addressDraft }); setEditingAddress(false); toast.success("Address saved"); }} disabled={updateProfile.isPending}>
+                        <Check className="w-3 h-3" /> Save
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingAddress(false)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                    {profile?.address || <span className="italic">No billing address yet. Click Edit to add one.</span>}
                   </p>
                 )}
               </CardContent>
