@@ -31,6 +31,10 @@ import {
   getHenryHistory,
   getGoogleRefreshToken,
   clearGoogleTokens,
+  getSubscriptions,
+  createSubscription,
+  updateSubscription,
+  deleteSubscription,
 } from "./db";
 import { getCalendarEvents } from "./calendar";
 
@@ -355,6 +359,47 @@ export const appRouter = router({
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deleteLead(input.id);
+        return { success: true };
+      }),
+  }),
+
+  subscription: router({
+    list: adminProcedure.query(() => getSubscriptions()),
+
+    create: adminProcedure
+      .input(z.object({
+        clientSlug: z.string().min(1),
+        clientName: z.string().min(1),
+        description: z.string().nullish(),
+        amount: z.number().min(0),
+        type: z.enum(['monthly', 'annual']),
+        status: z.enum(['active', 'paused', 'cancelled']).default('active'),
+      }))
+      .mutation(async ({ input }) => {
+        await createSubscription(input);
+        return { success: true };
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        clientSlug: z.string().min(1).optional(),
+        clientName: z.string().min(1).optional(),
+        description: z.string().nullish(),
+        amount: z.number().min(0).optional(),
+        type: z.enum(['monthly', 'annual']).optional(),
+        status: z.enum(['active', 'paused', 'cancelled']).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateSubscription(id, data);
+        return { success: true };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteSubscription(input.id);
         return { success: true };
       }),
   }),

@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -188,38 +188,27 @@ export async function getMetrics() {
   const db = await getDb();
   if (!db) return null;
 
-  // Recurring — use totalAmount (contract value), not amountDue (which goes to 0 when paid)
+  // Recurring — from subscriptions table (not invoices, to avoid double-counting repeated billing)
   const [mrrRow] = await db
-    .select({ total: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)` })
-    .from(invoices)
-    .where(eq(invoices.invoiceType, 'monthly'));
+    .select({ total: sql<string>`COALESCE(SUM(${subscriptions.amount}), 0)` })
+    .from(subscriptions)
+    .where(sql`${subscriptions.type} = 'monthly' AND ${subscriptions.status} = 'active'`);
 
   const [annualRow] = await db
-    .select({ total: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)` })
-    .from(invoices)
-    .where(eq(invoices.invoiceType, 'annual'));
+    .select({ total: sql<string>`COALESCE(SUM(${subscriptions.amount}), 0)` })
+    .from(subscriptions)
+    .where(sql`${subscriptions.type} = 'annual' AND ${subscriptions.status} = 'active'`);
 
-  // Per-client monthly recurring
-  const clientMonthly = await db
+  // Per-client recurring from subscriptions
+  const clientSubs = await db
     .select({
-      clientSlug: invoices.clientSlug,
-      clientName: invoices.clientName,
-      mrr: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
+      clientSlug: subscriptions.clientSlug,
+      clientName: subscriptions.clientName,
+      amount: subscriptions.amount,
+      type: subscriptions.type,
     })
-    .from(invoices)
-    .where(eq(invoices.invoiceType, 'monthly'))
-    .groupBy(invoices.clientSlug, invoices.clientName);
-
-  // Per-client annual recurring
-  const clientAnnual = await db
-    .select({
-      clientSlug: invoices.clientSlug,
-      clientName: invoices.clientName,
-      annual: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
-    })
-    .from(invoices)
-    .where(eq(invoices.invoiceType, 'annual'))
-    .groupBy(invoices.clientSlug, invoices.clientName);
+    .from(subscriptions)
+    .where(eq(subscriptions.status, 'active'));
 
   // Financial year: April–March
   const now = new Date();
@@ -293,17 +282,21 @@ export async function getMetrics() {
   const projectsCollected = parseFloat(projectsCollectedRow.total) || 0;
   const projectsOutstanding = outstandingInvoices.reduce((s, i) => s + (parseFloat(String(i.amountDue)) || 0), 0);
 
-  // Merge per-client recurring
+  // Merge per-client recurring from subscriptions
   const clientMap = new Map<string, { clientSlug: string; clientName: string; mrr: number; annual: number }>();
-  for (const c of clientMonthly) {
-    clientMap.set(c.clientSlug, { clientSlug: c.clientSlug, clientName: c.clientName, mrr: parseFloat(c.mrr) || 0, annual: 0 });
-  }
-  for (const c of clientAnnual) {
-    const existing = clientMap.get(c.clientSlug);
+  for (const s of clientSubs) {
+    const amount = parseFloat(String(s.amount)) || 0;
+    const existing = clientMap.get(s.clientSlug);
     if (existing) {
-      existing.annual = parseFloat(c.annual) || 0;
+      if (s.type === 'monthly') existing.mrr += amount;
+      else existing.annual += amount;
     } else {
-      clientMap.set(c.clientSlug, { clientSlug: c.clientSlug, clientName: c.clientName, mrr: 0, annual: parseFloat(c.annual) || 0 });
+      clientMap.set(s.clientSlug, {
+        clientSlug: s.clientSlug,
+        clientName: s.clientName,
+        mrr: s.type === 'monthly' ? amount : 0,
+        annual: s.type === 'annual' ? amount : 0,
+      });
     }
   }
 
@@ -334,6 +327,8 @@ export async function getDistinctClients() {
       clientSlug: invoices.clientSlug,
       clientName: sql<string>`MAX(${invoices.clientName})`,
       clientContact: sql<string>`MAX(${invoices.clientContact})`,
+      clientEmail: sql<string>`MAX(${invoices.clientEmail})`,
+      clientPhone: sql<string>`MAX(${invoices.clientPhone})`,
       address: clientProfiles.address,
     })
     .from(invoices)
@@ -620,6 +615,60 @@ export async function getGoogleRefreshToken(openId: string): Promise<{ refreshTo
   const { googleRefreshToken, googleConnectedEmail } = result[0];
   if (!googleRefreshToken || !googleConnectedEmail) return null;
   return { refreshToken: googleRefreshToken, connectedEmail: googleConnectedEmail };
+}
+
+// ── Subscriptions ─────────────────────────────────────────────────────────────
+
+export async function getSubscriptions() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(subscriptions).orderBy(subscriptions.clientName);
+}
+
+export async function createSubscription(data: {
+  clientSlug: string;
+  clientName: string;
+  description?: string | null;
+  amount: number;
+  type: 'monthly' | 'annual';
+  status?: 'active' | 'paused' | 'cancelled';
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.insert(subscriptions).values({
+    clientSlug: data.clientSlug,
+    clientName: data.clientName,
+    description: data.description ?? null,
+    amount: String(data.amount) as any,
+    type: data.type,
+    status: data.status ?? 'active',
+  });
+}
+
+export async function updateSubscription(id: number, data: {
+  clientSlug?: string;
+  clientName?: string;
+  description?: string | null;
+  amount?: number;
+  type?: 'monthly' | 'annual';
+  status?: 'active' | 'paused' | 'cancelled';
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const set: Record<string, unknown> = {};
+  if (data.clientSlug !== undefined) set.clientSlug = data.clientSlug;
+  if (data.clientName !== undefined) set.clientName = data.clientName;
+  if ('description' in data) set.description = data.description ?? null;
+  if (data.amount !== undefined) set.amount = String(data.amount);
+  if (data.type !== undefined) set.type = data.type;
+  if (data.status !== undefined) set.status = data.status;
+  await db.update(subscriptions).set(set).where(eq(subscriptions.id, id));
+}
+
+export async function deleteSubscription(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.delete(subscriptions).where(eq(subscriptions.id, id));
 }
 
 export async function getOutstandingInvoices() {

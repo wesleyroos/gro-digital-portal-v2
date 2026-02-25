@@ -135,6 +135,25 @@ export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;
 
 /**
+ * Subscriptions — recurring contract values used for MRR/ARR metrics.
+ * One record per service per client. Invoices are billing documents only.
+ */
+export const subscriptions = mysqlTable("subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  clientSlug: varchar("clientSlug", { length: 128 }).notNull(),
+  clientName: varchar("clientName", { length: 255 }).notNull(),
+  description: varchar("description", { length: 255 }),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  type: mysqlEnum("type", ["monthly", "annual"]).notNull().default("monthly"),
+  status: mysqlEnum("status", ["active", "paused", "cancelled"]).notNull().default("active"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+/**
  * Henry chat history – persists portal conversations per user.
  */
 export const henryMessages = mysqlTable("henry_messages", {

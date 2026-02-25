@@ -130,7 +130,8 @@ export default function CreateInvoice() {
       setValue("clientName", client.clientName);
       setValue("clientSlug", client.clientSlug);
       setValue("clientContact", client.clientContact || "");
-      setValue("clientPhone", "");
+      setValue("clientPhone", client.clientPhone || "");
+      setValue("clientEmail", client.clientEmail || "");
       setValue("clientAddress", client.address || "");
     }
   }
