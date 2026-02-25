@@ -186,6 +186,12 @@ export default function SharedInvoice() {
                     <span className="text-sm text-muted-foreground">{invoice.clientPhone}</span>
                   </div>
                 )}
+                {invoice.clientEmail && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{invoice.clientEmail}</span>
+                  </div>
+                )}
               </div>
               <div className="sm:text-right">
                 {invoice.projectName && (
