@@ -1,7 +1,7 @@
-import { eq, inArray, sql, asc } from "drizzle-orm";
+import { eq, inArray, sql, asc, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -689,6 +689,86 @@ export async function deleteSubscription(id: number) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
   await db.delete(subscriptions).where(eq(subscriptions.id, id));
+}
+
+// ── Proposals ─────────────────────────────────────────────────────────────────
+
+export async function getProposals() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(proposals).orderBy(desc(proposals.createdAt));
+}
+
+export async function getProposalByToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(proposals).where(eq(proposals.token, token)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function createProposal(data: {
+  title: string;
+  htmlContent: string;
+  status?: 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined';
+  assignedType?: 'client' | 'lead' | 'none';
+  assignedName?: string | null;
+  clientSlug?: string | null;
+  leadId?: number | null;
+  externalEmail?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const token = nanoid(21);
+  await db.insert(proposals).values({
+    token,
+    title: data.title,
+    htmlContent: data.htmlContent,
+    status: data.status ?? 'draft',
+    assignedType: data.assignedType ?? 'none',
+    assignedName: data.assignedName ?? null,
+    clientSlug: data.clientSlug ?? null,
+    leadId: data.leadId ?? null,
+    externalEmail: data.externalEmail ?? null,
+  });
+  return token;
+}
+
+export async function updateProposal(id: number, data: {
+  title?: string;
+  status?: 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined';
+  assignedType?: 'client' | 'lead' | 'none';
+  assignedName?: string | null;
+  clientSlug?: string | null;
+  leadId?: number | null;
+  externalEmail?: string | null;
+  sentAt?: Date | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const set: Record<string, unknown> = {};
+  if (data.title !== undefined) set.title = data.title;
+  if (data.status !== undefined) set.status = data.status;
+  if ('assignedType' in data) set.assignedType = data.assignedType;
+  if ('assignedName' in data) set.assignedName = data.assignedName ?? null;
+  if ('clientSlug' in data) set.clientSlug = data.clientSlug ?? null;
+  if ('leadId' in data) set.leadId = data.leadId ?? null;
+  if ('externalEmail' in data) set.externalEmail = data.externalEmail ?? null;
+  if ('sentAt' in data) set.sentAt = data.sentAt ?? null;
+  await db.update(proposals).set(set).where(eq(proposals.id, id));
+}
+
+export async function markProposalViewed(token: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(proposals)
+    .set({ status: 'viewed', viewedAt: new Date() })
+    .where(sql`${proposals.token} = ${token} AND ${proposals.status} = 'sent'`);
+}
+
+export async function deleteProposal(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.delete(proposals).where(eq(proposals.id, id));
 }
 
 export async function getOutstandingInvoices() {

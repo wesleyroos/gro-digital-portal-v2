@@ -37,6 +37,10 @@ import {
   createSubscription,
   updateSubscription,
   deleteSubscription,
+  getProposals,
+  createProposal,
+  updateProposal,
+  deleteProposal,
 } from "./db";
 import { getCalendarEvents } from "./calendar";
 
@@ -445,6 +449,51 @@ export const appRouter = router({
       .input(z.object({ timeMin: z.string(), timeMax: z.string() }))
       .query(async ({ input, ctx }) => {
         return getCalendarEvents(ctx.user!.openId, input.timeMin, input.timeMax);
+      }),
+  }),
+
+  proposal: router({
+    list: adminProcedure.query(async () => getProposals()),
+
+    create: adminProcedure
+      .input(z.object({
+        title: z.string().min(1),
+        htmlContent: z.string().min(1),
+        status: z.enum(['draft', 'sent', 'viewed', 'accepted', 'declined']).default('draft'),
+        assignedType: z.enum(['client', 'lead', 'none']).default('none'),
+        assignedName: z.string().nullish(),
+        clientSlug: z.string().nullish(),
+        leadId: z.number().int().nullish(),
+        externalEmail: z.string().nullish(),
+      }))
+      .mutation(async ({ input }) => {
+        const token = await createProposal(input);
+        return { token };
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number().int(),
+        title: z.string().min(1).optional(),
+        status: z.enum(['draft', 'sent', 'viewed', 'accepted', 'declined']).optional(),
+        assignedType: z.enum(['client', 'lead', 'none']).optional(),
+        assignedName: z.string().nullish(),
+        clientSlug: z.string().nullish(),
+        leadId: z.number().int().nullish(),
+        externalEmail: z.string().nullish(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        const sentAt = data.status === 'sent' ? new Date() : undefined;
+        await updateProposal(id, { ...data, ...(sentAt ? { sentAt } : {}) });
+        return { success: true };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        await deleteProposal(input.id);
+        return { success: true };
       }),
   }),
 });

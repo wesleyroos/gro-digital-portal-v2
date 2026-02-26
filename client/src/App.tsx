@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Tasks from "./pages/Tasks";
 import Subscriptions from "./pages/Subscriptions";
 import Agents from "./pages/Agents";
+import Proposals from "./pages/Proposals";
 import Login from "./pages/Login";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -49,6 +50,7 @@ function Router() {
               <Route path={"/tasks"} component={Tasks} />
               <Route path={"/subscriptions"} component={Subscriptions} />
               <Route path={"/agents"} component={Agents} />
+              <Route path={"/proposals"} component={Proposals} />
               <Route path={"/settings"} component={Settings} />
               <Route path={"/invoice/new"} component={CreateInvoice} />
               <Route path={"/invoice/:invoiceNumber/edit"} component={EditInvoice} />

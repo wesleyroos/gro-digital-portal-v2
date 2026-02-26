@@ -948,6 +948,29 @@ Guidelines:
     }
   });
 
+  // Public proposal view — /p/:token
+  app.get("/p/:token", async (req: Request, res: Response) => {
+    const { token } = req.params;
+    const proposal = await db.getProposalByToken(token);
+    if (!proposal) {
+      res.status(404).send(`<!DOCTYPE html><html><head><title>Not found</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#555"><p>Proposal not found.</p></body></html>`);
+      return;
+    }
+    // Mark as viewed if it was in 'sent' state
+    if (proposal.status === 'sent') {
+      await db.markProposalViewed(token);
+    }
+    // Inject print button before </body>
+    const printButton = `
+<div class="gd-print-btn" style="position:fixed;top:20px;right:20px;z-index:9999;font-family:'Inter',ui-sans-serif,sans-serif;">
+  <button onclick="window.print()" style="background:#1e2235;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);letter-spacing:-0.01em;">Save as PDF</button>
+</div>
+<style>@media print{.gd-print-btn{display:none!important}}</style>`;
+    const html = proposal.htmlContent.replace(/<\/body>/i, `${printButton}\n</body>`);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  });
+
   // Dev-only login bypass – creates a session without OAuth
   if (process.env.NODE_ENV !== "production") {
     app.get("/api/dev/login", async (req: Request, res: Response) => {

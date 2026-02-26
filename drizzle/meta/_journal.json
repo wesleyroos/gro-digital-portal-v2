@@ -127,6 +127,13 @@
       "when": 1771927000000,
       "tag": "0017_agent_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1771928000000,
+      "tag": "0018_proposals",
+      "breakpoints": true
     }
   ]
 }

@@ -179,3 +179,26 @@ export const agentMessages = mysqlTable("agent_messages", {
 });
 
 export type AgentMessage = typeof agentMessages.$inferSelect;
+
+/**
+ * Proposals — shareable client-facing proposal documents (HTML blobs).
+ */
+export const proposals = mysqlTable("proposals", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 21 }).notNull().unique(),
+  title: varchar("title", { length: 255 }).notNull(),
+  htmlContent: text("htmlContent").notNull(),
+  status: mysqlEnum("status", ["draft", "sent", "viewed", "accepted", "declined"]).default("draft").notNull(),
+  assignedType: mysqlEnum("assignedType", ["client", "lead", "none"]).default("none").notNull(),
+  assignedName: varchar("assignedName", { length: 255 }),
+  clientSlug: varchar("clientSlug", { length: 128 }),
+  leadId: int("leadId"),
+  externalEmail: varchar("externalEmail", { length: 320 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  sentAt: timestamp("sentAt"),
+  viewedAt: timestamp("viewedAt"),
+});
+
+export type Proposal = typeof proposals.$inferSelect;
+export type InsertProposal = typeof proposals.$inferInsert;
