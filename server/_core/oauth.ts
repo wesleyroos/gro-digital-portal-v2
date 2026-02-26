@@ -566,6 +566,199 @@ export function registerOAuthRoutes(app: Express) {
     }
   });
 
+  // Marketing agent relay (admin only)
+  app.post("/api/agent/marketing", async (req: Request, res: Response) => {
+    let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
+    try {
+      authedUser = await sdk.authenticateRequest(req);
+      if (authedUser.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+    } catch { res.status(401).json({ error: "Unauthorized" }); return; }
+
+    const gatewayUrl = process.env.HENRY_GATEWAY_URL?.trim();
+    const gatewayToken = process.env.HENRY_GATEWAY_TOKEN?.trim();
+    if (!gatewayUrl || !gatewayToken) { res.status(503).json({ error: "Agent gateway not configured" }); return; }
+
+    const { message } = req.body as { message: string };
+    if (!message?.trim()) { res.status(400).json({ error: "message is required" }); return; }
+
+    const [leads, clients, subs] = await Promise.all([
+      db.getLeads(),
+      db.getDistinctClients(),
+      db.getSubscriptions(),
+    ]);
+
+    const fmt = (v: string | number) => {
+      const n = typeof v === "string" ? parseFloat(v) : v;
+      return `R${n.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+    };
+
+    const activeSubs = subs.filter(s => s.status === "active");
+    const mrr = activeSubs.filter(s => s.type === "monthly").reduce((sum, s) => sum + parseFloat(String(s.amount)), 0);
+
+    const leadLines = leads.length
+      ? leads.map(l => {
+          const val = l.monthlyValue ? ` | MRR potential: ${fmt(l.monthlyValue)}/mo` : l.onceOffValue ? ` | once-off: ${fmt(l.onceOffValue)}` : "";
+          const contact = l.contactName ? ` | contact: ${l.contactName}` : "";
+          const email = l.contactEmail ? ` | ${l.contactEmail}` : "";
+          return `  - [id:${l.id}] ${l.name} | ${l.stage}${val}${contact}${email}`;
+        }).join("\n")
+      : "  None";
+
+    const clientLines = clients.length
+      ? clients.map(c => `  - ${c.clientName} (slug: ${c.clientSlug})`).join("\n")
+      : "  None";
+
+    const subLines = activeSubs.length
+      ? activeSubs.map(s => `  - ${s.clientName} | ${s.description || "Service"} | ${fmt(s.amount)}/${s.type === "monthly" ? "mo" : "yr"}`).join("\n")
+      : "  None";
+
+    const systemMessage = `You are the Marketing agent for GRO Digital — a web design and digital marketing agency run by Wes Roos in South Africa.
+
+Your role: grow the agency — new client acquisition, lead nurturing, upsell opportunities with existing clients, content strategy, and brand positioning.
+
+Today's date: ${new Date().toISOString().slice(0, 10)}
+
+CURRENT MRR: ${fmt(mrr)} from ${activeSubs.filter(s => s.type === "monthly").length} active subscriptions
+
+LEADS PIPELINE:
+${leadLines}
+
+EXISTING CLIENTS (upsell/cross-sell opportunities):
+${clientLines}
+
+ACTIVE SERVICES (what we currently sell):
+${subLines}
+
+Guidelines:
+- Be strategic and creative. Focus on growing recurring revenue and winning new clients.
+- Use South African currency format (R)
+- Lead stages: prospect → proposal → negotiation
+- When you identify an opportunity or action, create a task so it gets tracked
+- Do not use markdown. Plain text with line breaks only.
+- Task status: todo, in_progress, blocked, done. Priority: low, medium, high. dueDate: YYYY-MM-DD.`;
+
+    const MARKETING_TOOLS = [
+      {
+        type: "function" as const,
+        function: {
+          name: "create_task",
+          description: "Create a marketing or follow-up task",
+          parameters: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              status: { type: "string", enum: ["todo", "in_progress", "blocked", "done"] },
+              priority: { type: "string", enum: ["low", "medium", "high"] },
+              dueDate: { type: "string", description: "YYYY-MM-DD" },
+              clientSlug: { type: "string" },
+              notes: { type: "string" },
+            },
+            required: ["text"],
+          },
+        },
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "create_lead",
+          description: "Add a new prospect to the leads pipeline",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Company or person name (required)" },
+              contactName: { type: "string" },
+              contactEmail: { type: "string" },
+              contactPhone: { type: "string" },
+              monthlyValue: { type: "number", description: "Estimated monthly recurring value in ZAR" },
+              onceOffValue: { type: "number", description: "Estimated once-off value in ZAR" },
+              stage: { type: "string", enum: ["prospect", "proposal", "negotiation"] },
+              notes: { type: "string" },
+            },
+            required: ["name"],
+          },
+        },
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "update_lead",
+          description: "Update a lead's stage or details",
+          parameters: {
+            type: "object",
+            properties: {
+              id: { type: "number", description: "Lead id from the LEADS PIPELINE list ([id:X])" },
+              stage: { type: "string", enum: ["prospect", "proposal", "negotiation"] },
+              notes: { type: "string" },
+              monthlyValue: { type: "number" },
+              onceOffValue: { type: "number" },
+            },
+            required: ["id"],
+          },
+        },
+      },
+    ] as const;
+
+    const [history] = await Promise.all([db.getAgentHistory(authedUser.openId, "marketing")]);
+
+    type AnyMessage = Record<string, unknown>;
+    const messages: AnyMessage[] = [
+      { role: "system", content: systemMessage },
+      ...history,
+      { role: "user", content: message.trim() },
+    ];
+
+    try {
+      let reply = "";
+      for (let round = 0; round < 5; round++) {
+        const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${gatewayToken}`, "Content-Type": "application/json", "x-openclaw-agent-id": "marketing" },
+          body: JSON.stringify({ model: "openclaw", messages, tools: MARKETING_TOOLS }),
+          signal: AbortSignal.timeout(120_000),
+        });
+        if (!upstream.ok) { const text = await upstream.text(); console.error(`[Marketing] Gateway error ${upstream.status}:`, text); res.status(502).json({ error: "Marketing agent unavailable" }); return; }
+
+        type ToolCall = { id: string; type: string; function: { name: string; arguments: string } };
+        const data = await upstream.json() as { choices: Array<{ message: { role: string; content: string | null; tool_calls?: ToolCall[] }; finish_reason: string }> };
+        const assistantMsg = data.choices[0].message;
+        messages.push({ role: "assistant", content: assistantMsg.content ?? null, tool_calls: assistantMsg.tool_calls });
+
+        if (!assistantMsg.tool_calls || assistantMsg.tool_calls.length === 0) { reply = assistantMsg.content ?? ""; break; }
+
+        for (const toolCall of assistantMsg.tool_calls) {
+          let args: Record<string, unknown> = {};
+          try { args = JSON.parse(toolCall.function.arguments); } catch { /* ignore */ }
+          let result = "";
+          try {
+            if (toolCall.function.name === "create_task") {
+              const client = args.clientSlug ? clients.find(c => c.clientSlug === args.clientSlug) : null;
+              await db.createTask(args.text as string, client?.clientSlug ?? null, client?.clientName ?? null, { status: args.status as string | undefined, dueDate: args.dueDate as string | null | undefined, priority: args.priority as string | null | undefined, notes: args.notes as string | null | undefined });
+              result = `Task created: "${args.text}"`;
+            } else if (toolCall.function.name === "create_lead") {
+              await db.createLead({ name: args.name as string, contactName: args.contactName as string | null, contactEmail: args.contactEmail as string | null, contactPhone: args.contactPhone as string | null, monthlyValue: args.monthlyValue as number | null, onceOffValue: args.onceOffValue as number | null, stage: (args.stage as "prospect" | "proposal" | "negotiation") ?? "prospect", notes: args.notes as string | null });
+              result = `Lead created: "${args.name}"`;
+            } else if (toolCall.function.name === "update_lead") {
+              const { id, ...data } = args as { id: number; [key: string]: unknown };
+              await db.updateLead(id, data as Parameters<typeof db.updateLead>[1]);
+              result = `Lead ${id} updated`;
+            } else {
+              result = `Unknown tool: ${toolCall.function.name}`;
+            }
+          } catch (e) { result = `Error: ${String(e)}`; }
+          console.log(`[Marketing] Tool ${toolCall.function.name}(${toolCall.function.arguments}) → ${result}`);
+          messages.push({ role: "tool", tool_call_id: toolCall.id, content: result });
+        }
+      }
+
+      if (!reply) reply = "Done.";
+      await db.appendAgentMessages(authedUser.openId, "marketing", [{ role: "user", content: message.trim() }, { role: "assistant", content: reply }]);
+      res.json({ reply });
+    } catch (e) {
+      console.error("[Marketing] Relay error:", e);
+      res.status(502).json({ error: "Marketing agent unavailable" });
+    }
+  });
+
   // Dev-only login bypass – creates a session without OAuth
   if (process.env.NODE_ENV !== "production") {
     app.get("/api/dev/login", async (req: Request, res: Response) => {
