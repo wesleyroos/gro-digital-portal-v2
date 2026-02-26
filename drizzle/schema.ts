@@ -165,3 +165,17 @@ export const henryMessages = mysqlTable("henry_messages", {
 });
 
 export type HenryMessage = typeof henryMessages.$inferSelect;
+
+/**
+ * Agent chat history – persists conversations for specialist agents (finance, marketing, etc.).
+ */
+export const agentMessages = mysqlTable("agent_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  openId: varchar("openId", { length: 64 }).notNull(),
+  agentSlug: varchar("agentSlug", { length: 64 }).notNull(),
+  role: mysqlEnum("role", ["user", "assistant"]).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AgentMessage = typeof agentMessages.$inferSelect;

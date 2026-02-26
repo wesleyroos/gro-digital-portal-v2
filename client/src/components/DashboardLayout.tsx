@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, TrendingUp } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -34,6 +34,7 @@ const menuItems = [
   { icon: Building2, label: "Clients", path: "/clients" },
   { icon: Repeat, label: "Subscriptions", path: "/subscriptions" },
   { icon: FileText, label: "Invoices", path: "/invoices" },
+  { icon: TrendingUp, label: "Finance", path: "/finance" },
   { icon: CheckSquare, label: "Tasks", path: "/tasks" },
   { icon: Target, label: "Leads", path: "/leads" },
   { icon: CalendarDays, label: "Calendar", path: "/calendar" },

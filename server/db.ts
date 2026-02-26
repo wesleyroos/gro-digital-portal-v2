@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -587,6 +587,26 @@ export async function appendHenryMessages(openId: string, messages: Array<{ role
   const db = await getDb();
   if (!db) return;
   await db.insert(henryMessages).values(messages.map(m => ({ openId, role: m.role, content: m.content })));
+}
+
+// ── Specialist agent chat history ─────────────────────────────────────────────
+
+export async function getAgentHistory(openId: string, agentSlug: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ role: agentMessages.role, content: agentMessages.content })
+    .from(agentMessages)
+    .where(eq(agentMessages.openId, openId))
+    .where(eq(agentMessages.agentSlug, agentSlug))
+    .orderBy(asc(agentMessages.createdAt))
+    .limit(100);
+}
+
+export async function appendAgentMessages(openId: string, agentSlug: string, messages: Array<{ role: "user" | "assistant"; content: string }>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(agentMessages).values(messages.map(m => ({ openId, agentSlug, role: m.role, content: m.content })));
 }
 
 // ── Google OAuth tokens ───────────────────────────────────────────────────────

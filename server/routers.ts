@@ -1,6 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
+import { TRPCError } from "@trpc/server";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import {
@@ -29,6 +30,7 @@ import {
   updateLead,
   deleteLead,
   getHenryHistory,
+  getAgentHistory,
   getGoogleRefreshToken,
   clearGoogleTokens,
   getSubscriptions,
@@ -411,6 +413,14 @@ export const appRouter = router({
     }),
   }),
 
+  agent: router({
+    history: adminProcedure
+      .input(z.object({ agentSlug: z.string() }))
+      .query(async ({ ctx, input }) => {
+        return getAgentHistory(ctx.user!.openId, input.agentSlug);
+      }),
+  }),
+
   google: router({
     status: adminProcedure.query(async ({ ctx }) => {
       const data = await getGoogleRefreshToken(ctx.user!.openId);
@@ -421,6 +431,12 @@ export const appRouter = router({
     disconnect: adminProcedure.mutation(async ({ ctx }) => {
       await clearGoogleTokens(ctx.user!.openId);
       return { success: true };
+    }),
+
+    getToken: adminProcedure.query(async ({ ctx }) => {
+      const data = await getGoogleRefreshToken(ctx.user!.openId);
+      if (!data) throw new TRPCError({ code: "NOT_FOUND", message: "Google not connected" });
+      return data; // { refreshToken, connectedEmail }
     }),
   }),
 

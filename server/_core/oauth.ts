@@ -163,6 +163,165 @@ async function executeHenryTool(name: string, args: Record<string, unknown>, cli
   }
 }
 
+// ── Finance agent ─────────────────────────────────────────────────────────────
+
+async function buildFinanceSystemMessage(): Promise<string> {
+  const [allInvoices, subs, clients] = await Promise.all([
+    db.getAllInvoices(),
+    db.getSubscriptions(),
+    db.getDistinctClients(),
+  ]);
+
+  const fmt = (v: string | number) => {
+    const n = typeof v === "string" ? parseFloat(v) : v;
+    return `R${n.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+  };
+
+  const overdue = allInvoices.filter(i => i.status === "overdue");
+  const sent = allInvoices.filter(i => i.status === "sent");
+  const overdueTotal = overdue.reduce((sum, i) => sum + parseFloat(String(i.amountDue)), 0);
+  const sentTotal = sent.reduce((sum, i) => sum + parseFloat(String(i.amountDue)), 0);
+
+  const activeSubs = subs.filter(s => s.status === "active");
+  const mrr = activeSubs.filter(s => s.type === "monthly").reduce((sum, s) => sum + parseFloat(String(s.amount)), 0);
+  const annualRecurring = activeSubs.filter(s => s.type === "annual").reduce((sum, s) => sum + parseFloat(String(s.amount)), 0);
+  const arr = mrr * 12 + annualRecurring;
+
+  const invoiceLine = (inv: (typeof allInvoices)[0]) => {
+    const due = inv.dueDate ? ` | due ${new Date(inv.dueDate).toLocaleDateString("en-ZA")}` : "";
+    const email = inv.clientEmail ? ` | email: ${inv.clientEmail}` : "";
+    const contact = inv.clientContact ? ` | contact: ${inv.clientContact}` : "";
+    return `  - [id:${inv.id}] ${inv.invoiceNumber} | ${inv.clientName} | ${fmt(inv.amountDue)}${due}${email}${contact}`;
+  };
+
+  const clientLines = clients.length
+    ? clients.map(c => `  - ${c.clientName} (slug: ${c.clientSlug})`).join("\n")
+    : "None";
+
+  return `You are the Finance agent for GRO Digital — a web design and digital marketing agency run by Wes Roos in South Africa.
+
+Your role: manage financial operations — payment collection, invoice follow-ups, subscription health, and cash flow analysis.
+
+Today's date: ${new Date().toISOString().slice(0, 10)}
+
+CASH FLOW SUMMARY:
+  Overdue: ${fmt(overdueTotal)} across ${overdue.length} invoice${overdue.length !== 1 ? "s" : ""}
+  Outstanding (sent): ${fmt(sentTotal)} across ${sent.length} invoice${sent.length !== 1 ? "s" : ""}
+
+RECURRING REVENUE:
+  MRR: ${fmt(mrr)} (${activeSubs.filter(s => s.type === "monthly").length} active monthly subscriptions)
+  Annual Recurring: ${fmt(annualRecurring)} (${activeSubs.filter(s => s.type === "annual").length} active annual subscriptions)
+  ARR: ${fmt(arr)}
+
+OVERDUE INVOICES:
+${overdue.length ? overdue.map(invoiceLine).join("\n") : "  None"}
+
+OUTSTANDING INVOICES (sent, awaiting payment):
+${sent.length ? sent.map(invoiceLine).join("\n") : "  None"}
+
+ACTIVE SUBSCRIPTIONS:
+${activeSubs.length ? activeSubs.map(s => `  - [id:${s.id}] ${s.clientName} | ${s.description || "Service"} | ${fmt(s.amount)}/${s.type === "monthly" ? "mo" : "yr"} | ${s.status}`).join("\n") : "  None"}
+
+CLIENTS:
+${clientLines}
+
+Guidelines:
+- Be direct and action-oriented. Your priority is collecting outstanding money and protecting recurring revenue.
+- Use South African currency format (R)
+- Invoice IDs are shown as [id:X] — use these when calling update_invoice_status or send_invoice_reminder
+- When chasing an overdue payment, send a reminder AND create a follow-up task so Wes can track it
+- Do not use markdown. Plain text with line breaks only.
+- Invoice status values: sent, paid, overdue. Task status: todo, in_progress, blocked, done. Priority: low, medium, high.
+- For dueDate use YYYY-MM-DD format.`;
+}
+
+const FINANCE_TOOLS = [
+  {
+    type: "function" as const,
+    function: {
+      name: "create_task",
+      description: "Create a follow-up task in the portal",
+      parameters: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "Task description (required)" },
+          status: { type: "string", enum: ["todo", "in_progress", "blocked", "done"] },
+          priority: { type: "string", enum: ["low", "medium", "high"] },
+          dueDate: { type: "string", description: "YYYY-MM-DD" },
+          clientSlug: { type: "string", description: "Client slug (must match a known client)" },
+          notes: { type: "string" },
+        },
+        required: ["text"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "update_invoice_status",
+      description: "Update the status of an invoice (e.g. mark as paid or overdue)",
+      parameters: {
+        type: "object",
+        properties: {
+          invoiceId: { type: "number", description: "Invoice id from the INVOICES list ([id:X])" },
+          status: { type: "string", enum: ["sent", "paid", "overdue"], description: "New status" },
+        },
+        required: ["invoiceId", "status"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "send_invoice_reminder",
+      description: "Send a payment reminder email for an invoice",
+      parameters: {
+        type: "object",
+        properties: {
+          invoiceId: { type: "number", description: "Invoice id from the INVOICES list ([id:X])" },
+          recipientEmail: { type: "string", description: "Email address to send reminder to" },
+        },
+        required: ["invoiceId", "recipientEmail"],
+      },
+    },
+  },
+] as const;
+
+async function executeFinanceTool(
+  name: string,
+  args: Record<string, unknown>,
+  clients: { clientSlug: string; clientName: string }[],
+  baseUrl: string,
+): Promise<string> {
+  try {
+    if (name === "create_task") {
+      const clientSlug = args.clientSlug as string | undefined;
+      const client = clientSlug ? clients.find(c => c.clientSlug === clientSlug) : null;
+      await db.createTask(args.text as string, client?.clientSlug ?? null, client?.clientName ?? null, {
+        status: args.status as string | undefined,
+        dueDate: args.dueDate as string | null | undefined,
+        priority: args.priority as string | null | undefined,
+        notes: args.notes as string | null | undefined,
+      });
+      return `Task created: "${args.text}"`;
+    }
+
+    if (name === "update_invoice_status") {
+      await db.updateInvoiceStatus(args.invoiceId as number, args.status as "draft" | "sent" | "paid" | "overdue");
+      return `Invoice ${args.invoiceId} status updated to ${args.status}`;
+    }
+
+    if (name === "send_invoice_reminder") {
+      await db.sendInvoiceEmail(args.invoiceId as number, args.recipientEmail as string, baseUrl);
+      return `Reminder email sent to ${args.recipientEmail} for invoice ${args.invoiceId}`;
+    }
+
+    return `Unknown tool: ${name}`;
+  } catch (e) {
+    return `Error executing ${name}: ${String(e)}`;
+  }
+}
+
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
   return typeof value === "string" ? value : undefined;
@@ -304,6 +463,106 @@ export function registerOAuthRoutes(app: Express) {
     } catch (e) {
       console.error("[Henry] Relay error:", e);
       res.status(502).json({ error: "Henry unavailable" });
+    }
+  });
+
+  // Finance agent relay — proxies requests to the gateway with finance context (admin only)
+  app.post("/api/agent/finance", async (req: Request, res: Response) => {
+    let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
+    try {
+      authedUser = await sdk.authenticateRequest(req);
+      if (authedUser.role !== "admin") {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+    } catch {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const gatewayUrl = process.env.HENRY_GATEWAY_URL?.trim();
+    const gatewayToken = process.env.HENRY_GATEWAY_TOKEN?.trim();
+    if (!gatewayUrl || !gatewayToken) {
+      res.status(503).json({ error: "Agent gateway not configured" });
+      return;
+    }
+
+    const { message } = req.body as { message: string };
+    if (!message?.trim()) {
+      res.status(400).json({ error: "message is required" });
+      return;
+    }
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const [systemMessage, history, clients] = await Promise.all([
+      buildFinanceSystemMessage(),
+      db.getAgentHistory(authedUser.openId, "finance"),
+      db.getDistinctClients(),
+    ]);
+
+    type AnyMessage = Record<string, unknown>;
+    const messages: AnyMessage[] = [
+      { role: "system", content: systemMessage },
+      ...history,
+      { role: "user", content: message.trim() },
+    ];
+
+    try {
+      let reply = "";
+      for (let round = 0; round < 5; round++) {
+        const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${gatewayToken}`,
+            "Content-Type": "application/json",
+            "x-openclaw-agent-id": "finance",
+          },
+          body: JSON.stringify({ model: "openclaw", messages, tools: FINANCE_TOOLS }),
+          signal: AbortSignal.timeout(120_000),
+        });
+
+        if (!upstream.ok) {
+          const text = await upstream.text();
+          console.error(`[Finance] Gateway error ${upstream.status}:`, text);
+          res.status(502).json({ error: "Finance agent unavailable" });
+          return;
+        }
+
+        type ToolCall = { id: string; type: string; function: { name: string; arguments: string } };
+        const data = await upstream.json() as {
+          choices: Array<{
+            message: { role: string; content: string | null; tool_calls?: ToolCall[] };
+            finish_reason: string;
+          }>;
+        };
+
+        const assistantMsg = data.choices[0].message;
+        messages.push({ role: "assistant", content: assistantMsg.content ?? null, tool_calls: assistantMsg.tool_calls });
+
+        if (!assistantMsg.tool_calls || assistantMsg.tool_calls.length === 0) {
+          reply = assistantMsg.content ?? "";
+          break;
+        }
+
+        for (const toolCall of assistantMsg.tool_calls) {
+          let toolArgs: Record<string, unknown> = {};
+          try { toolArgs = JSON.parse(toolCall.function.arguments); } catch { /* ignore */ }
+          const result = await executeFinanceTool(toolCall.function.name, toolArgs, clients, baseUrl);
+          console.log(`[Finance] Tool ${toolCall.function.name}(${toolCall.function.arguments}) → ${result}`);
+          messages.push({ role: "tool", tool_call_id: toolCall.id, content: result });
+        }
+      }
+
+      if (!reply) reply = "Done.";
+
+      await db.appendAgentMessages(authedUser.openId, "finance", [
+        { role: "user", content: message.trim() },
+        { role: "assistant", content: reply },
+      ]);
+      res.json({ reply });
+    } catch (e) {
+      console.error("[Finance] Relay error:", e);
+      res.status(502).json({ error: "Finance agent unavailable" });
     }
   });
 

@@ -120,6 +120,13 @@
       "when": 1771926000000,
       "tag": "0016_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1771927000000,
+      "tag": "0017_agent_messages",
+      "breakpoints": true
     }
   ]
 }

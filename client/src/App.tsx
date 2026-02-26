@@ -18,6 +18,7 @@ import Calendar from "./pages/Calendar";
 import Settings from "./pages/Settings";
 import Tasks from "./pages/Tasks";
 import Subscriptions from "./pages/Subscriptions";
+import Finance from "./pages/Finance";
 import Login from "./pages/Login";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,7 @@ function Router() {
               <Route path={"/calendar"} component={Calendar} />
               <Route path={"/tasks"} component={Tasks} />
               <Route path={"/subscriptions"} component={Subscriptions} />
+              <Route path={"/finance"} component={Finance} />
               <Route path={"/settings"} component={Settings} />
               <Route path={"/invoice/new"} component={CreateInvoice} />
               <Route path={"/invoice/:invoiceNumber/edit"} component={EditInvoice} />
