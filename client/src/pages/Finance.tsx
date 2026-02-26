@@ -3,6 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Send, Bot, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ReactMarkdown from "react-markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -101,13 +102,17 @@ export default function Finance() {
                 </div>
               )}
               <div
-                className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                    ? "bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
                     : "bg-card border border-border text-foreground rounded-bl-sm shadow-sm"
                 }`}
               >
-                {msg.content}
+                {msg.role === "user" ? msg.content : (
+                  <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2">
+                    {msg.content}
+                  </ReactMarkdown>
+                )}
               </div>
             </div>
           ))
