@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, Link2, MoreHorizontal, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Link2, MoreHorizontal, Trash2, ExternalLink, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -60,6 +60,7 @@ export default function Proposals() {
   const { data: clients = [] } = trpc.invoice.clients.useQuery();
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormData>(emptyForm());
   const [saving, setSaving] = useState(false);
 
@@ -74,7 +75,11 @@ export default function Proposals() {
   });
 
   const updateMutation = trpc.proposal.update.useMutation({
-    onSuccess: () => { utils.proposal.list.invalidate(); toast.success("Updated"); },
+    onSuccess: () => {
+      utils.proposal.list.invalidate();
+      if (editingId !== null) { setSheetOpen(false); setEditingId(null); setForm(emptyForm()); }
+      toast.success("Updated");
+    },
     onError: () => toast.error("Failed to update"),
   });
 
@@ -87,6 +92,21 @@ export default function Proposals() {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
+  function openEdit(p: typeof proposals[0]) {
+    setEditingId(p.id);
+    setForm({
+      title: p.title,
+      assignedType: (p.assignedType as AssignedType) ?? "none",
+      assignedName: p.assignedName ?? "",
+      clientSlug: p.clientSlug ?? "",
+      leadId: p.leadId ? String(p.leadId) : "",
+      externalEmail: p.externalEmail ?? "",
+      htmlContent: p.htmlContent,
+      status: p.status as Status,
+    });
+    setSheetOpen(true);
+  }
+
   async function handleSubmit() {
     if (!form.title.trim() || !form.htmlContent.trim()) {
       toast.error("Title and HTML content are required");
@@ -94,16 +114,30 @@ export default function Proposals() {
     }
     setSaving(true);
     try {
-      await createMutation.mutateAsync({
-        title: form.title.trim(),
-        htmlContent: form.htmlContent.trim(),
-        status: form.status,
-        assignedType: form.assignedType,
-        assignedName: form.assignedName.trim() || null,
-        clientSlug: form.assignedType === "client" ? form.clientSlug.trim() || null : null,
-        leadId: form.assignedType === "lead" && form.leadId ? parseInt(form.leadId) : null,
-        externalEmail: form.assignedType !== "none" ? form.externalEmail.trim() || null : null,
-      });
+      if (editingId !== null) {
+        await updateMutation.mutateAsync({
+          id: editingId,
+          title: form.title.trim(),
+          htmlContent: form.htmlContent.trim(),
+          status: form.status,
+          assignedType: form.assignedType,
+          assignedName: form.assignedName.trim() || null,
+          clientSlug: form.assignedType === "client" ? form.clientSlug.trim() || null : null,
+          leadId: form.assignedType === "lead" && form.leadId ? parseInt(form.leadId) : null,
+          externalEmail: form.assignedType !== "none" ? form.externalEmail.trim() || null : null,
+        });
+      } else {
+        await createMutation.mutateAsync({
+          title: form.title.trim(),
+          htmlContent: form.htmlContent.trim(),
+          status: form.status,
+          assignedType: form.assignedType,
+          assignedName: form.assignedName.trim() || null,
+          clientSlug: form.assignedType === "client" ? form.clientSlug.trim() || null : null,
+          leadId: form.assignedType === "lead" && form.leadId ? parseInt(form.leadId) : null,
+          externalEmail: form.assignedType !== "none" ? form.externalEmail.trim() || null : null,
+        });
+      }
     } finally {
       setSaving(false);
     }
@@ -204,6 +238,10 @@ export default function Proposals() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(p)}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => deleteMutation.mutate({ id: p.id })}
@@ -223,13 +261,13 @@ export default function Proposals() {
       )}
 
       {/* New Proposal Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
-            <SheetTitle>New Proposal</SheetTitle>
+      <Sheet open={sheetOpen} onOpenChange={v => { setSheetOpen(v); if (!v) { setEditingId(null); setForm(emptyForm()); } }}>
+        <SheetContent className="w-full sm:max-w-xl flex flex-col">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+            <SheetTitle>{editingId !== null ? "Edit Proposal" : "New Proposal"}</SheetTitle>
           </SheetHeader>
 
-          <div className="px-6 py-5 space-y-5">
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
             <div className="space-y-1.5">
               <Label className="text-xs">Title</Label>
               <Input
@@ -332,12 +370,13 @@ export default function Proposals() {
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setSheetOpen(false)}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={saving}>
-                {saving ? "Saving…" : "Create Proposal"}
-              </Button>
-            </div>
+          </div>
+
+          <div className="shrink-0 px-6 py-4 border-t border-border flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setSheetOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={saving}>
+              {saving ? "Saving…" : editingId !== null ? "Save Changes" : "Create Proposal"}
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

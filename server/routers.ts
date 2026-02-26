@@ -475,6 +475,7 @@ export const appRouter = router({
       .input(z.object({
         id: z.number().int(),
         title: z.string().min(1).optional(),
+        htmlContent: z.string().min(1).optional(),
         status: z.enum(['draft', 'sent', 'viewed', 'accepted', 'declined']).optional(),
         assignedType: z.enum(['client', 'lead', 'none']).optional(),
         assignedName: z.string().nullish(),

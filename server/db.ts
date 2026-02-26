@@ -735,6 +735,7 @@ export async function createProposal(data: {
 
 export async function updateProposal(id: number, data: {
   title?: string;
+  htmlContent?: string;
   status?: 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined';
   assignedType?: 'client' | 'lead' | 'none';
   assignedName?: string | null;
@@ -747,6 +748,7 @@ export async function updateProposal(id: number, data: {
   if (!db) throw new Error('Database not available');
   const set: Record<string, unknown> = {};
   if (data.title !== undefined) set.title = data.title;
+  if (data.htmlContent !== undefined) set.htmlContent = data.htmlContent;
   if (data.status !== undefined) set.status = data.status;
   if ('assignedType' in data) set.assignedType = data.assignedType;
   if ('assignedName' in data) set.assignedName = data.assignedName ?? null;
