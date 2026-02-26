@@ -222,62 +222,33 @@ export default function Agents() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
-      {/* Header + organogram selector */}
+      {/* Header + selector */}
       <div className="shrink-0 mb-5">
-        <h1 className="text-xl font-bold tracking-tight mb-5">Agents</h1>
-
-        {/* Organogram */}
-        <div className="flex flex-col items-center">
-          {/* Henry — top of org */}
-          {(() => {
-            const henry = AGENTS[0];
-            const HenryIcon = henry.icon;
-            const isActive = activeSlug === henry.slug;
+        <h1 className="text-xl font-bold tracking-tight mb-4">Agents</h1>
+        <div className="flex gap-2 flex-wrap">
+          {AGENTS.map(agent => {
+            const Icon = agent.icon;
+            const isActive = agent.slug === activeSlug;
             return (
               <button
-                onClick={() => setActiveSlug(henry.slug)}
-                className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                  isActive ? "bg-card border-border shadow-sm" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                key={agent.slug}
+                onClick={() => setActiveSlug(agent.slug)}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-card border-border shadow-sm"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
               >
-                <div className={`w-6 h-6 rounded-lg ${henry.iconBg} flex items-center justify-center`}>
-                  <HenryIcon className={`w-3.5 h-3.5 ${henry.iconColor}`} />
+                <div className={`w-6 h-6 rounded-lg ${agent.iconBg} flex items-center justify-center`}>
+                  <Icon className={`w-3.5 h-3.5 ${agent.iconColor}`} />
                 </div>
-                <span className={isActive ? "text-foreground" : ""}>{henry.name}</span>
-                <span className="hidden sm:inline text-muted-foreground font-normal text-xs">— {henry.description}</span>
+                <div className="text-left">
+                  <span className={isActive ? "text-foreground" : ""}>{agent.name}</span>
+                  <span className="hidden sm:inline text-muted-foreground font-normal text-xs ml-1.5">— {agent.description}</span>
+                </div>
               </button>
             );
-          })()}
-
-          {/* Tree connector */}
-          <div className="relative w-64 h-8">
-            <div className="absolute top-0 left-1/2 -translate-x-px w-px h-4 bg-border" />
-            <div className="absolute top-4 left-1/4 right-1/4 h-px bg-border" />
-            <div className="absolute top-4 left-1/4 -translate-x-px w-px h-4 bg-border" />
-            <div className="absolute top-4 right-1/4 translate-x-px w-px h-4 bg-border" />
-          </div>
-
-          {/* Finance + Marketing — reports to Henry */}
-          <div className="flex gap-3">
-            {AGENTS.slice(1).map(agent => {
-              const Icon = agent.icon;
-              const isActive = activeSlug === agent.slug;
-              return (
-                <button
-                  key={agent.slug}
-                  onClick={() => setActiveSlug(agent.slug)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    isActive ? "bg-card border-border shadow-sm" : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  <div className={`w-6 h-6 rounded-lg ${agent.iconBg} flex items-center justify-center`}>
-                    <Icon className={`w-3.5 h-3.5 ${agent.iconColor}`} />
-                  </div>
-                  <span className={isActive ? "text-foreground" : ""}>{agent.name}</span>
-                </button>
-              );
-            })}
-          </div>
+          })}
         </div>
       </div>
 
