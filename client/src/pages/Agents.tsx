@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import { Send, Bot, TrendingUp, Megaphone } from "lucide-react";
+import { Send, Bot, TrendingUp, Megaphone, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ReactMarkdown from "react-markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
-type AgentSlug = "henry" | "finance" | "marketing";
+type AgentSlug = "henry" | "finance" | "marketing" | "ops";
 
 const AGENTS: {
   slug: AgentSlug;
@@ -69,6 +69,23 @@ const AGENTS: {
       "Which existing clients could we upsell?",
       "Give me 5 content ideas for this week",
       "Which leads should we prioritise?",
+    ],
+  },
+  {
+    slug: "ops",
+    name: "Ops",
+    description: "Task management, delivery & renewals",
+    icon: Wrench,
+    iconBg: "bg-orange-500/10",
+    iconColor: "text-orange-600",
+    sendBg: "bg-orange-600 hover:bg-orange-700",
+    endpoint: "/api/agent/ops",
+    placeholder: "Ask the Ops agent...",
+    prompts: [
+      "What tasks are blocked or overdue?",
+      "Give me a delivery status across all clients",
+      "Which annual subscriptions are coming up for renewal?",
+      "What should we prioritise in ops this week?",
     ],
   },
 ];

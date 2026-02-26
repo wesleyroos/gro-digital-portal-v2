@@ -56,7 +56,7 @@ Guidelines:
 - When creating or updating tasks, use the available tools. Always confirm what you did after using a tool.
 - For dueDate, use YYYY-MM-DD format. Status values: todo, in_progress, blocked, done. Priority values: low, medium, high.
 - Before creating a task, if the request is vague or missing important details (like what the task is for, which client, or when it's due), ask Wes for clarification first rather than guessing. Only proceed once you have enough information.
-- You have two specialist agents available on the Agents page: Finance (invoices, payments, MRR/ARR, payment chasing) and Marketing (leads pipeline, upsells, content strategy). If Wes asks about something that falls clearly in their domain, handle it yourself or suggest he switch to the relevant agent for deeper focus.`;
+- You have three specialist agents available on the Agents page: Finance (invoices, payments, MRR/ARR, payment chasing), Marketing (leads pipeline, upsells, content strategy), and Ops (task management, client delivery, annual renewals). If Wes asks about something that falls clearly in their domain, handle it yourself or suggest he switch to the relevant agent for deeper focus.`;
 }
 
 const HENRY_TOOLS = [
@@ -757,6 +757,194 @@ Guidelines:
     } catch (e) {
       console.error("[Marketing] Relay error:", e);
       res.status(502).json({ error: "Marketing agent unavailable" });
+    }
+  });
+
+  // Ops agent relay (admin only)
+  app.post("/api/agent/ops", async (req: Request, res: Response) => {
+    let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
+    try {
+      authedUser = await sdk.authenticateRequest(req);
+      if (authedUser.role !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
+    } catch { res.status(401).json({ error: "Unauthorized" }); return; }
+
+    const gatewayUrl = process.env.HENRY_GATEWAY_URL?.trim();
+    const gatewayToken = process.env.HENRY_GATEWAY_TOKEN?.trim();
+    if (!gatewayUrl || !gatewayToken) { res.status(503).json({ error: "Agent gateway not configured" }); return; }
+
+    const { message } = req.body as { message: string };
+    if (!message?.trim()) { res.status(400).json({ error: "message is required" }); return; }
+
+    const [allTasks, subs, clients] = await Promise.all([
+      db.getTasks(),
+      db.getSubscriptions(),
+      db.getDistinctClients(),
+    ]);
+
+    const fmt = (v: string | number) => {
+      const n = typeof v === "string" ? parseFloat(v) : v;
+      return `R${n.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+    };
+
+    const openTasks = allTasks.filter(t => t.status !== "done");
+    const blockedTasks = openTasks.filter(t => t.status === "blocked");
+    const overdueTasks = openTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+
+    const taskLine = (t: (typeof allTasks)[0]) => {
+      const due = t.dueDate ? ` | due ${new Date(t.dueDate).toISOString().slice(0, 10)}` : "";
+      const pri = t.priority ? ` | ${t.priority}` : "";
+      const client = t.clientName ? ` | ${t.clientName}` : "";
+      return `  - [id:${t.id}] ${t.text} | ${t.status}${pri}${due}${client}`;
+    };
+
+    const activeSubs = subs.filter(s => s.status === "active");
+    const annualSubs = activeSubs.filter(s => s.type === "annual");
+
+    const clientLines = clients.length
+      ? clients.map(c => `  - ${c.clientName} (slug: ${c.clientSlug})`).join("\n")
+      : "  None";
+
+    const systemMessage = `You are the Ops agent for GRO Digital — a web design and digital marketing agency run by Wes Roos in South Africa.
+
+Your role: keep client delivery on track — manage tasks, spot bottlenecks, track subscription renewals, and make sure nothing falls through the cracks.
+
+Today's date: ${new Date().toISOString().slice(0, 10)}
+
+TASK SUMMARY:
+  Open: ${openTasks.length} tasks (${blockedTasks.length} blocked, ${overdueTasks.length} overdue)
+
+OPEN TASKS:
+${openTasks.length ? openTasks.map(taskLine).join("\n") : "  None"}
+
+ANNUAL SUBSCRIPTIONS (renewal tracking):
+${annualSubs.length ? annualSubs.map(s => `  - [id:${s.id}] ${s.clientName} | ${s.description || "Service"} | ${fmt(s.amount)}/yr`).join("\n") : "  None"}
+
+CLIENTS:
+${clientLines}
+
+Guidelines:
+- Be practical and action-oriented. Focus on delivery, deadlines and client satisfaction.
+- Use South African currency format (R)
+- Task IDs are shown as [id:X] — use these when updating or completing tasks
+- Flag blocked or overdue tasks immediately and suggest how to unblock them
+- Do not use markdown. Plain text with line breaks only.
+- Task status: todo, in_progress, blocked, done. Priority: low, medium, high. dueDate: YYYY-MM-DD.`;
+
+    const OPS_TOOLS = [
+      {
+        type: "function" as const,
+        function: {
+          name: "create_task",
+          description: "Create a new task",
+          parameters: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              status: { type: "string", enum: ["todo", "in_progress", "blocked", "done"] },
+              priority: { type: "string", enum: ["low", "medium", "high"] },
+              dueDate: { type: "string", description: "YYYY-MM-DD" },
+              clientSlug: { type: "string" },
+              notes: { type: "string" },
+            },
+            required: ["text"],
+          },
+        },
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "update_task",
+          description: "Update an existing task by id",
+          parameters: {
+            type: "object",
+            properties: {
+              id: { type: "number", description: "Task id from the OPEN TASKS list ([id:X])" },
+              text: { type: "string" },
+              status: { type: "string", enum: ["todo", "in_progress", "blocked", "done"] },
+              priority: { type: "string", enum: ["low", "medium", "high"] },
+              dueDate: { type: "string", description: "YYYY-MM-DD" },
+              clientSlug: { type: "string" },
+              notes: { type: "string" },
+            },
+            required: ["id", "text"],
+          },
+        },
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "set_task_done",
+          description: "Mark a task as done or reopen it",
+          parameters: {
+            type: "object",
+            properties: {
+              id: { type: "number" },
+              done: { type: "boolean" },
+            },
+            required: ["id", "done"],
+          },
+        },
+      },
+    ] as const;
+
+    const history = await db.getAgentHistory(authedUser.openId, "ops");
+
+    type AnyMessage = Record<string, unknown>;
+    const messages: AnyMessage[] = [
+      { role: "system", content: systemMessage },
+      ...history,
+      { role: "user", content: message.trim() },
+    ];
+
+    try {
+      let reply = "";
+      for (let round = 0; round < 5; round++) {
+        const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${gatewayToken}`, "Content-Type": "application/json", "x-openclaw-agent-id": "ops" },
+          body: JSON.stringify({ model: "openclaw", messages, tools: OPS_TOOLS }),
+          signal: AbortSignal.timeout(120_000),
+        });
+        if (!upstream.ok) { const text = await upstream.text(); console.error(`[Ops] Gateway error ${upstream.status}:`, text); res.status(502).json({ error: "Ops agent unavailable" }); return; }
+
+        type ToolCall = { id: string; type: string; function: { name: string; arguments: string } };
+        const data = await upstream.json() as { choices: Array<{ message: { role: string; content: string | null; tool_calls?: ToolCall[] }; finish_reason: string }> };
+        const assistantMsg = data.choices[0].message;
+        messages.push({ role: "assistant", content: assistantMsg.content ?? null, tool_calls: assistantMsg.tool_calls });
+
+        if (!assistantMsg.tool_calls || assistantMsg.tool_calls.length === 0) { reply = assistantMsg.content ?? ""; break; }
+
+        for (const toolCall of assistantMsg.tool_calls) {
+          let args: Record<string, unknown> = {};
+          try { args = JSON.parse(toolCall.function.arguments); } catch { /* ignore */ }
+          let result = "";
+          try {
+            if (toolCall.function.name === "create_task") {
+              const client = args.clientSlug ? clients.find(c => c.clientSlug === args.clientSlug) : null;
+              await db.createTask(args.text as string, client?.clientSlug ?? null, client?.clientName ?? null, { status: args.status as string | undefined, dueDate: args.dueDate as string | null | undefined, priority: args.priority as string | null | undefined, notes: args.notes as string | null | undefined });
+              result = `Task created: "${args.text}"`;
+            } else if (toolCall.function.name === "update_task") {
+              const client = args.clientSlug ? clients.find(c => c.clientSlug === args.clientSlug) : null;
+              await db.updateTask(args.id as number, args.text as string, client?.clientSlug ?? null, client?.clientName ?? null, { status: args.status as string | undefined, dueDate: args.dueDate as string | null | undefined, priority: args.priority as string | null | undefined, notes: args.notes as string | null | undefined });
+              result = `Task ${args.id} updated`;
+            } else if (toolCall.function.name === "set_task_done") {
+              await db.setTaskDone(args.id as number, args.done as boolean);
+              result = `Task ${args.id} marked as ${args.done ? "done" : "open"}`;
+            } else {
+              result = `Unknown tool: ${toolCall.function.name}`;
+            }
+          } catch (e) { result = `Error: ${String(e)}`; }
+          console.log(`[Ops] Tool ${toolCall.function.name}(${toolCall.function.arguments}) → ${result}`);
+          messages.push({ role: "tool", tool_call_id: toolCall.id, content: result });
+        }
+      }
+
+      if (!reply) reply = "Done.";
+      await db.appendAgentMessages(authedUser.openId, "ops", [{ role: "user", content: message.trim() }, { role: "assistant", content: reply }]);
+      res.json({ reply });
+    } catch (e) {
+      console.error("[Ops] Relay error:", e);
+      res.status(502).json({ error: "Ops agent unavailable" });
     }
   });
 
