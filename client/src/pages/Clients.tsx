@@ -304,7 +304,7 @@ export default function Clients() {
                     onChange={e => setEmbedUrl(e.target.value)}
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Paste the Plausible embed URL (the <code>src</code> from the shared dashboard embed code).
+                    Paste the Plausible embed URL or the full embed code — either works.
                   </p>
                 </div>
               </>
@@ -322,7 +322,7 @@ export default function Clients() {
                     autoFocus
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    In Plausible, go to your site → Shared links → Create a shared link with embed enabled. Copy the <code>src</code> URL from the embed code.
+                    In Plausible, go to your site → Shared links → Create a shared link with embed enabled. Paste the embed URL or the full embed code — either works.
                   </p>
                 </div>
               </>

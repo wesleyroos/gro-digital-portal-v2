@@ -4,6 +4,15 @@ import { useParams } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Globe, BarChart2 } from "lucide-react";
 
+function extractEmbedUrl(embed: string): string {
+  const trimmed = embed.trim();
+  if (trimmed.startsWith("<")) {
+    const match = trimmed.match(/src="([^"]+)"/);
+    return match ? match[1] : embed;
+  }
+  return embed;
+}
+
 export default function ClientAnalytics() {
   const params = useParams<{ token: string }>();
   const token = params.token || "";
@@ -84,7 +93,7 @@ export default function ClientAnalytics() {
         <div className="w-full">
           <iframe
             {...{ "plausible-embed": "" }}
-            src={data.analyticsEmbed}
+            src={extractEmbedUrl(data.analyticsEmbed)}
             scrolling="no"
             frameBorder="0"
             loading="lazy"
