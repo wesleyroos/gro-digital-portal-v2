@@ -1002,7 +1002,8 @@ Guidelines:
     }
     // Inject favicon + OG tags into <head> and print button before </body>
     const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const headInject = `<link rel="icon" type="image/jpeg" href="/logo.jpg" />
+    const headInject = `<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/jpeg" href="/logo.jpg" />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="${proposal.title}" />
 <meta property="og:description" content="Proposal prepared by GRO Digital" />
