@@ -209,8 +209,7 @@ export default function Proposals() {
                     </DropdownMenu>
                     {p.viewedAt && p.status !== 'accepted' && (
                       <p className="text-[11px] text-muted-foreground mt-1">
-                        Viewed {format(new Date(p.viewedAt), "d MMM yyyy")}
-                        {p.assignedName ? ` · ${p.assignedName}` : ""}
+                        Link opened {format(new Date(p.viewedAt), "d MMM yyyy")}
                       </p>
                     )}
                     {p.acceptedAt && p.status === 'accepted' && (
