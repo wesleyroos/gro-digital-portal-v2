@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, Link2, MoreHorizontal, Trash2, ExternalLink, Pencil } from "lucide-react";
+import { Plus, Link2, MoreHorizontal, Trash2, ExternalLink, Pencil, Eye, MapPin, CheckCircle2, ChevronRight, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -30,6 +30,26 @@ function StatusBadge({ status }: { status: Status }) {
     </span>
   );
 }
+
+type Proposal = {
+  id: number;
+  token: string;
+  title: string;
+  status: string;
+  assignedType: string;
+  assignedName?: string | null;
+  clientSlug?: string | null;
+  leadId?: number | null;
+  externalEmail?: string | null;
+  htmlContent: string;
+  createdAt: Date | string;
+  sentAt?: Date | string | null;
+  viewedAt?: Date | string | null;
+  viewerIp?: string | null;
+  viewerLocation?: string | null;
+  acceptedAt?: Date | string | null;
+  acceptedBy?: string | null;
+};
 
 type FormData = {
   title: string;
@@ -64,6 +84,14 @@ export default function Proposals() {
   const [form, setForm] = useState<FormData>(emptyForm());
   const [saving, setSaving] = useState(false);
 
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailProposal, setDetailProposal] = useState<Proposal | null>(null);
+
+  const { data: viewLog = [] } = trpc.proposal.getViews.useQuery(
+    { id: detailProposal?.id ?? 0 },
+    { enabled: !!detailProposal && detailOpen },
+  );
+
   const createMutation = trpc.proposal.create.useMutation({
     onSuccess: () => {
       utils.proposal.list.invalidate();
@@ -78,13 +106,19 @@ export default function Proposals() {
     onSuccess: () => {
       utils.proposal.list.invalidate();
       if (editingId !== null) { setSheetOpen(false); setEditingId(null); setForm(emptyForm()); }
+      // Also refresh detail if open
+      if (detailOpen && detailProposal) utils.proposal.getViews.invalidate({ id: detailProposal.id });
       toast.success("Updated");
     },
     onError: () => toast.error("Failed to update"),
   });
 
   const deleteMutation = trpc.proposal.delete.useMutation({
-    onSuccess: () => { utils.proposal.list.invalidate(); toast.success("Deleted"); },
+    onSuccess: () => {
+      utils.proposal.list.invalidate();
+      setDetailOpen(false);
+      toast.success("Deleted");
+    },
     onError: () => toast.error("Failed to delete"),
   });
 
@@ -92,7 +126,8 @@ export default function Proposals() {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
-  function openEdit(p: typeof proposals[0]) {
+  function openEdit(p: Proposal, e?: React.MouseEvent) {
+    e?.stopPropagation();
     setEditingId(p.id);
     setForm({
       title: p.title,
@@ -105,6 +140,11 @@ export default function Proposals() {
       status: p.status as Status,
     });
     setSheetOpen(true);
+  }
+
+  function openDetail(p: Proposal) {
+    setDetailProposal(p);
+    setDetailOpen(true);
   }
 
   async function handleSubmit() {
@@ -143,20 +183,27 @@ export default function Proposals() {
     }
   }
 
-  function copyLink(token: string) {
+  function copyLink(token: string, e?: React.MouseEvent) {
+    e?.stopPropagation();
     const url = `${window.location.origin}/p/${token}`;
     navigator.clipboard.writeText(url).then(() => toast.success("Link copied")).catch(() => toast.error("Failed to copy"));
   }
 
-  function openLink(token: string) {
+  function openLink(token: string, e?: React.MouseEvent) {
+    e?.stopPropagation();
     window.open(`/p/${token}`, "_blank");
   }
+
+  // Keep detail proposal in sync when list refreshes
+  const syncedDetail = detailProposal
+    ? (proposals.find(p => p.id === detailProposal.id) ?? detailProposal)
+    : null;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold tracking-tight">Proposals</h1>
-        <Button size="sm" className="gap-1.5" onClick={() => { setForm(emptyForm()); setSheetOpen(true); }}>
+        <Button size="sm" className="gap-1.5" onClick={() => { setForm(emptyForm()); setEditingId(null); setSheetOpen(true); }}>
           <Plus className="w-4 h-4" />
           New Proposal
         </Button>
@@ -185,10 +232,19 @@ export default function Proposals() {
             </thead>
             <tbody>
               {proposals.map((p, i) => (
-                <tr key={p.id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
-                  <td className="px-4 py-3 font-medium text-foreground">{p.title}</td>
+                <tr
+                  key={p.id}
+                  className={`border-b border-border last:border-0 cursor-pointer hover:bg-muted/30 transition-colors ${i % 2 === 0 ? "" : "bg-muted/20"}`}
+                  onClick={() => openDetail(p)}
+                >
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    <span className="flex items-center gap-1.5">
+                      {p.title}
+                      <ChevronRight className="w-3 h-3 text-muted-foreground/50" />
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{p.assignedName || "—"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button className="hover:opacity-70 transition-opacity">
@@ -231,24 +287,12 @@ export default function Proposals() {
                   <td className="px-4 py-3 text-muted-foreground text-xs">
                     {format(new Date(p.createdAt), "d MMM yyyy")}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        title="Copy share link"
-                        onClick={() => copyLink(p.token)}
-                      >
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Copy share link" onClick={e => copyLink(p.token, e)}>
                         <Link2 className="w-3.5 h-3.5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        title="Open proposal"
-                        onClick={() => openLink(p.token)}
-                      >
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Open proposal" onClick={e => openLink(p.token, e)}>
                         <ExternalLink className="w-3.5 h-3.5" />
                       </Button>
                       <DropdownMenu>
@@ -258,13 +302,13 @@ export default function Proposals() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(p)}>
+                          <DropdownMenuItem onClick={e => openEdit(p, e)}>
                             <Pencil className="w-3.5 h-3.5 mr-2" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
-                            onClick={() => deleteMutation.mutate({ id: p.id })}
+                            onClick={e => { e.stopPropagation(); deleteMutation.mutate({ id: p.id }); }}
                           >
                             <Trash2 className="w-3.5 h-3.5 mr-2" />
                             Delete
@@ -280,7 +324,158 @@ export default function Proposals() {
         </div>
       )}
 
-      {/* New Proposal Sheet */}
+      {/* Detail sheet */}
+      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+        <SheetContent className="w-full sm:max-w-lg flex flex-col">
+          {syncedDetail && (
+            <>
+              <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <SheetTitle className="text-base leading-snug">{syncedDetail.title}</SheetTitle>
+                    {syncedDetail.assignedName && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{syncedDetail.assignedName}</p>
+                    )}
+                  </div>
+                  <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
+                    <Button variant="outline" size="sm" className="h-7 w-7 p-0" title="Copy link" onClick={e => copyLink(syncedDetail.token, e)}>
+                      <Link2 className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-7 w-7 p-0" title="Open proposal" onClick={e => openLink(syncedDetail.token, e)}>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+
+                {/* Status + dates */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="hover:opacity-70 transition-opacity">
+                          <StatusBadge status={syncedDetail.status as Status} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {(["draft", "sent", "viewed", "accepted", "declined"] as Status[]).map(s => (
+                          <DropdownMenuItem
+                            key={s}
+                            onClick={() => updateMutation.mutate({ id: syncedDetail.id, status: s })}
+                            className={syncedDetail.status === s ? "font-semibold" : ""}
+                          >
+                            {STATUS_CONFIG[s].label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Created</span>
+                      <p className="font-medium mt-0.5">{format(new Date(syncedDetail.createdAt), "d MMM yyyy")}</p>
+                    </div>
+                    {syncedDetail.sentAt && (
+                      <div>
+                        <span className="text-muted-foreground">Sent</span>
+                        <p className="font-medium mt-0.5">{format(new Date(syncedDetail.sentAt), "d MMM yyyy")}</p>
+                      </div>
+                    )}
+                    {syncedDetail.externalEmail && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Recipient email</span>
+                        <p className="font-medium mt-0.5">{syncedDetail.externalEmail}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Accepted section */}
+                {syncedDetail.acceptedAt && (
+                  <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Accepted</span>
+                    </div>
+                    <p className="text-sm font-medium text-foreground">
+                      {format(new Date(syncedDetail.acceptedAt), "d MMM yyyy 'at' HH:mm")}
+                    </p>
+                    {syncedDetail.acceptedBy && (
+                      <p className="text-xs text-muted-foreground">{syncedDetail.acceptedBy}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* View log */}
+                <div>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      View Log
+                    </span>
+                    {viewLog.length > 0 && (
+                      <span className="ml-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
+                        {viewLog.length} {viewLog.length === 1 ? "open" : "opens"}
+                      </span>
+                    )}
+                  </div>
+                  {viewLog.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">No views recorded yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {viewLog.map((v, i) => (
+                        <div key={v.id} className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
+                          <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="text-[10px] font-bold text-muted-foreground">{viewLog.length - i}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
+                              <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                              {format(new Date(v.viewedAt), "d MMM yyyy 'at' HH:mm")}
+                            </div>
+                            {v.viewerLocation && (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                {v.viewerLocation}
+                              </div>
+                            )}
+                            {v.viewerIp && (
+                              <p className="text-[11px] text-muted-foreground/60 mt-0.5 font-mono">{v.viewerIp}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Actions footer */}
+              <div className="shrink-0 px-6 py-4 border-t border-border flex items-center justify-between gap-2">
+                <Button
+                  variant="ghost" size="sm"
+                  className="text-destructive hover:text-destructive gap-1.5 text-xs"
+                  onClick={() => deleteMutation.mutate({ id: syncedDetail.id })}
+                  disabled={deleteMutation.isPending}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </Button>
+                <Button size="sm" className="gap-1.5" onClick={() => openEdit(syncedDetail)}>
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit Proposal
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Create / Edit sheet */}
       <Sheet open={sheetOpen} onOpenChange={v => { setSheetOpen(v); if (!v) { setEditingId(null); setForm(emptyForm()); } }}>
         <SheetContent className="w-full sm:max-w-xl flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">

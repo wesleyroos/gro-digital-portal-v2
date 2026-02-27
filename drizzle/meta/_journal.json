@@ -155,6 +155,13 @@
       "when": 1771931000000,
       "tag": "0021_proposal_viewer_geo",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1771932000000,
+      "tag": "0022_proposal_views_log",
+      "breakpoints": true
     }
   ]
 }

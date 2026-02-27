@@ -207,4 +207,12 @@ export const proposals = mysqlTable("proposals", {
 });
 
 export type Proposal = typeof proposals.$inferSelect;
+
+export const proposalViews = mysqlTable("proposalViews", {
+  id: int("id").autoincrement().primaryKey(),
+  proposalId: int("proposalId").notNull(),
+  viewedAt: timestamp("viewedAt").defaultNow().notNull(),
+  viewerIp: varchar("viewerIp", { length: 45 }),
+  viewerLocation: varchar("viewerLocation", { length: 255 }),
+});
 export type InsertProposal = typeof proposals.$inferInsert;

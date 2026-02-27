@@ -41,6 +41,8 @@ import {
   createProposal,
   updateProposal,
   deleteProposal,
+  getProposalViewLog,
+  logProposalView,
   setClientAnalytics,
   clearClientAnalytics,
   getClientByAnalyticsToken,
@@ -522,6 +524,10 @@ export const appRouter = router({
         await deleteProposal(input.id);
         return { success: true };
       }),
+
+    getViews: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .query(async ({ input }) => getProposalViewLog(input.id)),
   }),
 });
 

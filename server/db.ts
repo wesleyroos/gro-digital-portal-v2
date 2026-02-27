@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -766,6 +766,20 @@ export async function markProposalViewed(token: string, viewerIp?: string, viewe
   await db.update(proposals)
     .set({ status: 'viewed', viewedAt: new Date(), viewerIp: viewerIp ?? null, viewerLocation: viewerLocation ?? null })
     .where(sql`${proposals.token} = ${token} AND ${proposals.status} = 'sent'`);
+}
+
+export async function logProposalView(proposalId: number, viewerIp?: string, viewerLocation?: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(proposalViews).values({ proposalId, viewerIp: viewerIp ?? null, viewerLocation: viewerLocation ?? null });
+}
+
+export async function getProposalViewLog(proposalId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(proposalViews)
+    .where(eq(proposalViews.proposalId, proposalId))
+    .orderBy(sql`${proposalViews.viewedAt} DESC`);
 }
 
 export async function acceptProposal(token: string, email: string) {
