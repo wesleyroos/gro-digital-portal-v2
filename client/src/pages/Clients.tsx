@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Building2, ArrowRight, FileText, Plus, LayoutGrid, List, BarChart2, Link2, ExternalLink, Trash2 } from "lucide-react";
+import { Building2, ArrowRight, FileText, Plus, LayoutGrid, List, BarChart2, Link2, ExternalLink, Trash2, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -84,6 +84,22 @@ export default function Clients() {
   function copyAnalyticsLink(token: string) {
     const url = `${window.location.origin}/analytics/${token}`;
     navigator.clipboard.writeText(url).then(() => toast.success("Link copied")).catch(() => toast.error("Failed to copy"));
+  }
+
+  function embedUrlWarning(raw: string): string | null {
+    if (!raw.trim()) return null;
+    const urlToCheck = raw.trim().startsWith("<")
+      ? (raw.match(/src="([^"]+)"/) ?? [])[1] ?? raw
+      : raw.trim();
+    try {
+      const parsed = new URL(urlToCheck);
+      if (parsed.origin === window.location.origin) {
+        return "This URL points to your own app — it should start with plausible.io (or your Plausible instance).";
+      }
+    } catch {
+      // not a valid URL yet, ignore
+    }
+    return null;
   }
 
   function openAnalyticsLink(token: string) {
@@ -303,6 +319,12 @@ export default function Clients() {
                     value={embedUrl}
                     onChange={e => setEmbedUrl(e.target.value)}
                   />
+                  {embedUrlWarning(embedUrl) && (
+                    <div className="flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-2">
+                      <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                      {embedUrlWarning(embedUrl)}
+                    </div>
+                  )}
                   <p className="text-[11px] text-muted-foreground">
                     Paste the Plausible embed URL or the full embed code — either works.
                   </p>
@@ -321,6 +343,12 @@ export default function Clients() {
                     onChange={e => setEmbedUrl(e.target.value)}
                     autoFocus
                   />
+                  {embedUrlWarning(embedUrl) && (
+                    <div className="flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-2">
+                      <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                      {embedUrlWarning(embedUrl)}
+                    </div>
+                  )}
                   <p className="text-[11px] text-muted-foreground">
                     In Plausible, go to your site → Shared links → Create a shared link with embed enabled. Paste the embed URL or the full embed code — either works.
                   </p>
