@@ -960,13 +960,21 @@ Guidelines:
     if (proposal.status === 'sent') {
       await db.markProposalViewed(token);
     }
-    // Inject print button before </body>
+    // Inject favicon + OG tags into <head> and print button before </body>
+    const headInject = `<link rel="icon" type="image/jpeg" href="/logo.jpg" />
+<meta property="og:title" content="${proposal.title}" />
+<meta property="og:description" content="Proposal prepared by GRO Digital" />
+<meta property="og:image" content="/logo.jpg" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:image" content="/logo.jpg" />`;
     const printButton = `
 <div class="gd-print-btn" style="position:fixed;top:20px;right:20px;z-index:9999;font-family:'Inter',ui-sans-serif,sans-serif;">
   <button onclick="window.print()" style="background:#1e2235;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);letter-spacing:-0.01em;">Save as PDF</button>
 </div>
 <style>@media print{.gd-print-btn{display:none!important}}</style>`;
-    const html = proposal.htmlContent.replace(/<\/body>/i, `${printButton}\n</body>`);
+    const html = proposal.htmlContent
+      .replace(/<\/head>/i, `${headInject}\n</head>`)
+      .replace(/<\/body>/i, `${printButton}\n</body>`);
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(html);
   });
