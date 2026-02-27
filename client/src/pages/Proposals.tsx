@@ -208,9 +208,14 @@ export default function Proposals() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                     {p.viewedAt && p.status !== 'accepted' && (
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        Link opened {format(new Date(p.viewedAt), "d MMM yyyy")}
-                      </p>
+                      <div className="mt-1 space-y-0.5">
+                        <p className="text-[11px] text-muted-foreground">
+                          Link opened {format(new Date(p.viewedAt), "d MMM yyyy")}
+                        </p>
+                        {p.viewerLocation && (
+                          <p className="text-[11px] text-muted-foreground/70">📍 {p.viewerLocation}</p>
+                        )}
+                      </div>
                     )}
                     {p.acceptedAt && p.status === 'accepted' && (
                       <div className="mt-1 space-y-0.5">

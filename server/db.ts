@@ -760,11 +760,11 @@ export async function updateProposal(id: number, data: {
   await db.update(proposals).set(set).where(eq(proposals.id, id));
 }
 
-export async function markProposalViewed(token: string) {
+export async function markProposalViewed(token: string, viewerIp?: string, viewerLocation?: string) {
   const db = await getDb();
   if (!db) return;
   await db.update(proposals)
-    .set({ status: 'viewed', viewedAt: new Date() })
+    .set({ status: 'viewed', viewedAt: new Date(), viewerIp: viewerIp ?? null, viewerLocation: viewerLocation ?? null })
     .where(sql`${proposals.token} = ${token} AND ${proposals.status} = 'sent'`);
 }
 

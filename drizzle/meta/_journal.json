@@ -148,6 +148,13 @@
       "when": 1771930000000,
       "tag": "0020_proposal_accept",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1771931000000,
+      "tag": "0021_proposal_viewer_geo",
+      "breakpoints": true
     }
   ]
 }

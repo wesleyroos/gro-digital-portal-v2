@@ -976,9 +976,26 @@ Guidelines:
       res.status(404).send(`<!DOCTYPE html><html><head><title>Not found</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#555"><p>Proposal not found.</p></body></html>`);
       return;
     }
-    // Mark as viewed if it was in 'sent' state
+    // Mark as viewed if it was in 'sent' state — capture IP + geo location
     if (proposal.status === 'sent') {
-      await db.markProposalViewed(token);
+      const forwarded = req.headers['x-forwarded-for'];
+      const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null)
+        || req.socket?.remoteAddress
+        || null;
+      let location: string | undefined;
+      if (ip && ip !== '::1' && ip !== '127.0.0.1' && !ip.startsWith('192.168.') && !ip.startsWith('10.')) {
+        try {
+          const geo = await Promise.race([
+            fetch(`http://ip-api.com/json/${ip}?fields=city,country,status`).then(r => r.json()) as Promise<{ status: string; city?: string; country?: string }>,
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
+          ]);
+          if (geo && (geo as { status: string }).status === 'success') {
+            const parts = [(geo as { city?: string }).city, (geo as { country?: string }).country].filter(Boolean);
+            location = parts.join(', ') || undefined;
+          }
+        } catch { /* geo lookup failed or timed out — proceed without */ }
+      }
+      await db.markProposalViewed(token, ip ?? undefined, location);
     }
     // Inject favicon + OG tags into <head> and print button before </body>
     const baseUrl = `${req.protocol}://${req.get('host')}`;

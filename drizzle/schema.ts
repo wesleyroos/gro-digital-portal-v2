@@ -202,6 +202,8 @@ export const proposals = mysqlTable("proposals", {
   viewedAt: timestamp("viewedAt"),
   acceptedAt: timestamp("acceptedAt"),
   acceptedBy: varchar("acceptedBy", { length: 320 }),
+  viewerIp: varchar("viewerIp", { length: 45 }),
+  viewerLocation: varchar("viewerLocation", { length: 255 }),
 });
 
 export type Proposal = typeof proposals.$inferSelect;
