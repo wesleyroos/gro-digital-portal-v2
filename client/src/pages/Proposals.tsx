@@ -134,7 +134,7 @@ export default function Proposals() {
       assignedType: (p.assignedType as AssignedType) ?? "none",
       assignedName: p.assignedName ?? "",
       clientSlug: p.clientSlug ?? "",
-      leadId: p.leadId ? String(p.leadId) : "",
+      leadId: p.leadId != null ? String(p.leadId) : "",
       externalEmail: p.externalEmail ?? "",
       htmlContent: p.htmlContent,
       status: p.status as Status,
@@ -163,7 +163,7 @@ export default function Proposals() {
           assignedType: form.assignedType,
           assignedName: form.assignedName.trim() || null,
           clientSlug: form.assignedType === "client" ? form.clientSlug.trim() || null : null,
-          leadId: form.assignedType === "lead" && form.leadId ? parseInt(form.leadId) : null,
+          leadId: form.leadId ? parseInt(form.leadId) : null,
           externalEmail: form.assignedType !== "none" ? form.externalEmail.trim() || null : null,
         });
       } else {
@@ -174,7 +174,7 @@ export default function Proposals() {
           assignedType: form.assignedType,
           assignedName: form.assignedName.trim() || null,
           clientSlug: form.assignedType === "client" ? form.clientSlug.trim() || null : null,
-          leadId: form.assignedType === "lead" && form.leadId ? parseInt(form.leadId) : null,
+          leadId: form.leadId ? parseInt(form.leadId) : null,
           externalEmail: form.assignedType !== "none" ? form.externalEmail.trim() || null : null,
         });
       }
@@ -558,6 +558,24 @@ export default function Proposals() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {form.assignedType !== "lead" && leads.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Link to lead <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Select value={form.leadId || "_none"} onValueChange={v => set("leadId", v === "_none" ? "" : v)}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">None</SelectItem>
+                    {leads.map(l => (
+                      <SelectItem key={l.id} value={String(l.id)}>{l.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">This proposal will appear on the linked lead's card in the CRM.</p>
               </div>
             )}
 

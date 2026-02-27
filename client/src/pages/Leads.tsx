@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, User, Phone, Mail, ChevronRight, Repeat, Wrench } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Phone, Mail, ChevronRight, Repeat, Wrench, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 
 type Stage = "prospect" | "proposal" | "negotiation";
@@ -46,6 +46,7 @@ const emptyForm = (): LeadFormData => ({
 export default function Leads() {
   const utils = trpc.useUtils();
   const { data: leads = [], isLoading } = trpc.lead.list.useQuery();
+  const { data: allProposals = [] } = trpc.proposal.list.useQuery();
   type Lead = (typeof leads)[0];
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -272,6 +273,44 @@ export default function Leads() {
                         {lead.notes && (
                           <p className="text-[11px] text-muted-foreground mt-2 line-clamp-2 italic">{lead.notes}</p>
                         )}
+
+                        {(() => {
+                          const linked = allProposals.filter(p => p.leadId === lead.id);
+                          if (!linked.length) return null;
+                          const statusColor: Record<string, string> = {
+                            draft: "bg-gray-100 text-gray-600 border-gray-200",
+                            sent: "bg-blue-50 text-blue-700 border-blue-200",
+                            viewed: "bg-amber-50 text-amber-700 border-amber-200",
+                            accepted: "bg-green-50 text-green-700 border-green-200",
+                            declined: "bg-red-50 text-red-700 border-red-200",
+                          };
+                          return (
+                            <div className="mt-3 pt-3 border-t border-border/60">
+                              <div className="flex items-center gap-1 mb-1.5">
+                                <ScrollText className="w-3 h-3 text-muted-foreground" />
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Proposals</span>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {linked.map(p => (
+                                  <a
+                                    key={p.id}
+                                    href={`/p/${p.token}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between gap-2 hover:bg-background/60 rounded px-1.5 py-1 -mx-1.5 transition-colors group"
+                                  >
+                                    <span className="text-[11px] text-foreground truncate leading-tight group-hover:text-primary transition-colors">
+                                      {p.title}
+                                    </span>
+                                    <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusColor[p.status] ?? statusColor.draft}`}>
+                                      {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                                    </span>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {stage.key !== "negotiation" && (
                           <button
