@@ -1014,16 +1014,32 @@ Guidelines:
 <meta name="twitter:description" content="Proposal prepared by GRO Digital" />
 <meta name="twitter:image" content="${baseUrl}/og-image.jpg" />`;
     const alreadyAccepted = proposal.status === 'accepted';
-    const acceptBtnHtml = alreadyAccepted
-      ? `<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #86efac;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;color:#15803d;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Proposal Accepted${proposal.acceptedBy ? ` by ${proposal.acceptedBy}` : ''}
-        </div>`
+    const acceptedLabel = `Accepted${proposal.acceptedBy ? ' by ' + proposal.acceptedBy : ''}`;
+    // Desktop accept element
+    const acceptDesktop = alreadyAccepted
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #86efac;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;color:#15803d;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>${acceptedLabel}</div>`
       : `<button id="gd-accept-btn" onclick="document.getElementById('gd-accept-modal').style.display='flex'" style="background:#16a34a;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);letter-spacing:-0.01em;">Accept Proposal</button>`;
+    // Mobile dropdown accept item
+    const acceptMobile = alreadyAccepted
+      ? `<div style="padding:12px 16px;font-size:13px;font-weight:600;color:#15803d;display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>${acceptedLabel}</div>`
+      : `<button id="gd-accept-btn-m" onclick="document.getElementById('gd-mobile-dropdown').style.display='none';document.getElementById('gd-accept-modal').style.display='flex'" style="display:block;width:100%;padding:13px 16px;text-align:left;background:#fff;border:none;border-bottom:1px solid #f3f4f6;font-size:14px;font-weight:600;cursor:pointer;color:#15803d;">Accept Proposal</button>`;
     const printButton = `
-<div class="gd-print-btn" style="position:fixed;top:20px;right:20px;z-index:9999;font-family:'Inter',ui-sans-serif,sans-serif;display:flex;gap:10px;align-items:center;">
-  ${acceptBtnHtml}
-  <button onclick="window.print()" style="background:#1e2235;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);letter-spacing:-0.01em;">Save as PDF</button>
+<div class="gd-print-btn" style="position:fixed;top:16px;right:16px;z-index:9999;font-family:'Inter',ui-sans-serif,sans-serif;">
+  <!-- Desktop buttons -->
+  <div class="gd-desktop" style="display:flex;gap:10px;align-items:center;">
+    ${acceptDesktop}
+    <button onclick="window.print()" style="background:#1e2235;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);letter-spacing:-0.01em;">Save as PDF</button>
+  </div>
+  <!-- Mobile hamburger -->
+  <div class="gd-mobile" style="display:none;position:relative;">
+    <button onclick="gdToggleMenu(event)" style="background:#1e2235;color:#fff;border:none;width:42px;height:42px;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div id="gd-mobile-dropdown" style="display:none;position:absolute;top:50px;right:0;background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.15);border:1px solid #e5e7eb;min-width:210px;overflow:hidden;">
+      ${acceptMobile}
+      <button onclick="window.print()" style="display:block;width:100%;padding:13px 16px;text-align:left;background:#fff;border:none;font-size:14px;font-weight:500;cursor:pointer;color:#374151;">Save as PDF</button>
+    </div>
+  </div>
 </div>
 <div id="gd-accept-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;font-family:'Inter',ui-sans-serif,sans-serif;">
   <div style="background:#fff;border-radius:12px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
@@ -1038,20 +1054,33 @@ Guidelines:
   </div>
 </div>
 <script>
+function gdToggleMenu(e) {
+  e.stopPropagation();
+  var d = document.getElementById('gd-mobile-dropdown');
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', function() {
+  var d = document.getElementById('gd-mobile-dropdown');
+  if (d) d.style.display = 'none';
+});
 function gdSubmitAccept(token) {
   var email = document.getElementById('gd-accept-email').value.trim();
   var errEl = document.getElementById('gd-accept-error');
   var btn = document.getElementById('gd-accept-submit');
   errEl.style.display = 'none';
   if (!email) { errEl.textContent = 'Please enter your email address.'; errEl.style.display = 'block'; return; }
-  btn.textContent = 'Submitting…'; btn.disabled = true;
+  btn.textContent = 'Submitting\u2026'; btn.disabled = true;
   fetch('/api/proposals/' + token + '/accept', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: email })
   }).then(function(r) { return r.json(); }).then(function(data) {
     if (data.success) {
       document.getElementById('gd-accept-modal').style.display = 'none';
-      document.getElementById('gd-accept-btn').outerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #86efac;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;color:#15803d;"><svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"16\\" height=\\"16\\" viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"2.5\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"><polyline points=\\"20 6 9 17 4 12\\"/></svg>Proposal Accepted</div>';
+      var btnD = document.getElementById('gd-accept-btn');
+      var btnM = document.getElementById('gd-accept-btn-m');
+      var accepted = '<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #86efac;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;color:#15803d;"><svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"16\\" height=\\"16\\" viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"2.5\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"><polyline points=\\"20 6 9 17 4 12\\"/></svg>Proposal Accepted</div>';
+      if (btnD) btnD.outerHTML = accepted;
+      if (btnM) btnM.outerHTML = accepted;
     } else {
       errEl.textContent = data.error || 'Something went wrong.'; errEl.style.display = 'block';
       btn.textContent = 'Confirm Acceptance'; btn.disabled = false;
@@ -1062,7 +1091,10 @@ function gdSubmitAccept(token) {
   });
 }
 </script>
-<style>@media print{.gd-print-btn{display:none!important}}</style>`;
+<style>
+@media (max-width: 640px) { .gd-desktop { display: none !important; } .gd-mobile { display: block !important; } }
+@media print { .gd-print-btn { display: none !important; } }
+</style>`;
     const html = proposal.htmlContent
       .replace(/<\/head>/i, `${headInject}\n</head>`)
       .replace(/<\/body>/i, `${printButton}\n</body>`);
