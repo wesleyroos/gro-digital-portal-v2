@@ -162,7 +162,7 @@ export default function Proposals() {
           status: form.status,
           assignedType: form.assignedType,
           assignedName: form.assignedName.trim() || null,
-          clientSlug: form.assignedType === "client" ? form.clientSlug.trim() || null : null,
+          clientSlug: form.clientSlug.trim() || null,
           leadId: form.leadId ? parseInt(form.leadId) : null,
           externalEmail: form.assignedType !== "none" ? form.externalEmail.trim() || null : null,
         });
@@ -173,7 +173,7 @@ export default function Proposals() {
           status: form.status,
           assignedType: form.assignedType,
           assignedName: form.assignedName.trim() || null,
-          clientSlug: form.assignedType === "client" ? form.clientSlug.trim() || null : null,
+          clientSlug: form.clientSlug.trim() || null,
           leadId: form.leadId ? parseInt(form.leadId) : null,
           externalEmail: form.assignedType !== "none" ? form.externalEmail.trim() || null : null,
         });
@@ -538,6 +538,24 @@ export default function Proposals() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {form.assignedType !== "client" && clients.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Link to client <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Select value={form.clientSlug || "_none"} onValueChange={v => set("clientSlug", v === "_none" ? "" : v)}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">None</SelectItem>
+                    {clients.map(c => (
+                      <SelectItem key={c.clientSlug} value={c.clientSlug}>{c.clientName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">This proposal will appear on the linked client's portal page.</p>
               </div>
             )}
 

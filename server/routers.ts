@@ -38,6 +38,7 @@ import {
   updateSubscription,
   deleteSubscription,
   getProposals,
+  getProposalsByClient,
   createProposal,
   updateProposal,
   deleteProposal,
@@ -528,6 +529,10 @@ export const appRouter = router({
     getViews: adminProcedure
       .input(z.object({ id: z.number().int() }))
       .query(async ({ input }) => getProposalViewLog(input.id)),
+
+    listByClient: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .query(async ({ input }) => getProposalsByClient(input.clientSlug)),
   }),
 });
 

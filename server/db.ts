@@ -700,6 +700,14 @@ export async function getProposals() {
   return db.select().from(proposals).orderBy(desc(proposals.createdAt));
 }
 
+export async function getProposalsByClient(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(proposals)
+    .where(eq(proposals.clientSlug, clientSlug))
+    .orderBy(desc(proposals.createdAt));
+}
+
 export async function getProposalByToken(token: string) {
   const db = await getDb();
   if (!db) return null;

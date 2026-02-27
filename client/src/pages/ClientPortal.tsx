@@ -32,6 +32,7 @@ import {
   ExternalLink,
   Trash2,
   AlertTriangle,
+  ScrollText,
 } from "lucide-react";
 
 function embedUrlWarning(raw: string): string | null {
@@ -95,6 +96,7 @@ export default function ClientPortal() {
 
   const { data: invoices, isLoading, error } = trpc.invoice.listByClient.useQuery({ clientSlug: slug });
   const { data: profile } = trpc.client.getProfile.useQuery({ clientSlug: slug }, { enabled: isAdmin });
+  const { data: clientProposals = [] } = trpc.proposal.listByClient.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: allTasks = [] } = trpc.task.list.useQuery(undefined, { enabled: isAdmin });
 
   const openTasks = allTasks.filter(t => t.status !== 'done' && t.clientSlug === slug);
@@ -444,6 +446,43 @@ export default function ClientPortal() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Proposals */}
+            {clientProposals.length > 0 && (
+              <Card className="shadow-sm">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <ScrollText className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Proposals</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {clientProposals.map(p => {
+                      const statusColor: Record<string, string> = {
+                        draft: "bg-gray-100 text-gray-600 border-gray-200",
+                        sent: "bg-blue-50 text-blue-700 border-blue-200",
+                        viewed: "bg-amber-50 text-amber-700 border-amber-200",
+                        accepted: "bg-green-50 text-green-700 border-green-200",
+                        declined: "bg-red-50 text-red-700 border-red-200",
+                      };
+                      return (
+                        <a
+                          key={p.id}
+                          href={`/p/${p.token}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between gap-2 hover:bg-muted/40 rounded px-2 py-1.5 -mx-2 transition-colors group"
+                        >
+                          <span className="text-xs text-foreground truncate group-hover:text-primary transition-colors">{p.title}</span>
+                          <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusColor[p.status] ?? statusColor.draft}`}>
+                            {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                          </span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Open tasks */}
             <Card className="shadow-sm">
