@@ -190,6 +190,11 @@ export default function Clients() {
                     >
                       <BarChart2 className="w-3 h-3" />
                       Analytics
+                      {client.analyticsToken && (
+                        <span className="text-[9px] font-bold bg-indigo-600 text-white px-1.5 py-0.5 rounded-full leading-none">
+                          Enabled
+                        </span>
+                      )}
                     </button>
                   </CardContent>
                 </Card>
@@ -246,6 +251,11 @@ export default function Clients() {
                         >
                           <BarChart2 className="w-3 h-3" />
                           {client.analyticsToken ? "View" : "Setup"}
+                          {client.analyticsToken && (
+                            <span className="text-[9px] font-bold bg-indigo-600 text-white px-1.5 py-0.5 rounded-full leading-none">
+                              Enabled
+                            </span>
+                          )}
                         </button>
                       </div>
                       <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors justify-self-end" />
