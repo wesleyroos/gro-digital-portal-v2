@@ -200,6 +200,8 @@ export const proposals = mysqlTable("proposals", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   sentAt: timestamp("sentAt"),
   viewedAt: timestamp("viewedAt"),
+  acceptedAt: timestamp("acceptedAt"),
+  acceptedBy: varchar("acceptedBy", { length: 320 }),
 });
 
 export type Proposal = typeof proposals.$inferSelect;

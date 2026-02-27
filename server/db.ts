@@ -768,6 +768,19 @@ export async function markProposalViewed(token: string) {
     .where(sql`${proposals.token} = ${token} AND ${proposals.status} = 'sent'`);
 }
 
+export async function acceptProposal(token: string, email: string) {
+  const db = await getDb();
+  if (!db) return { ok: false, reason: 'db' };
+  const proposal = await getProposalByToken(token);
+  if (!proposal) return { ok: false, reason: 'not_found' };
+  if (proposal.status === 'accepted') return { ok: false, reason: 'already_accepted' };
+  if (proposal.status === 'draft') return { ok: false, reason: 'not_sent' };
+  await db.update(proposals)
+    .set({ status: 'accepted', acceptedAt: new Date(), acceptedBy: email })
+    .where(eq(proposals.token, token));
+  return { ok: true };
+}
+
 export async function deleteProposal(id: number) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');

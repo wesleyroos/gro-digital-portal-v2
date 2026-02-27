@@ -948,6 +948,26 @@ Guidelines:
     }
   });
 
+  // Accept proposal — POST /api/proposals/:token/accept
+  app.post("/api/proposals/:token/accept", async (req: Request, res: Response) => {
+    const { token } = req.params;
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      res.status(400).json({ error: 'A valid email address is required.' });
+      return;
+    }
+    const result = await db.acceptProposal(token, email.trim().toLowerCase());
+    if (!result.ok) {
+      const msg = result.reason === 'already_accepted' ? 'This proposal has already been accepted.'
+        : result.reason === 'not_found' ? 'Proposal not found.'
+        : result.reason === 'not_sent' ? 'This proposal cannot be accepted yet.'
+        : 'Something went wrong.';
+      res.status(400).json({ error: msg });
+      return;
+    }
+    res.json({ success: true });
+  });
+
   // Public proposal view — /p/:token
   app.get("/p/:token", async (req: Request, res: Response) => {
     const { token } = req.params;
@@ -973,10 +993,55 @@ Guidelines:
 <meta name="twitter:title" content="${proposal.title}" />
 <meta name="twitter:description" content="Proposal prepared by GRO Digital" />
 <meta name="twitter:image" content="${baseUrl}/og-image.jpg" />`;
+    const alreadyAccepted = proposal.status === 'accepted';
+    const acceptBtnHtml = alreadyAccepted
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #86efac;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;color:#15803d;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Proposal Accepted${proposal.acceptedBy ? ` by ${proposal.acceptedBy}` : ''}
+        </div>`
+      : `<button id="gd-accept-btn" onclick="document.getElementById('gd-accept-modal').style.display='flex'" style="background:#16a34a;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);letter-spacing:-0.01em;">Accept Proposal</button>`;
     const printButton = `
-<div class="gd-print-btn" style="position:fixed;top:20px;right:20px;z-index:9999;font-family:'Inter',ui-sans-serif,sans-serif;">
+<div class="gd-print-btn" style="position:fixed;top:20px;right:20px;z-index:9999;font-family:'Inter',ui-sans-serif,sans-serif;display:flex;gap:10px;align-items:center;">
+  ${acceptBtnHtml}
   <button onclick="window.print()" style="background:#1e2235;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);letter-spacing:-0.01em;">Save as PDF</button>
 </div>
+<div id="gd-accept-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;font-family:'Inter',ui-sans-serif,sans-serif;">
+  <div style="background:#fff;border-radius:12px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+    <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#111;">Accept this proposal</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">Please enter your email address to confirm your acceptance.</p>
+    <input id="gd-accept-email" type="email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #d1d5db;border-radius:6px;font-size:14px;outline:none;margin-bottom:8px;" />
+    <p id="gd-accept-error" style="color:#dc2626;font-size:12px;margin:0 0 12px;display:none;"></p>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button onclick="document.getElementById('gd-accept-modal').style.display='none'" style="flex:1;padding:10px;border:1.5px solid #d1d5db;border-radius:6px;background:#fff;font-size:14px;font-weight:500;cursor:pointer;color:#374151;">Cancel</button>
+      <button id="gd-accept-submit" onclick="gdSubmitAccept('${proposal.token}')" style="flex:1;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;">Confirm Acceptance</button>
+    </div>
+  </div>
+</div>
+<script>
+function gdSubmitAccept(token) {
+  var email = document.getElementById('gd-accept-email').value.trim();
+  var errEl = document.getElementById('gd-accept-error');
+  var btn = document.getElementById('gd-accept-submit');
+  errEl.style.display = 'none';
+  if (!email) { errEl.textContent = 'Please enter your email address.'; errEl.style.display = 'block'; return; }
+  btn.textContent = 'Submitting…'; btn.disabled = true;
+  fetch('/api/proposals/' + token + '/accept', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.success) {
+      document.getElementById('gd-accept-modal').style.display = 'none';
+      document.getElementById('gd-accept-btn').outerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #86efac;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;color:#15803d;"><svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"16\\" height=\\"16\\" viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"2.5\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"><polyline points=\\"20 6 9 17 4 12\\"/></svg>Proposal Accepted</div>';
+    } else {
+      errEl.textContent = data.error || 'Something went wrong.'; errEl.style.display = 'block';
+      btn.textContent = 'Confirm Acceptance'; btn.disabled = false;
+    }
+  }).catch(function() {
+    errEl.textContent = 'Network error. Please try again.'; errEl.style.display = 'block';
+    btn.textContent = 'Confirm Acceptance'; btn.disabled = false;
+  });
+}
+</script>
 <style>@media print{.gd-print-btn{display:none!important}}</style>`;
     const html = proposal.htmlContent
       .replace(/<\/head>/i, `${headInject}\n</head>`)
