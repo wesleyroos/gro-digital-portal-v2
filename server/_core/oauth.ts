@@ -961,12 +961,18 @@ Guidelines:
       await db.markProposalViewed(token);
     }
     // Inject favicon + OG tags into <head> and print button before </body>
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
     const headInject = `<link rel="icon" type="image/jpeg" href="/logo.jpg" />
+<meta property="og:type" content="website" />
 <meta property="og:title" content="${proposal.title}" />
 <meta property="og:description" content="Proposal prepared by GRO Digital" />
-<meta property="og:image" content="/logo.jpg" />
+<meta property="og:image" content="${baseUrl}/logo.jpg" />
+<meta property="og:image:width" content="1120" />
+<meta property="og:image:height" content="1120" />
 <meta name="twitter:card" content="summary" />
-<meta name="twitter:image" content="/logo.jpg" />`;
+<meta name="twitter:title" content="${proposal.title}" />
+<meta name="twitter:description" content="Proposal prepared by GRO Digital" />
+<meta name="twitter:image" content="${baseUrl}/logo.jpg" />`;
     const printButton = `
 <div class="gd-print-btn" style="position:fixed;top:20px;right:20px;z-index:9999;font-family:'Inter',ui-sans-serif,sans-serif;">
   <button onclick="window.print()" style="background:#1e2235;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.18);letter-spacing:-0.01em;">Save as PDF</button>
