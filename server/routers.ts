@@ -270,7 +270,7 @@ export const appRouter = router({
     setAnalytics: adminProcedure
       .input(z.object({
         clientSlug: z.string(),
-        analyticsEmbed: z.string().url().min(1),
+        analyticsEmbed: z.string().min(1),
       }))
       .mutation(async ({ input }) => {
         const token = await setClientAnalytics(input.clientSlug, input.analyticsEmbed);
