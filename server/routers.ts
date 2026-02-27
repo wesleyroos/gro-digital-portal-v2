@@ -41,6 +41,9 @@ import {
   createProposal,
   updateProposal,
   deleteProposal,
+  setClientAnalytics,
+  clearClientAnalytics,
+  getClientByAnalyticsToken,
 } from "./db";
 import { getCalendarEvents } from "./calendar";
 
@@ -262,6 +265,29 @@ export const appRouter = router({
         const { clientSlug, ...fields } = input;
         await upsertClientProfile(clientSlug, fields);
         return { success: true };
+      }),
+
+    setAnalytics: adminProcedure
+      .input(z.object({
+        clientSlug: z.string(),
+        analyticsEmbed: z.string().url().min(1),
+      }))
+      .mutation(async ({ input }) => {
+        const token = await setClientAnalytics(input.clientSlug, input.analyticsEmbed);
+        return { token };
+      }),
+
+    clearAnalytics: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ input }) => {
+        await clearClientAnalytics(input.clientSlug);
+        return { success: true };
+      }),
+
+    getAnalytics: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        return getClientByAnalyticsToken(input.token);
       }),
   }),
 

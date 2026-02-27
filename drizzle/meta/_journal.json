@@ -134,6 +134,13 @@
       "when": 1771928000000,
       "tag": "0018_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1771929000000,
+      "tag": "0019_client_analytics",
+      "breakpoints": true
     }
   ]
 }

@@ -109,6 +109,8 @@ export const clientProfiles = mysqlTable("clientProfiles", {
   contact: varchar("contact", { length: 255 }),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 64 }),
+  analyticsEmbed: text("analyticsEmbed"),
+  analyticsToken: varchar("analyticsToken", { length: 21 }).unique(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 

@@ -330,10 +330,11 @@ export async function getDistinctClients() {
       clientEmail: sql<string>`MAX(${invoices.clientEmail})`,
       clientPhone: sql<string>`MAX(${invoices.clientPhone})`,
       address: clientProfiles.address,
+      analyticsToken: clientProfiles.analyticsToken,
     })
     .from(invoices)
     .leftJoin(clientProfiles, eq(invoices.clientSlug, clientProfiles.clientSlug))
-    .groupBy(invoices.clientSlug, clientProfiles.address);
+    .groupBy(invoices.clientSlug, clientProfiles.address, clientProfiles.analyticsToken);
 
   return result;
 }
@@ -406,12 +407,12 @@ export async function getClientProfile(clientSlug: string) {
   return result[0] ?? null;
 }
 
-export async function upsertClientProfile(clientSlug: string, fields: { notes?: string | null; address?: string | null; name?: string | null; contact?: string | null; email?: string | null; phone?: string | null }) {
+export async function upsertClientProfile(clientSlug: string, fields: { notes?: string | null; address?: string | null; name?: string | null; contact?: string | null; email?: string | null; phone?: string | null; analyticsEmbed?: string | null; analyticsToken?: string | null }) {
   const db = await getDb();
   if (!db) return;
   const values: Record<string, unknown> = { clientSlug };
   const updateSet: Record<string, unknown> = {};
-  const fieldKeys = ['notes', 'address', 'name', 'contact', 'email', 'phone'] as const;
+  const fieldKeys = ['notes', 'address', 'name', 'contact', 'email', 'phone', 'analyticsEmbed', 'analyticsToken'] as const;
   for (const key of fieldKeys) {
     if (key in fields) { values[key] = fields[key] ?? null; updateSet[key] = fields[key] ?? null; }
   }
@@ -771,6 +772,34 @@ export async function deleteProposal(id: number) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
   await db.delete(proposals).where(eq(proposals.id, id));
+}
+
+// ── Client analytics ──────────────────────────────────────────────────────────
+
+export async function setClientAnalytics(clientSlug: string, analyticsEmbed: string) {
+  const existing = await getClientProfile(clientSlug);
+  const token = existing?.analyticsToken ?? nanoid(21);
+  await upsertClientProfile(clientSlug, { analyticsEmbed, analyticsToken: token });
+  return token;
+}
+
+export async function clearClientAnalytics(clientSlug: string) {
+  await upsertClientProfile(clientSlug, { analyticsEmbed: null, analyticsToken: null });
+}
+
+export async function getClientByAnalyticsToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({
+      clientSlug: clientProfiles.clientSlug,
+      name: clientProfiles.name,
+      analyticsEmbed: clientProfiles.analyticsEmbed,
+    })
+    .from(clientProfiles)
+    .where(eq(clientProfiles.analyticsToken, token))
+    .limit(1);
+  return result[0] ?? null;
 }
 
 export async function getOutstandingInvoices() {

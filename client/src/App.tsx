@@ -20,6 +20,7 @@ import Tasks from "./pages/Tasks";
 import Subscriptions from "./pages/Subscriptions";
 import Agents from "./pages/Agents";
 import Proposals from "./pages/Proposals";
+import ClientAnalytics from "./pages/ClientAnalytics";
 import Login from "./pages/Login";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +37,7 @@ function Router() {
       <Route path={"/client/:slug"} component={ClientPortal} />
       <Route path={"/client/:slug/invoice/:invoiceNumber"} component={Invoice} />
       <Route path={"/i/:token"} component={SharedInvoice} />
+      <Route path={"/analytics/:token"} component={ClientAnalytics} />
 
       {/* Admin routes — wrapped in sidebar layout */}
       <Route>
