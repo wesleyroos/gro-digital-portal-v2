@@ -111,6 +111,9 @@ export const clientProfiles = mysqlTable("clientProfiles", {
   phone: varchar("phone", { length: 64 }),
   analyticsEmbed: text("analyticsEmbed"),
   analyticsToken: varchar("analyticsToken", { length: 21 }).unique(),
+  instagramBusinessId: varchar("instagramBusinessId", { length: 255 }),
+  instagramAccessToken: text("instagramAccessToken"),
+  instagramUsername: varchar("instagramUsername", { length: 255 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
@@ -216,3 +219,62 @@ export const proposalViews = mysqlTable("proposalViews", {
   viewerLocation: varchar("viewerLocation", { length: 255 }),
 });
 export type InsertProposal = typeof proposals.$inferInsert;
+
+/**
+ * Marketing campaigns — one per client engagement.
+ */
+export const marketingCampaigns = mysqlTable("marketing_campaigns", {
+  id: int("id").autoincrement().primaryKey(),
+  clientSlug: varchar("clientSlug", { length: 128 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  status: mysqlEnum("status", ["discovery", "strategy", "generating", "approval", "active", "completed"]).default("discovery").notNull(),
+  strategy: text("strategy"),
+  brandVoice: text("brandVoice"),
+  targetAudience: text("targetAudience"),
+  contentThemes: text("contentThemes"),
+  postsPerWeek: int("postsPerWeek").default(3),
+  startDate: date("startDate"),
+  endDate: date("endDate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+export type InsertMarketingCampaign = typeof marketingCampaigns.$inferInsert;
+
+/**
+ * Marketing posts — individual scheduled Instagram posts within a campaign.
+ */
+export const marketingPosts = mysqlTable("marketing_posts", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaignId").notNull(),
+  scheduledAt: timestamp("scheduledAt"),
+  caption: text("caption"),
+  hashtags: text("hashtags"),
+  imagePrompt: text("imagePrompt"),
+  imageUrl: text("imageUrl"),
+  status: mysqlEnum("status", ["draft", "approved", "rejected", "scheduled", "posted", "failed"]).default("draft").notNull(),
+  instagramPostId: varchar("instagramPostId", { length: 128 }),
+  theme: varchar("theme", { length: 255 }),
+  notes: text("notes"),
+  sortOrder: int("sortOrder").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MarketingPost = typeof marketingPosts.$inferSelect;
+export type InsertMarketingPost = typeof marketingPosts.$inferInsert;
+
+/**
+ * Campaign messages — chat history per campaign (includes tool role for agentic loop).
+ */
+export const campaignMessages = mysqlTable("campaign_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaignId").notNull(),
+  role: varchar("role", { length: 32 }).notNull(), // user | assistant | tool
+  content: text("content").notNull(),
+  toolCallId: varchar("toolCallId", { length: 128 }),
+  toolName: varchar("toolName", { length: 128 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CampaignMessage = typeof campaignMessages.$inferSelect;

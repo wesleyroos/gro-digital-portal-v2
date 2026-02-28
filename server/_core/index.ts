@@ -4,6 +4,9 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerCampaignAgentRoutes } from "../marketing-agent";
+import { registerInstagramOAuthRoutes } from "../instagram-oauth";
+import { startScheduler } from "../scheduler";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -36,6 +39,8 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  registerCampaignAgentRoutes(app);
+  registerInstagramOAuthRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",
@@ -60,6 +65,7 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    startScheduler();
   });
 }
 

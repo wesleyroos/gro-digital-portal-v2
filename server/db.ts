@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, InsertMarketingPost } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -852,4 +852,173 @@ export async function getOutstandingInvoices() {
     .from(invoices)
     .where(sql`${invoices.status} IN ('sent', 'overdue')`)
     .orderBy(asc(invoices.dueDate));
+}
+
+// ── Marketing campaigns ────────────────────────────────────────────────────────
+
+export async function getCampaigns() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(marketingCampaigns).orderBy(desc(marketingCampaigns.createdAt));
+}
+
+export async function getCampaignById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function createCampaign(data: { clientSlug: string; name: string }) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const result = await db.insert(marketingCampaigns).values({
+    clientSlug: data.clientSlug,
+    name: data.name,
+    status: 'discovery',
+  }).$returningId();
+  return result[0].id;
+}
+
+export async function updateCampaign(id: number, data: {
+  status?: 'discovery' | 'strategy' | 'generating' | 'approval' | 'active' | 'completed';
+  strategy?: string | null;
+  brandVoice?: string | null;
+  targetAudience?: string | null;
+  contentThemes?: string | null;
+  postsPerWeek?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const set: Record<string, unknown> = {};
+  if (data.status !== undefined) set.status = data.status;
+  if ('strategy' in data) set.strategy = data.strategy ?? null;
+  if ('brandVoice' in data) set.brandVoice = data.brandVoice ?? null;
+  if ('targetAudience' in data) set.targetAudience = data.targetAudience ?? null;
+  if ('contentThemes' in data) set.contentThemes = data.contentThemes ?? null;
+  if ('postsPerWeek' in data) set.postsPerWeek = data.postsPerWeek ?? null;
+  if ('startDate' in data) set.startDate = data.startDate ? new Date(data.startDate) : null;
+  if ('endDate' in data) set.endDate = data.endDate ? new Date(data.endDate) : null;
+  await db.update(marketingCampaigns).set(set).where(eq(marketingCampaigns.id, id));
+}
+
+// ── Marketing posts ────────────────────────────────────────────────────────────
+
+export async function getPostsByCampaign(campaignId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(marketingPosts)
+    .where(eq(marketingPosts.campaignId, campaignId))
+    .orderBy(asc(marketingPosts.sortOrder), asc(marketingPosts.scheduledAt));
+}
+
+export async function getPostById(postId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(marketingPosts).where(eq(marketingPosts.id, postId)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function createPosts(posts: Omit<InsertMarketingPost, 'id' | 'createdAt'>[]) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  if (posts.length === 0) return;
+  await db.insert(marketingPosts).values(posts);
+}
+
+export async function updatePostStatus(
+  postId: number,
+  status: 'draft' | 'approved' | 'rejected' | 'scheduled' | 'posted' | 'failed',
+  extra?: { instagramPostId?: string; notes?: string }
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const set: Record<string, unknown> = { status };
+  if (extra?.instagramPostId !== undefined) set.instagramPostId = extra.instagramPostId;
+  if (extra?.notes !== undefined) set.notes = extra.notes;
+  await db.update(marketingPosts).set(set).where(eq(marketingPosts.id, postId));
+}
+
+export async function updatePostImageUrl(postId: number, imageUrl: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.update(marketingPosts).set({ imageUrl }).where(eq(marketingPosts.id, postId));
+}
+
+export async function approveAllPosts(campaignId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.update(marketingPosts)
+    .set({ status: 'approved' })
+    .where(sql`${marketingPosts.campaignId} = ${campaignId} AND ${marketingPosts.status} = 'draft'`);
+}
+
+export async function getPostsDueForPublishing() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(marketingPosts)
+    .where(sql`${marketingPosts.status} IN ('approved', 'scheduled') AND ${marketingPosts.scheduledAt} IS NOT NULL AND ${marketingPosts.scheduledAt} <= NOW()`);
+}
+
+// ── Campaign messages ─────────────────────────────────────────────────────────
+
+export async function getCampaignMessages(campaignId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(campaignMessages)
+    .where(eq(campaignMessages.campaignId, campaignId))
+    .orderBy(asc(campaignMessages.createdAt));
+}
+
+export async function appendCampaignMessages(campaignId: number, messages: Array<{
+  role: string;
+  content: string;
+  toolCallId?: string | null;
+  toolName?: string | null;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(campaignMessages).values(
+    messages.map(m => ({
+      campaignId,
+      role: m.role,
+      content: m.content,
+      toolCallId: m.toolCallId ?? null,
+      toolName: m.toolName ?? null,
+    }))
+  );
+}
+
+// ── Instagram tokens ──────────────────────────────────────────────────────────
+
+export async function storeInstagramTokens(clientSlug: string, businessId: string, accessToken: string, username: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(clientProfiles)
+    .values({ clientSlug, instagramBusinessId: businessId, instagramAccessToken: accessToken, instagramUsername: username } as any)
+    .onDuplicateKeyUpdate({ set: { instagramBusinessId: businessId, instagramAccessToken: accessToken, instagramUsername: username } });
+}
+
+export async function clearInstagramTokens(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(clientProfiles)
+    .set({ instagramBusinessId: null, instagramAccessToken: null, instagramUsername: null })
+    .where(eq(clientProfiles.clientSlug, clientSlug));
+}
+
+export async function getInstagramTokens(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({ instagramBusinessId: clientProfiles.instagramBusinessId, instagramAccessToken: clientProfiles.instagramAccessToken, instagramUsername: clientProfiles.instagramUsername })
+    .from(clientProfiles)
+    .where(eq(clientProfiles.clientSlug, clientSlug))
+    .limit(1);
+  if (result.length === 0) return null;
+  const { instagramBusinessId, instagramAccessToken, instagramUsername } = result[0];
+  if (!instagramBusinessId || !instagramAccessToken) return null;
+  return { businessId: instagramBusinessId, accessToken: instagramAccessToken, username: instagramUsername ?? '' };
 }

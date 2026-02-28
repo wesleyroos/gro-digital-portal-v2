@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, Bot, ScrollText } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, Bot, ScrollText, Megaphone } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -36,6 +36,7 @@ const menuItems = [
   { icon: FileText, label: "Invoices", path: "/invoices" },
   { icon: ScrollText, label: "Proposals", path: "/proposals" },
   { icon: Target, label: "Leads", path: "/leads" },
+  { icon: Megaphone, label: "Marketing", path: "/marketing" },
   { icon: Bot, label: "Agents", path: "/agents" },
   { icon: CheckSquare, label: "Tasks", path: "/tasks" },
   { icon: CalendarDays, label: "Calendar", path: "/calendar" },
@@ -122,7 +123,7 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
+  const activeMenuItem = menuItems.find(item => item.path === location || (item.path !== '/' && location.startsWith(item.path)));
   const isMobile = useIsMobile();
 
   useEffect(() => {

@@ -47,7 +47,19 @@ import {
   setClientAnalytics,
   clearClientAnalytics,
   getClientByAnalyticsToken,
+  getCampaigns,
+  getCampaignById,
+  createCampaign,
+  updateCampaign,
+  getPostsByCampaign,
+  getPostById,
+  updatePostStatus,
+  approveAllPosts,
+  getCampaignMessages,
+  getInstagramTokens,
+  clearInstagramTokens,
 } from "./db";
+import { generateAndStorePostImage } from "./image-gen";
 import { getCalendarEvents } from "./calendar";
 
 export const appRouter = router({
@@ -533,6 +545,99 @@ export const appRouter = router({
     listByClient: adminProcedure
       .input(z.object({ clientSlug: z.string() }))
       .query(async ({ input }) => getProposalsByClient(input.clientSlug)),
+  }),
+
+  campaign: router({
+    list: adminProcedure.query(async () => getCampaigns()),
+
+    get: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .query(async ({ input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) return null;
+        const [posts, messages] = await Promise.all([
+          getPostsByCampaign(input.id),
+          getCampaignMessages(input.id),
+        ]);
+        return { campaign, posts, messages };
+      }),
+
+    create: adminProcedure
+      .input(z.object({ clientSlug: z.string().min(1), name: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        const id = await createCampaign(input);
+        return { id };
+      }),
+
+    updateStatus: adminProcedure
+      .input(z.object({
+        id: z.number().int(),
+        status: z.enum(['discovery', 'strategy', 'generating', 'approval', 'active', 'completed']),
+      }))
+      .mutation(async ({ input }) => {
+        await updateCampaign(input.id, { status: input.status });
+        return { success: true };
+      }),
+
+    post: router({
+      approve: adminProcedure
+        .input(z.object({ postId: z.number().int() }))
+        .mutation(async ({ input }) => {
+          await updatePostStatus(input.postId, 'approved');
+          return { success: true };
+        }),
+
+      reject: adminProcedure
+        .input(z.object({ postId: z.number().int(), notes: z.string().optional() }))
+        .mutation(async ({ input }) => {
+          await updatePostStatus(input.postId, 'rejected', { notes: input.notes });
+          return { success: true };
+        }),
+
+      generateImage: adminProcedure
+        .input(z.object({ postId: z.number().int() }))
+        .mutation(async ({ input }) => {
+          const post = await getPostById(input.postId);
+          if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
+          if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id);
+          return { url };
+        }),
+
+      regenerateImage: adminProcedure
+        .input(z.object({ postId: z.number().int() }))
+        .mutation(async ({ input }) => {
+          const post = await getPostById(input.postId);
+          if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
+          if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id);
+          return { url };
+        }),
+
+      approveAll: adminProcedure
+        .input(z.object({ campaignId: z.number().int() }))
+        .mutation(async ({ input }) => {
+          await approveAllPosts(input.campaignId);
+          return { success: true };
+        }),
+    }),
+  }),
+
+  instagram: router({
+    getStatus: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .query(async ({ input }) => {
+        const tokens = await getInstagramTokens(input.clientSlug);
+        if (!tokens) return { connected: false, username: null };
+        return { connected: true, username: tokens.username };
+      }),
+
+    disconnect: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ input }) => {
+        await clearInstagramTokens(input.clientSlug);
+        return { success: true };
+      }),
   }),
 });
 

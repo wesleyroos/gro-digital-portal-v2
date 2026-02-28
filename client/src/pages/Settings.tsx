@@ -241,6 +241,64 @@ function RailwayStatus() {
   );
 }
 
+function InstagramSection() {
+  const { data: clients } = trpc.invoice.clients.useQuery();
+
+  return (
+    <div className="rounded-xl border bg-card p-6 mt-4">
+      <h2 className="text-base font-semibold mb-1">Instagram</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        Connect each client's Instagram Business account to enable campaign auto-posting.
+      </p>
+      <div className="space-y-3">
+        {(clients ?? []).map(client => (
+          <InstagramClientRow key={client.clientSlug} clientSlug={client.clientSlug} clientName={client.clientName} />
+        ))}
+        {(clients ?? []).length === 0 && (
+          <p className="text-sm text-muted-foreground">No clients found.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InstagramClientRow({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
+  const { data, refetch } = trpc.instagram.getStatus.useQuery({ clientSlug });
+  const disconnect = trpc.instagram.disconnect.useMutation({
+    onSuccess: () => { refetch(); toast.success(`Instagram disconnected for ${clientName}`); },
+    onError: () => toast.error("Failed to disconnect"),
+  });
+
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <div>
+        <p className="text-sm font-medium">{clientName}</p>
+        {data?.connected && data.username && (
+          <p className="text-xs text-muted-foreground">@{data.username}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {data?.connected ? (
+          <>
+            <Badge variant="default" className="bg-green-500 hover:bg-green-500 text-white text-[10px]">Connected</Badge>
+            <Button variant="outline" size="sm" onClick={() => disconnect.mutate({ clientSlug })} disabled={disconnect.isPending}>
+              Disconnect
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { window.location.href = `/api/auth/instagram/init/${encodeURIComponent(clientSlug)}`; }}
+          >
+            Connect Instagram
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   const [location] = useLocation();
 
@@ -257,6 +315,10 @@ export default function Settings() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("google") === "connected") {
       toast.success("Google account connected");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("instagram") === "error") {
+      toast.error("Instagram connection failed");
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [location]);
@@ -306,6 +368,7 @@ export default function Settings() {
                 </Button>
               )}
             </div>
+            <InstagramSection />
           </div>
         </TabsContent>
 

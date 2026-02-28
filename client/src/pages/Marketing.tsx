@@ -1,161 +1,209 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import { Send, Bot, Megaphone } from "lucide-react";
+import { useLocation } from "wouter";
+import { Megaphone, Plus, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import ReactMarkdown from "react-markdown";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
-type Message = { role: "user" | "assistant"; content: string };
+const STATUS_LABELS: Record<string, string> = {
+  discovery: "Discovery",
+  strategy: "Strategy",
+  generating: "Generating",
+  approval: "Approval",
+  active: "Active",
+  completed: "Completed",
+};
 
-const SUGGESTED_PROMPTS = [
-  "What's the state of our leads pipeline?",
-  "Which existing clients could we upsell right now?",
-  "Give me 5 content ideas for GRO Digital this week",
-  "Which leads should we prioritise and why?",
-];
+const STATUS_COLORS: Record<string, string> = {
+  discovery: "bg-gray-100 text-gray-700 border-gray-200",
+  strategy: "bg-blue-50 text-blue-700 border-blue-200",
+  generating: "bg-amber-50 text-amber-700 border-amber-200",
+  approval: "bg-violet-50 text-violet-700 border-violet-200",
+  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  completed: "bg-gray-50 text-gray-500 border-gray-200",
+};
 
 export default function Marketing() {
-  const { data: history } = trpc.agent.history.useQuery({ agentSlug: "marketing" });
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [, setLocation] = useLocation();
+  const [showNew, setShowNew] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newClientSlug, setNewClientSlug] = useState("");
 
+  const { data: campaigns, refetch } = trpc.campaign.list.useQuery();
+  const { data: clients } = trpc.invoice.clients.useQuery();
+  const createMutation = trpc.campaign.create.useMutation({
+    onSuccess: (data) => {
+      refetch();
+      setShowNew(false);
+      setNewName("");
+      setNewClientSlug("");
+      setLocation(`/marketing/${data.id}`);
+    },
+    onError: () => toast.error("Failed to create campaign"),
+  });
+
+  // Handle instagram=connected toast
   useEffect(() => {
-    if (!historyLoaded && history) {
-      setMessages(history as Message[]);
-      setHistoryLoaded(true);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("instagram") === "connected") {
+      const client = params.get("client");
+      toast.success(`Instagram connected${client ? ` for ${client}` : ""}`);
+      window.history.replaceState({}, "", window.location.pathname);
     }
-  }, [history, historyLoaded]);
+  }, []);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  function generateName() {
+    const clientCampaigns = (campaigns ?? []).filter(c => c.clientSlug === newClientSlug);
+    const existing = new Set(clientCampaigns.map(c => c.name.toLowerCase()));
 
-  async function send(text?: string) {
-    const msg = (text ?? input).trim();
-    if (!msg || loading) return;
-    setInput("");
-    setMessages(prev => [...prev, { role: "user", content: msg }]);
-    setLoading(true);
-    try {
-      const res = await fetch("/api/agent/marketing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json() as { reply: string };
-      setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I'm having trouble connecting right now. Try again in a moment." }]);
-    } finally {
-      setLoading(false);
+    const now = new Date();
+    const year = now.getFullYear();
+    const quarter = Math.ceil((now.getMonth() + 1) / 4);
+
+    // Try Q{q} {year}, then cycle forward through the remaining quarters/years
+    for (let offset = 0; offset < 8; offset++) {
+      const q = ((quarter - 1 + offset) % 4) + 1;
+      const y = year + Math.floor((quarter - 1 + offset) / 4);
+      const candidate = `Q${q} ${y} Instagram Campaign`;
+      if (!existing.has(candidate.toLowerCase())) {
+        setNewName(candidate);
+        return;
+      }
     }
+
+    // Fallback: Campaign #n
+    setNewName(`Campaign #${clientCampaigns.length + 1}`);
+  }
+
+  function handleCreate() {
+    if (!newName.trim() || !newClientSlug) return;
+    createMutation.mutate({ clientSlug: newClientSlug, name: newName.trim() });
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6 shrink-0">
-        <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
-          <Megaphone className="w-5 h-5 text-violet-600" />
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
+            <Megaphone className="w-5 h-5 text-violet-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight leading-none">Marketing Campaigns</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">AI-powered Instagram content automation</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight leading-none">Marketing</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">AI-powered growth — lead nurturing, upsells & content strategy</p>
-        </div>
+        <Button onClick={() => setShowNew(true)} size="sm" className="gap-2">
+          <Plus className="w-4 h-4" />
+          New Campaign
+        </Button>
       </div>
 
-      {/* Chat area */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-4">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-6 py-12">
-            <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center">
-              <Bot className="w-8 h-8 text-violet-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground text-lg">Marketing Agent</p>
-              <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                I know your leads pipeline, existing clients and services. Ask me anything about growing the agency.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-              {SUGGESTED_PROMPTS.map(p => (
-                <button
-                  key={p}
-                  onClick={() => send(p)}
-                  className="text-left px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-sm text-foreground"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+      {!campaigns || campaigns.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center">
+            <Megaphone className="w-8 h-8 text-violet-600" />
           </div>
-        ) : (
-          messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              {msg.role === "assistant" && (
-                <div className="w-7 h-7 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0 mt-0.5 mr-2">
-                  <Bot className="w-3.5 h-3.5 text-violet-600" />
-                </div>
-              )}
-              <div
-                className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
-                    : "bg-card border border-border text-foreground rounded-bl-sm shadow-sm"
-                }`}
-              >
-                {msg.role === "user" ? msg.content : (
-                  <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2">
-                    {msg.content}
-                  </ReactMarkdown>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-
-        {loading && (
-          <div className="flex justify-start">
-            <div className="w-7 h-7 rounded-full bg-violet-500/10 flex items-center justify-center shrink-0 mt-0.5 mr-2">
-              <Bot className="w-3.5 h-3.5 text-violet-600" />
-            </div>
-            <div className="bg-card border border-border rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
-              <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
-              </div>
-            </div>
+          <div>
+            <p className="font-semibold text-foreground">No campaigns yet</p>
+            <p className="text-sm text-muted-foreground mt-1">Create a campaign to start automating your client's Instagram content.</p>
           </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="shrink-0 pt-4 border-t border-border">
-        <div className="flex items-center gap-2">
-          <Input
-            className="h-10 text-sm rounded-full bg-muted border-0 focus-visible:ring-1"
-            placeholder="Ask the Marketing agent..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            disabled={loading}
-          />
-          <Button
-            size="sm"
-            className="h-10 w-10 p-0 rounded-full shrink-0 bg-violet-600 hover:bg-violet-700"
-            onClick={() => send()}
-            disabled={!input.trim() || loading}
-          >
-            <Send className="w-4 h-4" />
+          <Button onClick={() => setShowNew(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            New Campaign
           </Button>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {campaigns.map(c => (
+            <button
+              key={c.id}
+              onClick={() => setLocation(`/marketing/${c.id}`)}
+              className="text-left rounded-xl border bg-card p-5 hover:border-violet-300 hover:shadow-sm transition-all group"
+            >
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{c.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.clientSlug}</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 group-hover:text-violet-600 transition-colors mt-0.5" />
+              </div>
+              <Badge
+                variant="outline"
+                className={`text-[10px] px-2 py-0.5 font-medium ${STATUS_COLORS[c.status] ?? ""}`}
+              >
+                {STATUS_LABELS[c.status] ?? c.status}
+              </Badge>
+              <p className="text-[10px] text-muted-foreground mt-3">
+                {new Date(c.createdAt).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={showNew} onOpenChange={setShowNew}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Campaign</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Client</Label>
+              <Select value={newClientSlug} onValueChange={setNewClientSlug}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select client..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {(clients ?? []).map(c => (
+                    <SelectItem key={c.clientSlug} value={c.clientSlug}>
+                      {c.clientName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-baseline gap-2">
+                <Label>Campaign Name</Label>
+                <button
+                  type="button"
+                  onClick={generateName}
+                  disabled={!newClientSlug}
+                  className="text-[11px] underline text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  generate
+                </button>
+              </div>
+              <Input
+                placeholder="e.g. Q1 2026 Instagram Campaign"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleCreate(); }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNew(false)}>Cancel</Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!newName.trim() || !newClientSlug || createMutation.isPending}
+            >
+              Create Campaign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
