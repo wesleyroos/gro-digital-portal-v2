@@ -570,7 +570,19 @@ export default function MarketingCampaignWorkspace() {
                             />
                           </div>
                           <div>
-                            <p className="text-[10px] font-medium text-muted-foreground mb-1">Image prompt</p>
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-[10px] font-medium text-muted-foreground">Image prompt</p>
+                              <button
+                                className="text-[10px] text-violet-600 underline underline-offset-2 hover:text-violet-800 disabled:opacity-40"
+                                disabled={updateContentMutation.isPending || regenerateImageMutation.isPending}
+                                onClick={async () => {
+                                  await updateContentMutation.mutateAsync({ postId: post.id, ...editDraft });
+                                  regenerateImageMutation.mutate({ postId: post.id });
+                                }}
+                              >
+                                {regenerateImageMutation.isPending ? "Generating…" : "regenerate"}
+                              </button>
+                            </div>
                             <textarea
                               className="w-full text-xs rounded-lg border bg-muted px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400"
                               rows={3}
@@ -612,7 +624,7 @@ export default function MarketingCampaignWorkspace() {
 
                       {/* Actions */}
                       <div className="flex gap-1.5 pt-1">
-                        {post.status === "draft" && (
+                        {(post.status === "draft" || post.status === "rejected") && (
                           <>
                             <Button
                               size="sm"
@@ -623,16 +635,18 @@ export default function MarketingCampaignWorkspace() {
                               <Check className="w-3 h-3" />
                               Approve
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 h-7 text-xs gap-1"
-                              onClick={() => rejectMutation.mutate({ postId: post.id })}
-                              disabled={rejectMutation.isPending}
-                            >
-                              <X className="w-3 h-3" />
-                              Reject
-                            </Button>
+                            {post.status === "draft" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-7 text-xs gap-1"
+                                onClick={() => rejectMutation.mutate({ postId: post.id })}
+                                disabled={rejectMutation.isPending}
+                              >
+                                <X className="w-3 h-3" />
+                                Reject
+                              </Button>
+                            )}
                           </>
                         )}
                         {(post.status === "approved" || post.status === "rejected") && post.imageUrl && (
