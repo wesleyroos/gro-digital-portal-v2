@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,8 @@ export default function MarketingCampaignWorkspace() {
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [calendarGenerating, setCalendarGenerating] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState({ caption: "", hashtags: "", imagePrompt: "" });
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -125,6 +127,10 @@ export default function MarketingCampaignWorkspace() {
   const deleteMutation = trpc.campaign.delete.useMutation({
     onSuccess: () => { toast.success("Campaign deleted"); setLocation("/marketing"); },
     onError: () => toast.error("Failed to delete campaign"),
+  });
+  const updateContentMutation = trpc.campaign.post.updateContent.useMutation({
+    onSuccess: () => { toast.success("Post updated"); setEditingPostId(null); refetch(); },
+    onError: () => toast.error("Failed to save changes"),
   });
   const uploadImageMutation = trpc.campaign.post.uploadImage.useMutation({
     onSuccess: () => { toast.success("Image uploaded"); refetch(); },
@@ -500,9 +506,67 @@ export default function MarketingCampaignWorkspace() {
                       {post.theme && (
                         <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{post.theme}</p>
                       )}
-                      <p className="text-xs text-foreground line-clamp-3">{post.caption}</p>
-                      {post.hashtags && (
-                        <p className="text-[10px] text-muted-foreground line-clamp-1">{post.hashtags}</p>
+
+                      {editingPostId === post.id ? (
+                        /* ── Edit mode ── */
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-[10px] font-medium text-muted-foreground mb-1">Caption</p>
+                            <textarea
+                              className="w-full text-xs rounded-lg border bg-muted px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400"
+                              rows={4}
+                              value={editDraft.caption}
+                              onChange={e => setEditDraft(d => ({ ...d, caption: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-muted-foreground mb-1">Hashtags</p>
+                            <textarea
+                              className="w-full text-xs rounded-lg border bg-muted px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400"
+                              rows={2}
+                              value={editDraft.hashtags}
+                              onChange={e => setEditDraft(d => ({ ...d, hashtags: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-muted-foreground mb-1">Image prompt</p>
+                            <textarea
+                              className="w-full text-xs rounded-lg border bg-muted px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400"
+                              rows={3}
+                              value={editDraft.imagePrompt}
+                              onChange={e => setEditDraft(d => ({ ...d, imagePrompt: e.target.value }))}
+                            />
+                          </div>
+                          <div className="flex gap-1.5 pt-1">
+                            <Button
+                              size="sm"
+                              className="flex-1 h-7 text-xs bg-violet-600 hover:bg-violet-700 text-white"
+                              onClick={() => updateContentMutation.mutate({ postId: post.id, ...editDraft })}
+                              disabled={updateContentMutation.isPending}
+                            >
+                              Save
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingPostId(null)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* ── View mode ── */
+                        <div className="space-y-1.5">
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="text-xs text-foreground line-clamp-3 flex-1">{post.caption}</p>
+                            <button
+                              onClick={() => { setEditingPostId(post.id); setEditDraft({ caption: post.caption ?? "", hashtags: post.hashtags ?? "", imagePrompt: post.imagePrompt ?? "" }); }}
+                              className="shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
+                          {post.hashtags && (
+                            <p className="text-[10px] text-muted-foreground line-clamp-1">{post.hashtags}</p>
+                          )}
+                        </div>
                       )}
 
                       {/* Actions */}

@@ -55,6 +55,7 @@ import {
   getPostsByCampaign,
   getPostById,
   updatePostStatus,
+  updatePostContent,
   approveAllPosts,
   getCampaignMessages,
   getInstagramTokens,
@@ -621,6 +622,22 @@ export const appRouter = router({
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
           const url = await generateAndStorePostImage(post.imagePrompt, post.id);
           return { url };
+        }),
+
+      updateContent: adminProcedure
+        .input(z.object({
+          postId: z.number().int(),
+          caption: z.string().optional(),
+          hashtags: z.string().optional(),
+          imagePrompt: z.string().optional(),
+        }))
+        .mutation(async ({ input }) => {
+          await updatePostContent(input.postId, {
+            caption: input.caption,
+            hashtags: input.hashtags,
+            imagePrompt: input.imagePrompt,
+          });
+          return { success: true };
         }),
 
       uploadImage: adminProcedure
