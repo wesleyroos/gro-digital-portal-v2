@@ -61,6 +61,7 @@ import {
   clearInstagramTokens,
 } from "./db";
 import { generateAndStorePostImage } from "./image-gen";
+import { storagePut } from "./storage";
 import { getCalendarEvents } from "./calendar";
 
 export const appRouter = router({
@@ -619,6 +620,20 @@ export const appRouter = router({
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
           const url = await generateAndStorePostImage(post.imagePrompt, post.id);
+          return { url };
+        }),
+
+      uploadImage: adminProcedure
+        .input(z.object({
+          postId: z.number().int(),
+          base64: z.string(),
+          mimeType: z.string(),
+        }))
+        .mutation(async ({ input }) => {
+          const buffer = Buffer.from(input.base64, 'base64');
+          const ext = input.mimeType.split('/')[1] ?? 'jpg';
+          const { url } = await storagePut(`uploads/${Date.now()}.${ext}`, buffer, input.mimeType);
+          await updatePostImageUrl(input.postId, url);
           return { url };
         }),
 

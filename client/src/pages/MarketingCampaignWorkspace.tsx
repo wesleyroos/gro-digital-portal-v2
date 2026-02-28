@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2 } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -126,6 +126,34 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { toast.success("Campaign deleted"); setLocation("/marketing"); },
     onError: () => toast.error("Failed to delete campaign"),
   });
+  const uploadImageMutation = trpc.campaign.post.uploadImage.useMutation({
+    onSuccess: () => { toast.success("Image uploaded"); refetch(); },
+    onError: () => toast.error("Upload failed"),
+  });
+
+  async function downloadImage(url: string, postId: number) {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `post-${postId}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      toast.error("Download failed");
+    }
+  }
+
+  function handleFileUpload(postId: number, file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1];
+      uploadImageMutation.mutate({ postId, base64, mimeType: file.type });
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function sendMessage(text?: string) {
     const msg = (text ?? input).trim();
@@ -414,9 +442,26 @@ export default function MarketingCampaignWorkspace() {
                 {posts.map(post => (
                   <div key={post.id} className="rounded-xl border bg-card overflow-hidden">
                     {/* Image area */}
-                    <div className="relative aspect-square bg-muted">
+                    <div className="relative aspect-square bg-muted group/img">
                       {post.imageUrl ? (
-                        <img src={post.imageUrl} alt="Post" className="w-full h-full object-cover" />
+                        <>
+                          <img src={post.imageUrl} alt="Post" className="w-full h-full object-cover" />
+                          {/* Hover overlay: download + upload */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => downloadImage(post.imageUrl!, post.id)}
+                              className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              Download
+                            </button>
+                            <label className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+                              <Upload className="w-3.5 h-3.5" />
+                              Replace
+                              <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(post.id, f); e.target.value = ""; }} />
+                            </label>
+                          </div>
+                        </>
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                           <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
@@ -429,6 +474,11 @@ export default function MarketingCampaignWorkspace() {
                           >
                             Generate Image
                           </Button>
+                          <label className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+                            <Upload className="w-3 h-3" />
+                            Upload instead
+                            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(post.id, f); e.target.value = ""; }} />
+                          </label>
                         </div>
                       )}
                       <div className="absolute top-2 right-2">
