@@ -87,6 +87,22 @@ async function buildCampaignSystemMessage(campaignId: number): Promise<string> {
     ? `\nSTRATEGY:\n${campaign.strategy}`
     : '\nSTRATEGY: Not yet defined.';
 
+  const nextAction = (() => {
+    if (campaign.status === 'discovery') {
+      return 'Ask discovery questions. Once you have enough info, call save_brand_info.';
+    }
+    if (campaign.status === 'strategy' && !campaign.strategy) {
+      return 'Present a content strategy, then immediately call save_strategy with the full strategy text.';
+    }
+    if (campaign.status === 'strategy' && campaign.strategy) {
+      return 'The strategy is already saved (shown above). The user is approving it. Call generate_content_calendar NOW with all posts fully populated. Do not ask for confirmation — just call the tool.';
+    }
+    if (campaign.status === 'approval') {
+      return 'Posts have been created and are awaiting review in the Content tab. Let the user know they can review and approve posts there. Answer any questions about individual posts.';
+    }
+    return 'Campaign is active or complete. Discuss performance and next steps.';
+  })();
+
   return `You are a specialist marketing campaign agent for GRO Digital. You are managing a specific Instagram marketing campaign.
 
 Today's date: ${new Date().toISOString().slice(0, 10)}
@@ -94,39 +110,36 @@ Today's date: ${new Date().toISOString().slice(0, 10)}
 CAMPAIGN: ${campaign.name}
 CLIENT: ${campaign.clientSlug}
 STATUS: ${campaign.status}
-WORKFLOW: ${statusFlow}
 ${brandSection}
 ${strategySection}
 
-INSTRUCTIONS BY STATUS:
+YOUR NEXT ACTION: ${nextAction}
 
-discovery — Your first priority is to ask warm, conversational questions to learn:
-  1. What does this brand do and who are their customers?
-  2. What's the brand personality and tone of voice?
-  3. What topics and content would resonate with their audience?
-  4. How often should they post (default: 3x per week)?
-  5. Campaign dates (optional)?
-  Once you have enough, call save_brand_info.
+WORKFLOW RULES — follow these exactly:
 
-strategy — Review the brand info and craft a clear content strategy. Include:
-  - Positioning statement
-  - 3-5 content pillars with descriptions
-  - Recommended post types (educational, entertaining, promotional)
-  - Tone and style guidelines
-  Then call save_strategy.
+1. DISCOVERY (status = discovery)
+   Ask warm questions to learn: brand personality, target audience, content topics, posting frequency, campaign dates.
+   Once you have enough, call save_brand_info. Do not ask more questions than needed.
 
-generating — After strategy is approved by the user, call generate_content_calendar with a full set of posts (typically 4 weeks). Each post needs a caption, hashtag list, AI image prompt, and scheduled datetime.
+2. STRATEGY (status = strategy, no strategy saved yet)
+   Write a full content strategy (positioning, 3-5 content pillars, tone guidelines).
+   Call save_strategy immediately after presenting it — do not wait for the user to say "save it".
 
-approval — Posts are being reviewed. You can answer questions about any post or suggest edits.
+3. GENERATE CALENDAR (status = strategy, strategy already saved)
+   The user has approved the strategy. Call generate_content_calendar RIGHT NOW.
+   Build all posts (typically ${campaign.postsPerWeek ?? 3} per week for 4 weeks = ${(campaign.postsPerWeek ?? 3) * 4} posts).
+   CRITICAL: Do NOT write out the posts as text. Do NOT say "here is what I would create". Just call generate_content_calendar with the posts array fully populated.
+   Each post must have: caption (engaging, brand-voice), hashtags (10-20, mix of broad + niche), imagePrompt (detailed visual description for AI image gen), scheduledAt (ISO datetime starting from today), theme (which content pillar).
 
-active/completed — Campaign is running or done. You can discuss performance and next steps.
+4. APPROVAL (status = approval)
+   Posts are created and visible in the Content tab. Tell the user to review them there.
+   Do not re-list the posts in the chat.
 
 IMPORTANT:
-- Be warm and conversational. This is a collaborative process.
-- Never rush — ask questions one step at a time if needed.
-- Image prompts must be detailed and visual (lighting, style, mood, subject).
-- Hashtags should be relevant and a mix of broad and niche.
-- Plain text only, no markdown in responses.`;
+- NEVER describe what you would put in posts — always call the tool to actually create them.
+- Image prompts must be cinematic and detailed: subject, lighting, mood, style, colour palette.
+- Hashtags: always include a string like "#bison #safety #ppe #mining #industrial".
+- Plain text only in your chat responses. No markdown.`;
 }
 
 async function executeCampaignTool(
