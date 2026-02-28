@@ -61,10 +61,30 @@ export default function MarketingCampaignWorkspace() {
 
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [calendarGenerating, setCalendarGenerating] = useState(false);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  async function generateCalendar() {
+    if (calendarGenerating) return;
+    setCalendarGenerating(true);
+    try {
+      const res = await fetch(`/api/agent/campaign/${campaignId}/generate-calendar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error();
+      const d = await res.json() as { count: number };
+      toast.success(`${d.count} posts created — check the Content tab`);
+      refetch();
+    } catch {
+      toast.error("Calendar generation failed. Please try again.");
+    } finally {
+      setCalendarGenerating(false);
+    }
+  }
 
   useEffect(() => {
     if (!historyLoaded && messages.length > 0) {
@@ -208,22 +228,28 @@ export default function MarketingCampaignWorkspace() {
         {/* ── Chat / Strategy Tab ───────────────────────────────────────── */}
         <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 mt-0">
           {/* Generate calendar banner — shown whenever posts haven't been created yet */}
-          {posts.length === 0 && localMessages.length > 0 && !chatLoading && (
+          {posts.length === 0 && localMessages.length > 0 && (
             <div className="shrink-0 mb-3 flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
               <p className="text-sm text-violet-800">
                 {campaign.status === "approval" || campaign.status === "active"
                   ? "Posts are ready — switch to the Content tab."
+                  : calendarGenerating
+                  ? "Generating your content calendar…"
                   : "Happy with the strategy? Generate the content calendar."}
               </p>
               {(campaign.status === "discovery" || campaign.status === "strategy") && (
                 <Button
                   size="sm"
                   className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
-                  onClick={() => sendMessage("Generate the content calendar now. Call generate_content_calendar with all posts.")}
-                  disabled={chatLoading}
+                  onClick={generateCalendar}
+                  disabled={calendarGenerating || chatLoading}
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Generate Calendar
+                  {calendarGenerating ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  {calendarGenerating ? "Generating…" : "Generate Calendar"}
                 </Button>
               )}
             </div>

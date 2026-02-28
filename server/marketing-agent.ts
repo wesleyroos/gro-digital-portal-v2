@@ -5,6 +5,7 @@ import * as db from './db';
 type ToolCall = { id: string; type: string; function: { name: string; arguments: string } };
 type AnyMessage = Record<string, unknown>;
 
+// Only 2 tools in the chat agent — calendar generation is a separate endpoint
 const CAMPAIGN_AGENT_TOOLS = [
   {
     type: 'function' as const,
@@ -43,41 +44,11 @@ const CAMPAIGN_AGENT_TOOLS = [
       },
     },
   },
-  {
-    type: 'function' as const,
-    function: {
-      name: 'generate_content_calendar',
-      description: 'Generate the content calendar by creating all post records. Sets status to "generating".',
-      parameters: {
-        type: 'object',
-        properties: {
-          posts: {
-            type: 'array',
-            description: 'Array of posts to create',
-            items: {
-              type: 'object',
-              properties: {
-                scheduledAt: { type: 'string', description: 'ISO datetime string for when to publish' },
-                caption: { type: 'string', description: 'The post caption' },
-                hashtags: { type: 'string', description: 'Space-separated hashtags (e.g. #brand #marketing)' },
-                imagePrompt: { type: 'string', description: 'Detailed prompt for AI image generation' },
-                theme: { type: 'string', description: 'Content theme/pillar for this post' },
-              },
-              required: ['caption', 'imagePrompt'],
-            },
-          },
-        },
-        required: ['posts'],
-      },
-    },
-  },
-] as const;
+];
 
 async function buildCampaignSystemMessage(campaignId: number): Promise<string> {
   const campaign = await db.getCampaignById(campaignId);
   if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
-
-  const statusFlow = 'discovery → strategy → generating → approval → active → completed';
 
   const brandSection = campaign.brandVoice
     ? `\nBRAND INFO:\n  Voice: ${campaign.brandVoice}\n  Audience: ${campaign.targetAudience ?? 'Not set'}\n  Themes: ${campaign.contentThemes ?? 'Not set'}\n  Posts/week: ${campaign.postsPerWeek ?? 3}`
@@ -95,10 +66,10 @@ async function buildCampaignSystemMessage(campaignId: number): Promise<string> {
       return 'Present a content strategy, then immediately call save_strategy with the full strategy text.';
     }
     if (campaign.status === 'strategy' && campaign.strategy) {
-      return 'The strategy is already saved (shown above). The user is approving it. Call generate_content_calendar NOW with all posts fully populated. Do not ask for confirmation — just call the tool.';
+      return 'Strategy is saved. Let the user know they can click the "Generate Calendar" button to create all posts.';
     }
     if (campaign.status === 'approval') {
-      return 'Posts have been created and are awaiting review in the Content tab. Let the user know they can review and approve posts there. Answer any questions about individual posts.';
+      return 'Posts have been created and are awaiting review in the Content tab. Let the user know they can review and approve posts there.';
     }
     return 'Campaign is active or complete. Discuss performance and next steps.';
   })();
@@ -115,7 +86,7 @@ ${strategySection}
 
 YOUR NEXT ACTION: ${nextAction}
 
-WORKFLOW RULES — follow these exactly:
+WORKFLOW RULES:
 
 1. DISCOVERY (status = discovery)
    Ask warm questions to learn: brand personality, target audience, content topics, posting frequency, campaign dates.
@@ -125,21 +96,14 @@ WORKFLOW RULES — follow these exactly:
    Write a full content strategy (positioning, 3-5 content pillars, tone guidelines).
    Call save_strategy immediately after presenting it — do not wait for the user to say "save it".
 
-3. GENERATE CALENDAR (status = strategy, strategy already saved)
-   The user has approved the strategy. Call generate_content_calendar RIGHT NOW.
-   Build all posts (typically ${campaign.postsPerWeek ?? 3} per week for 4 weeks = ${(campaign.postsPerWeek ?? 3) * 4} posts).
-   CRITICAL: Do NOT write out the posts as text. Do NOT say "here is what I would create". Just call generate_content_calendar with the posts array fully populated.
-   Each post must have: caption (engaging, brand-voice), hashtags (10-20, mix of broad + niche), imagePrompt (detailed visual description for AI image gen), scheduledAt (ISO datetime starting from today), theme (which content pillar).
+3. AFTER STRATEGY SAVED (status = strategy, strategy already saved)
+   Tell the user their strategy is ready and they can click the "Generate Calendar" button to create the content calendar.
+   Do not attempt to list or write out posts yourself.
 
 4. APPROVAL (status = approval)
-   Posts are created and visible in the Content tab. Tell the user to review them there.
-   Do not re-list the posts in the chat.
+   Posts are visible in the Content tab. Tell the user to review them there.
 
-IMPORTANT:
-- NEVER describe what you would put in posts — always call the tool to actually create them.
-- Image prompts must be cinematic and detailed: subject, lighting, mood, style, colour palette.
-- Hashtags: always include a string like "#bison #safety #ppe #mining #industrial".
-- Plain text only in your chat responses. No markdown.`;
+Plain text only in responses. No markdown.`;
 }
 
 async function executeCampaignTool(
@@ -172,31 +136,6 @@ async function executeCampaignTool(
       return 'Strategy saved.';
     }
 
-    if (name === 'generate_content_calendar') {
-      type PostInput = {
-        scheduledAt?: string;
-        caption?: string;
-        hashtags?: string;
-        imagePrompt?: string;
-        theme?: string;
-      };
-      const posts = (args.posts as PostInput[]) ?? [];
-      await db.createPosts(
-        posts.map((p, i) => ({
-          campaignId,
-          scheduledAt: p.scheduledAt ? new Date(p.scheduledAt) : null,
-          caption: p.caption ?? '',
-          hashtags: p.hashtags ?? '',
-          imagePrompt: p.imagePrompt ?? '',
-          theme: p.theme ?? null,
-          status: 'draft' as const,
-          sortOrder: i + 1,
-        }))
-      );
-      await db.updateCampaign(campaignId, { status: 'approval' });
-      return `Created ${posts.length} posts. Campaign status updated to "approval".`;
-    }
-
     return `Unknown tool: ${name}`;
   } catch (e) {
     return `Error executing ${name}: ${String(e)}`;
@@ -204,52 +143,38 @@ async function executeCampaignTool(
 }
 
 export function registerCampaignAgentRoutes(app: Express) {
+  // ── Chat endpoint ────────────────────────────────────────────────────────────
   app.post('/api/agent/campaign/:campaignId', async (req: Request, res: Response) => {
     let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
     try {
       authedUser = await sdk.authenticateRequest(req);
-      if (authedUser.role !== 'admin') {
-        res.status(403).json({ error: 'Forbidden' });
-        return;
-      }
+      if (authedUser.role !== 'admin') { res.status(403).json({ error: 'Forbidden' }); return; }
     } catch {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
+      res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
     const campaignId = parseInt(req.params.campaignId, 10);
-    if (isNaN(campaignId)) {
-      res.status(400).json({ error: 'Invalid campaignId' });
-      return;
-    }
+    if (isNaN(campaignId)) { res.status(400).json({ error: 'Invalid campaignId' }); return; }
 
     const gatewayUrl = process.env.HENRY_GATEWAY_URL?.trim();
     const gatewayToken = process.env.HENRY_GATEWAY_TOKEN?.trim();
-    if (!gatewayUrl || !gatewayToken) {
-      res.status(503).json({ error: 'Agent gateway not configured' });
-      return;
-    }
+    if (!gatewayUrl || !gatewayToken) { res.status(503).json({ error: 'Agent gateway not configured' }); return; }
 
     const { message } = req.body as { message: string };
-    if (!message?.trim()) {
-      res.status(400).json({ error: 'message is required' });
-      return;
-    }
+    if (!message?.trim()) { res.status(400).json({ error: 'message is required' }); return; }
 
     const [systemMessage, history] = await Promise.all([
       buildCampaignSystemMessage(campaignId),
       db.getCampaignMessages(campaignId),
     ]);
 
-    // Build messages: convert DB history (which may include tool roles) to AnyMessage
+    // Only include user/assistant messages in history — tool messages without
+    // their paired assistant tool_calls cause API errors
     const messages: AnyMessage[] = [
       { role: 'system', content: systemMessage },
-      ...history.map(m => {
-        if (m.role === 'tool') {
-          return { role: 'tool', tool_call_id: m.toolCallId ?? '', content: m.content };
-        }
-        return { role: m.role, content: m.content };
-      }),
+      ...history
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role, content: m.content })),
       { role: 'user', content: message.trim() },
     ];
 
@@ -292,7 +217,6 @@ export function registerCampaignAgentRoutes(app: Express) {
           break;
         }
 
-        // Execute each tool and append results
         for (const toolCall of assistantMsg.tool_calls) {
           let toolArgs: Record<string, unknown> = {};
           try { toolArgs = JSON.parse(toolCall.function.arguments); } catch { /* ignore */ }
@@ -305,7 +229,6 @@ export function registerCampaignAgentRoutes(app: Express) {
 
       if (!reply) reply = 'Done.';
 
-      // Persist: user message + tool calls + assistant reply
       await db.appendCampaignMessages(campaignId, [
         { role: 'user', content: message.trim() },
         ...newMessages,
@@ -315,6 +238,149 @@ export function registerCampaignAgentRoutes(app: Express) {
     } catch (e) {
       console.error('[Campaign] Relay error:', e);
       res.status(502).json({ error: 'Campaign agent unavailable' });
+    }
+  });
+
+  // ── Generate calendar endpoint ───────────────────────────────────────────────
+  // Calls the LLM with a strict JSON-only prompt — no tool-calling required.
+  app.post('/api/agent/campaign/:campaignId/generate-calendar', async (req: Request, res: Response) => {
+    let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
+    try {
+      authedUser = await sdk.authenticateRequest(req);
+      if (authedUser.role !== 'admin') { res.status(403).json({ error: 'Forbidden' }); return; }
+    } catch {
+      res.status(401).json({ error: 'Unauthorized' }); return;
+    }
+
+    const campaignId = parseInt(req.params.campaignId, 10);
+    if (isNaN(campaignId)) { res.status(400).json({ error: 'Invalid campaignId' }); return; }
+
+    const gatewayUrl = process.env.HENRY_GATEWAY_URL?.trim();
+    const gatewayToken = process.env.HENRY_GATEWAY_TOKEN?.trim();
+    if (!gatewayUrl || !gatewayToken) { res.status(503).json({ error: 'Agent gateway not configured' }); return; }
+
+    const campaign = await db.getCampaignById(campaignId);
+    if (!campaign) { res.status(404).json({ error: 'Campaign not found' }); return; }
+
+    const postsPerWeek = campaign.postsPerWeek ?? 3;
+    const totalPosts = postsPerWeek * 4;
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Build schedule: spread posts across weekdays over 4 weeks
+    const scheduledDates: string[] = [];
+    const postDays = [1, 3, 5]; // Mon, Wed, Fri
+    const postTimes = ['09:00:00', '12:00:00', '18:00:00'];
+    const baseDate = new Date();
+    baseDate.setHours(9, 0, 0, 0);
+    let weekOffset = 0;
+    let dayIndex = 0;
+    while (scheduledDates.length < totalPosts) {
+      for (const dayOfWeek of postDays) {
+        if (scheduledDates.length >= totalPosts) break;
+        const d = new Date(baseDate);
+        d.setDate(d.getDate() + (weekOffset * 7) + ((dayOfWeek - d.getDay() + 7) % 7));
+        if (d <= baseDate && weekOffset === 0) d.setDate(d.getDate() + 7);
+        const time = postTimes[dayIndex % postTimes.length];
+        scheduledDates.push(`${d.toISOString().slice(0, 10)}T${time}`);
+        dayIndex++;
+      }
+      weekOffset++;
+    }
+
+    const prompt = `You are generating an Instagram content calendar for a marketing campaign.
+
+CAMPAIGN: ${campaign.name}
+CLIENT: ${campaign.clientSlug}
+TODAY: ${today}
+BRAND VOICE: ${campaign.brandVoice ?? 'Not specified'}
+TARGET AUDIENCE: ${campaign.targetAudience ?? 'Not specified'}
+CONTENT THEMES: ${campaign.contentThemes ?? 'Not specified'}
+POSTS PER WEEK: ${postsPerWeek}
+STRATEGY:
+${campaign.strategy ?? 'No strategy saved — use brand info above to guide content.'}
+
+Generate exactly ${totalPosts} Instagram posts.
+Use these scheduled datetimes in order: ${scheduledDates.join(', ')}
+
+Return ONLY a valid JSON array — no explanation, no preamble, no markdown code blocks:
+[
+  {
+    "scheduledAt": "YYYY-MM-DDTHH:MM:SS",
+    "caption": "engaging on-brand caption, 1-3 sentences",
+    "hashtags": "#tag1 #tag2 #tag3 (10-20 hashtags, mix broad and niche)",
+    "imagePrompt": "cinematic visual description: subject, lighting, mood, colour palette, style",
+    "theme": "which content pillar this belongs to"
+  }
+]`;
+
+    try {
+      const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${gatewayToken}`,
+          'Content-Type': 'application/json',
+          'x-openclaw-agent-id': 'ops',
+        },
+        body: JSON.stringify({
+          model: 'openclaw',
+          messages: [
+            { role: 'system', content: 'You are a JSON generator. Return only valid JSON arrays, no other text.' },
+            { role: 'user', content: prompt },
+          ],
+        }),
+        signal: AbortSignal.timeout(180_000),
+      });
+
+      if (!upstream.ok) {
+        const text = await upstream.text();
+        console.error(`[Campaign/CalGen] Gateway error ${upstream.status}:`, text);
+        res.status(502).json({ error: 'Calendar generation failed' });
+        return;
+      }
+
+      const data = await upstream.json() as {
+        choices: Array<{ message: { content: string | null } }>;
+      };
+      const rawText = data.choices[0].message.content ?? '';
+      console.log('[Campaign/CalGen] Raw response length:', rawText.length);
+
+      // Extract the JSON array from the response (strip any surrounding text/markdown)
+      const match = rawText.match(/\[[\s\S]*\]/);
+      if (!match) {
+        console.error('[Campaign/CalGen] No JSON array found in response:', rawText.slice(0, 500));
+        res.status(502).json({ error: 'Model did not return a valid calendar' });
+        return;
+      }
+
+      type PostInput = { scheduledAt?: string; caption?: string; hashtags?: string; imagePrompt?: string; theme?: string };
+      let posts: PostInput[];
+      try {
+        posts = JSON.parse(match[0]) as PostInput[];
+      } catch (e) {
+        console.error('[Campaign/CalGen] JSON parse error:', e);
+        res.status(502).json({ error: 'Could not parse calendar from model response' });
+        return;
+      }
+
+      await db.createPosts(
+        posts.map((p, i) => ({
+          campaignId,
+          scheduledAt: p.scheduledAt ? new Date(p.scheduledAt) : null,
+          caption: p.caption ?? '',
+          hashtags: p.hashtags ?? '',
+          imagePrompt: p.imagePrompt ?? '',
+          theme: p.theme ?? null,
+          status: 'draft' as const,
+          sortOrder: i + 1,
+        }))
+      );
+      await db.updateCampaign(campaignId, { status: 'approval' });
+
+      console.log(`[Campaign/CalGen] Created ${posts.length} posts for campaign ${campaignId}`);
+      res.json({ count: posts.length });
+    } catch (e) {
+      console.error('[Campaign/CalGen] Error:', e);
+      res.status(502).json({ error: 'Calendar generation failed' });
     }
   });
 }
