@@ -263,7 +263,7 @@ export function registerCampaignAgentRoutes(app: Express) {
           headers: {
             Authorization: `Bearer ${gatewayToken}`,
             'Content-Type': 'application/json',
-            'x-openclaw-agent-id': 'campaign',
+            'x-openclaw-agent-id': 'ops',
           },
           body: JSON.stringify({ model: 'openclaw', messages, tools: CAMPAIGN_AGENT_TOOLS }),
           signal: AbortSignal.timeout(120_000),

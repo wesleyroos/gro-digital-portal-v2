@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -282,18 +281,23 @@ export default function MarketingCampaignWorkspace() {
 
           {/* Chat input */}
           <div className="shrink-0 pt-4 border-t border-border">
-            <div className="flex items-center gap-2">
-              <Input
-                className="h-10 text-sm rounded-full bg-muted border-0 focus-visible:ring-1"
+            <div className="flex items-end gap-2">
+              <textarea
+                className="flex-1 min-h-[40px] max-h-[160px] resize-none overflow-y-auto text-sm rounded-2xl bg-muted border-0 px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-violet-400 leading-relaxed"
                 placeholder="Message the campaign agent..."
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                rows={1}
+                onChange={e => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+                }}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                 disabled={chatLoading}
               />
               <Button
                 size="sm"
-                className="h-10 w-10 p-0 rounded-full shrink-0 bg-violet-600 hover:bg-violet-700"
+                className="h-10 w-10 p-0 rounded-full shrink-0 bg-violet-600 hover:bg-violet-700 mb-0"
                 onClick={() => sendMessage()}
                 disabled={!input.trim() || chatLoading}
               >
