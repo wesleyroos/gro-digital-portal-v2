@@ -62,6 +62,7 @@ export default function MarketingCampaignWorkspace() {
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [calendarGenerating, setCalendarGenerating] = useState(false);
+  const [generatingPostIds, setGeneratingPostIds] = useState<Set<number>>(new Set());
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState({ caption: "", hashtags: "", imagePrompt: "" });
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -109,12 +110,14 @@ export default function MarketingCampaignWorkspace() {
     onError: () => toast.error("Failed to reject post"),
   });
   const generateImageMutation = trpc.campaign.post.generateImage.useMutation({
-    onSuccess: () => { toast.success("Image generated"); refetch(); },
-    onError: () => toast.error("Image generation failed"),
+    onMutate: ({ postId }) => setGeneratingPostIds(s => new Set(s).add(postId)),
+    onSuccess: (_data, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.success("Image generated"); refetch(); },
+    onError: (_e, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.error("Image generation failed"); },
   });
   const regenerateImageMutation = trpc.campaign.post.regenerateImage.useMutation({
-    onSuccess: () => { toast.success("Image regenerated"); refetch(); },
-    onError: () => toast.error("Image regeneration failed"),
+    onMutate: ({ postId }) => setGeneratingPostIds(s => new Set(s).add(postId)),
+    onSuccess: (_data, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.success("Image regenerated"); refetch(); },
+    onError: (_e, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.error("Image regeneration failed"); },
   });
   const approveAllMutation = trpc.campaign.post.approveAll.useMutation({
     onSuccess: () => { toast.success("All draft posts approved"); refetch(); },
@@ -490,7 +493,22 @@ export default function MarketingCampaignWorkspace() {
                   <div key={post.id} className="rounded-xl border bg-card overflow-hidden">
                     {/* Image area */}
                     <div className="relative aspect-square bg-muted group/img">
-                      {post.imageUrl ? (
+                      {generatingPostIds.has(post.id) ? (
+                        /* ── Generating overlay ── */
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-violet-50">
+                          <div className="relative w-12 h-12">
+                            <div className="absolute inset-0 rounded-full border-4 border-violet-200" />
+                            <div className="absolute inset-0 rounded-full border-4 border-violet-600 border-t-transparent animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Sparkles className="w-4 h-4 text-violet-600" />
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs font-medium text-violet-700">Generating image…</p>
+                            <p className="text-[10px] text-violet-500 mt-0.5">This takes 10–30 seconds</p>
+                          </div>
+                        </div>
+                      ) : post.imageUrl ? (
                         <>
                           <img src={post.imageUrl} alt="Post" className="w-full h-full object-cover" />
                           {/* Hover overlay: download + upload */}
@@ -517,7 +535,7 @@ export default function MarketingCampaignWorkspace() {
                             variant="outline"
                             className="text-xs h-7"
                             onClick={() => generateImageMutation.mutate({ postId: post.id })}
-                            disabled={generateImageMutation.isPending}
+                            disabled={generatingPostIds.has(post.id)}
                           >
                             Generate Image
                           </Button>
