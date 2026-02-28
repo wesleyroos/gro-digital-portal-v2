@@ -889,6 +889,7 @@ export async function updateCampaign(id: number, data: {
   postsPerWeek?: number | null;
   startDate?: string | null;
   endDate?: string | null;
+  imageModel?: string | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
@@ -901,6 +902,7 @@ export async function updateCampaign(id: number, data: {
   if ('postsPerWeek' in data) set.postsPerWeek = data.postsPerWeek ?? null;
   if ('startDate' in data) set.startDate = data.startDate ? new Date(data.startDate) : null;
   if ('endDate' in data) set.endDate = data.endDate ? new Date(data.endDate) : null;
+  if ('imageModel' in data) set.imageModel = data.imageModel ?? 'dall-e-3';
   await db.update(marketingCampaigns).set(set).where(eq(marketingCampaigns.id, id));
 }
 

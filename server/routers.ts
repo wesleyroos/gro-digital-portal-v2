@@ -60,6 +60,7 @@ import {
   getCampaignMessages,
   getInstagramTokens,
   clearInstagramTokens,
+  updatePostImageUrl,
 } from "./db";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
@@ -582,6 +583,16 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    setImageModel: adminProcedure
+      .input(z.object({
+        id: z.number().int(),
+        imageModel: z.enum(['dall-e-3', 'nano-banana-2']),
+      }))
+      .mutation(async ({ input }) => {
+        await updateCampaign(input.id, { imageModel: input.imageModel });
+        return { success: true };
+      }),
+
     delete: adminProcedure
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ input }) => {
@@ -610,7 +621,9 @@ export const appRouter = router({
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
-          const url = await generateAndStorePostImage(post.imagePrompt, post.id);
+          const campaign = await getCampaignById(post.campaignId);
+          const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model);
           return { url };
         }),
 
@@ -620,7 +633,9 @@ export const appRouter = router({
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
-          const url = await generateAndStorePostImage(post.imagePrompt, post.id);
+          const campaign = await getCampaignById(post.campaignId);
+          const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model);
           return { url };
         }),
 

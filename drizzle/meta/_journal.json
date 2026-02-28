@@ -169,6 +169,13 @@
       "when": 1771933000000,
       "tag": "0023_marketing_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1771934000000,
+      "tag": "0024_image_model",
+      "breakpoints": true
     }
   ]
 }

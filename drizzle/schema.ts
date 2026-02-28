@@ -235,6 +235,7 @@ export const marketingCampaigns = mysqlTable("marketing_campaigns", {
   postsPerWeek: int("postsPerWeek").default(3),
   startDate: date("startDate"),
   endDate: date("endDate"),
+  imageModel: varchar("imageModel", { length: 64 }).default("dall-e-3"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

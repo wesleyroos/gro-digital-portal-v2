@@ -136,6 +136,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { toast.success("Image uploaded"); refetch(); },
     onError: () => toast.error("Upload failed"),
   });
+  const setImageModelMutation = trpc.campaign.setImageModel.useMutation({
+    onSuccess: () => { toast.success("Image model updated"); refetch(); },
+    onError: () => toast.error("Failed to update model"),
+  });
 
   async function downloadImage(url: string, postId: number) {
     try {
@@ -430,10 +434,23 @@ export default function MarketingCampaignWorkspace() {
                   <ImageIcon className="w-3.5 h-3.5" />
                   Generate All Images
                 </Button>
+                {/* Image model selector */}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-[11px] text-muted-foreground font-medium">Image model:</span>
+                  <select
+                    value={campaign.imageModel ?? "dall-e-3"}
+                    onChange={e => setImageModelMutation.mutate({ id: campaignId, imageModel: e.target.value as "dall-e-3" | "nano-banana-2" })}
+                    disabled={setImageModelMutation.isPending}
+                    className="text-xs h-7 rounded-md border border-input bg-background px-2 pr-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-400 appearance-auto"
+                  >
+                    <option value="dall-e-3">DALL-E 3</option>
+                    <option value="nano-banana-2">Nano Banana 2</option>
+                  </select>
+                </div>
                 {allPostsApproved && campaign.status === "approval" && (
                   <Button
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 ml-auto"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
                     onClick={() => updateStatusMutation.mutate({ id: campaignId, status: "active" })}
                     disabled={updateStatusMutation.isPending}
                   >
