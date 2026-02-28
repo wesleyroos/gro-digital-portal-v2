@@ -140,6 +140,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { toast.success("Image model updated"); refetch(); },
     onError: () => toast.error("Failed to update model"),
   });
+  const setImageStyleMutation = trpc.campaign.setImageStyle.useMutation({
+    onSuccess: () => { toast.success("Image style updated"); refetch(); },
+    onError: () => toast.error("Failed to update style"),
+  });
 
   async function downloadImage(url: string, postId: number) {
     try {
@@ -434,18 +438,38 @@ export default function MarketingCampaignWorkspace() {
                   <ImageIcon className="w-3.5 h-3.5" />
                   Generate All Images
                 </Button>
-                {/* Image model selector */}
-                <div className="flex items-center gap-1.5 ml-auto">
-                  <span className="text-[11px] text-muted-foreground font-medium">Image model:</span>
-                  <select
-                    value={campaign.imageModel ?? "dall-e-3"}
-                    onChange={e => setImageModelMutation.mutate({ id: campaignId, imageModel: e.target.value as "dall-e-3" | "nano-banana-2" })}
-                    disabled={setImageModelMutation.isPending}
-                    className="text-xs h-7 rounded-md border border-input bg-background px-2 pr-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-400 appearance-auto"
-                  >
-                    <option value="dall-e-3">DALL-E 3</option>
-                    <option value="nano-banana-2">Nano Banana 2</option>
-                  </select>
+                {/* Image style + model selectors */}
+                <div className="flex items-center gap-3 ml-auto flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground font-medium">Style:</span>
+                    <select
+                      value={campaign.imageStyle ?? ""}
+                      onChange={e => setImageStyleMutation.mutate({ id: campaignId, imageStyle: e.target.value })}
+                      disabled={setImageStyleMutation.isPending}
+                      className="text-xs h-7 rounded-md border border-input bg-background px-2 pr-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-400 appearance-auto"
+                    >
+                      <option value="">Default</option>
+                      <option value="Photorealistic photography, high detail, natural lighting">Photorealistic</option>
+                      <option value="Cinematic film still, dramatic lighting, shallow depth of field">Cinematic</option>
+                      <option value="Flat vector illustration, bold colours, clean lines">Flat Illustration</option>
+                      <option value="Watercolour painting, soft washes, artistic">Watercolour</option>
+                      <option value="Bold graphic design, strong contrast, modern typography layout">Bold Graphic</option>
+                      <option value="Minimalist, white background, clean and simple">Minimalist</option>
+                      <option value="Vibrant product photography, studio lighting, commercial quality">Product Photography</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground font-medium">Model:</span>
+                    <select
+                      value={campaign.imageModel ?? "dall-e-3"}
+                      onChange={e => setImageModelMutation.mutate({ id: campaignId, imageModel: e.target.value as "dall-e-3" | "nano-banana-2" })}
+                      disabled={setImageModelMutation.isPending}
+                      className="text-xs h-7 rounded-md border border-input bg-background px-2 pr-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-400 appearance-auto"
+                    >
+                      <option value="dall-e-3">DALL-E 3</option>
+                      <option value="nano-banana-2">Nano Banana 2</option>
+                    </select>
+                  </div>
                 </div>
                 {allPostsApproved && campaign.status === "approval" && (
                   <Button

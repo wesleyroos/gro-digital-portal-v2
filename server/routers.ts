@@ -593,6 +593,16 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    setImageStyle: adminProcedure
+      .input(z.object({
+        id: z.number().int(),
+        imageStyle: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        await updateCampaign(input.id, { imageStyle: input.imageStyle });
+        return { success: true };
+      }),
+
     delete: adminProcedure
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ input }) => {
@@ -623,7 +633,8 @@ export const appRouter = router({
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
           const campaign = await getCampaignById(post.campaignId);
           const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
-          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model);
+          const style = campaign?.imageStyle ?? '';
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style);
           return { url };
         }),
 
@@ -635,7 +646,8 @@ export const appRouter = router({
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
           const campaign = await getCampaignById(post.campaignId);
           const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
-          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model);
+          const style = campaign?.imageStyle ?? '';
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style);
           return { url };
         }),
 
