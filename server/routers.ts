@@ -1,4 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
+import { ENV } from "./_core/env";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { TRPCError } from "@trpc/server";
@@ -649,6 +650,30 @@ export const appRouter = router({
           const style = campaign?.imageStyle ?? '';
           const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style);
           return { url };
+        }),
+
+      suggestImagePrompt: adminProcedure
+        .input(z.object({ postId: z.number().int() }))
+        .mutation(async ({ input }) => {
+          const post = await getPostById(input.postId);
+          if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
+          if (!ENV.openAiApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'OpenAI not configured' });
+          const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                { role: 'system', content: 'You write concise image generation prompts for social media posts. Return only the prompt text, no explanation, no quotes.' },
+                { role: 'user', content: `Write a new image generation prompt for this social media post.\n\nTheme: ${post.theme ?? 'none'}\nCaption: ${post.caption ?? 'none'}\nHashtags: ${post.hashtags ?? 'none'}\n\nThe prompt should describe a specific visual scene or composition that would work well as an Instagram post image.` },
+              ],
+              max_tokens: 200,
+            }),
+          });
+          if (!res.ok) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to generate prompt' });
+          const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+          const prompt = data.choices[0]?.message?.content?.trim() ?? '';
+          return { prompt };
         }),
 
       updateContent: adminProcedure

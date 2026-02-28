@@ -147,6 +147,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { toast.success("Image style updated"); refetch(); },
     onError: () => toast.error("Failed to update style"),
   });
+  const suggestPromptMutation = trpc.campaign.post.suggestImagePrompt.useMutation({
+    onSuccess: ({ prompt }) => setEditDraft(d => ({ ...d, imagePrompt: prompt })),
+    onError: () => toast.error("Failed to suggest prompt"),
+  });
 
   async function downloadImage(url: string, postId: number) {
     try {
@@ -592,13 +596,10 @@ export default function MarketingCampaignWorkspace() {
                               <p className="text-[10px] font-medium text-muted-foreground">Image prompt</p>
                               <button
                                 className="text-[10px] text-violet-600 underline underline-offset-2 hover:text-violet-800 disabled:opacity-40"
-                                disabled={updateContentMutation.isPending || regenerateImageMutation.isPending}
-                                onClick={async () => {
-                                  await updateContentMutation.mutateAsync({ postId: post.id, ...editDraft });
-                                  regenerateImageMutation.mutate({ postId: post.id });
-                                }}
+                                disabled={suggestPromptMutation.isPending}
+                                onClick={() => suggestPromptMutation.mutate({ postId: post.id })}
                               >
-                                {regenerateImageMutation.isPending ? "Generating…" : "regenerate"}
+                                {suggestPromptMutation.isPending ? "thinking…" : "suggest new"}
                               </button>
                             </div>
                             <textarea
@@ -617,7 +618,20 @@ export default function MarketingCampaignWorkspace() {
                             >
                               Save
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingPostId(null)}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1"
+                              disabled={generatingPostIds.has(post.id) || updateContentMutation.isPending}
+                              onClick={async () => {
+                                await updateContentMutation.mutateAsync({ postId: post.id, ...editDraft });
+                                regenerateImageMutation.mutate({ postId: post.id });
+                              }}
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              Regen Image
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingPostId(null)}>
                               Cancel
                             </Button>
                           </div>
@@ -667,7 +681,7 @@ export default function MarketingCampaignWorkspace() {
                             )}
                           </>
                         )}
-                        {(post.status === "approved" || post.status === "rejected") && post.imageUrl && (
+                        {(post.status === "draft" || post.status === "approved" || post.status === "rejected") && post.imageUrl && (
                           <Button
                             size="sm"
                             variant="outline"
