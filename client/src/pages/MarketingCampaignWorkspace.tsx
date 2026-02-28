@@ -66,6 +66,7 @@ export default function MarketingCampaignWorkspace() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   async function generateCalendar() {
     if (calendarGenerating) return;
@@ -130,6 +131,7 @@ export default function MarketingCampaignWorkspace() {
     const msg = (text ?? input).trim();
     if (!msg || chatLoading) return;
     setInput("");
+    if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
     const newMsg: Message = { role: "user", content: msg };
     setLocalMessages(prev => [...prev, newMsg]);
     setChatLoading(true);
@@ -235,14 +237,17 @@ export default function MarketingCampaignWorkspace() {
                   ? "Posts are ready — switch to the Content tab."
                   : calendarGenerating
                   ? "Generating your content calendar…"
-                  : "Happy with the strategy? Generate the content calendar."}
+                  : campaign.strategy
+                  ? "Strategy is ready. Generate the content calendar when you're happy."
+                  : "Complete the strategy with the agent first, then generate the calendar."}
               </p>
               {(campaign.status === "discovery" || campaign.status === "strategy") && (
                 <Button
                   size="sm"
-                  className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+                  className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white gap-1.5 disabled:opacity-40"
                   onClick={generateCalendar}
-                  disabled={calendarGenerating || chatLoading}
+                  disabled={calendarGenerating || chatLoading || !campaign.strategy}
+                  title={!campaign.strategy ? "Complete the strategy chat first" : undefined}
                 >
                   {calendarGenerating ? (
                     <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -329,6 +334,7 @@ export default function MarketingCampaignWorkspace() {
           <div className="shrink-0 pt-4 border-t border-border">
             <div className="flex items-end gap-2">
               <textarea
+                ref={textareaRef}
                 className="flex-1 min-h-[40px] max-h-[160px] resize-none overflow-y-auto text-sm rounded-2xl bg-muted border-0 px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-violet-400 leading-relaxed"
                 placeholder="Message the campaign agent..."
                 value={input}
