@@ -16,4 +16,10 @@ export const ENV = {
   instagramAppId: process.env.INSTAGRAM_APP_ID ?? "",
   instagramAppSecret: process.env.INSTAGRAM_APP_SECRET ?? "",
   instagramRedirectUri: process.env.INSTAGRAM_REDIRECT_URI ?? "",
+  openAiApiKey: process.env.OPENAI_API_KEY ?? "",
+  r2AccessKeyId: process.env.R2_ACCESS_KEY_ID ?? "",
+  r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? "",
+  r2Endpoint: process.env.R2_ENDPOINT ?? "",
+  r2Bucket: process.env.R2_BUCKET ?? "",
+  r2PublicUrl: process.env.R2_PUBLIC_URL ?? "",
 };
