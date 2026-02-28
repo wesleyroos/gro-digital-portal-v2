@@ -188,21 +188,33 @@ export default function MarketingCampaignWorkspace() {
 
         {/* ── Chat / Strategy Tab ───────────────────────────────────────── */}
         <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 mt-0">
-          {/* Strategy summary card */}
+          {/* Generate calendar banner — shown whenever posts haven't been created yet */}
+          {posts.length === 0 && localMessages.length > 0 && !chatLoading && (
+            <div className="shrink-0 mb-3 flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
+              <p className="text-sm text-violet-800">
+                {campaign.status === "approval" || campaign.status === "active"
+                  ? "Posts are ready — switch to the Content tab."
+                  : "Happy with the strategy? Generate the content calendar."}
+              </p>
+              {(campaign.status === "discovery" || campaign.status === "strategy") && (
+                <Button
+                  size="sm"
+                  className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+                  onClick={() => sendMessage("Generate the content calendar now. Call generate_content_calendar with all posts.")}
+                  disabled={chatLoading}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Generate Calendar
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Strategy summary card — only shown once strategy is saved */}
           {campaign.strategy && (
             <div className="shrink-0 mb-4 rounded-xl border bg-violet-50 border-violet-200 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 mb-1.5">Strategy</p>
               <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-4">{campaign.strategy}</p>
-              {campaign.status === "strategy" && (
-                <Button
-                  size="sm"
-                  className="mt-3 bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
-                  onClick={() => sendMessage("Generate the content calendar now. Call generate_content_calendar with all posts.")}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Approve Strategy → Generate Calendar
-                </Button>
-              )}
             </div>
           )}
 
