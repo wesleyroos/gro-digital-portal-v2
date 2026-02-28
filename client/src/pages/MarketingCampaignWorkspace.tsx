@@ -5,7 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import ReactMarkdown from "react-markdown";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -56,6 +63,7 @@ export default function MarketingCampaignWorkspace() {
   const [chatLoading, setChatLoading] = useState(false);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,6 +100,10 @@ export default function MarketingCampaignWorkspace() {
   const updateStatusMutation = trpc.campaign.updateStatus.useMutation({
     onSuccess: () => { toast.success("Campaign activated"); refetch(); },
     onError: () => toast.error("Failed to activate campaign"),
+  });
+  const deleteMutation = trpc.campaign.delete.useMutation({
+    onSuccess: () => { toast.success("Campaign deleted"); setLocation("/marketing"); },
+    onError: () => toast.error("Failed to delete campaign"),
   });
 
   async function sendMessage(text?: string) {
@@ -165,6 +177,14 @@ export default function MarketingCampaignWorkspace() {
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{campaign.clientSlug}</p>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+          onClick={() => setShowDeleteConfirm(true)}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -473,6 +493,27 @@ export default function MarketingCampaignWorkspace() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete campaign?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will permanently delete <span className="font-medium text-foreground">{campaign.name}</span>, all its posts, and the chat history. This cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate({ id: campaignId })}
+              disabled={deleteMutation.isPending}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

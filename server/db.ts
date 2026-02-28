@@ -991,6 +991,14 @@ export async function appendCampaignMessages(campaignId: number, messages: Array
   );
 }
 
+export async function deleteCampaign(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(campaignMessages).where(eq(campaignMessages.campaignId, id));
+  await db.delete(marketingPosts).where(eq(marketingPosts.campaignId, id));
+  await db.delete(marketingCampaigns).where(eq(marketingCampaigns.id, id));
+}
+
 // ── Instagram tokens ──────────────────────────────────────────────────────────
 
 export async function storeInstagramTokens(clientSlug: string, businessId: string, accessToken: string, username: string) {

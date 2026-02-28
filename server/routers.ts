@@ -51,6 +51,7 @@ import {
   getCampaignById,
   createCampaign,
   updateCampaign,
+  deleteCampaign,
   getPostsByCampaign,
   getPostById,
   updatePostStatus,
@@ -576,6 +577,13 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         await updateCampaign(input.id, { status: input.status });
+        return { success: true };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        await deleteCampaign(input.id);
         return { success: true };
       }),
 

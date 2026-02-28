@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { Megaphone, Plus, ArrowRight } from "lucide-react";
+import { Megaphone, Plus, ArrowRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,6 +40,8 @@ export default function Marketing() {
   const [newName, setNewName] = useState("");
   const [newClientSlug, setNewClientSlug] = useState("");
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
   const { data: campaigns, refetch } = trpc.campaign.list.useQuery();
   const { data: clients } = trpc.invoice.clients.useQuery();
   const createMutation = trpc.campaign.create.useMutation({
@@ -51,6 +53,10 @@ export default function Marketing() {
       setLocation(`/marketing/${data.id}`);
     },
     onError: () => toast.error("Failed to create campaign"),
+  });
+  const deleteMutation = trpc.campaign.delete.useMutation({
+    onSuccess: () => { refetch(); setConfirmDeleteId(null); toast.success("Campaign deleted"); },
+    onError: () => toast.error("Failed to delete campaign"),
   });
 
   // Handle instagram=connected toast
@@ -136,7 +142,16 @@ export default function Marketing() {
                   <p className="font-semibold text-sm truncate">{c.name}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{c.clientSlug}</p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 group-hover:text-violet-600 transition-colors mt-0.5" />
+                <div className="flex items-center gap-1 shrink-0">
+                  <span
+                    role="button"
+                    onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
+                    className="p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-violet-600 transition-colors mt-0.5" />
+                </div>
               </div>
               <Badge
                 variant="outline"
@@ -200,6 +215,25 @@ export default function Marketing() {
               disabled={!newName.trim() || !newClientSlug || createMutation.isPending}
             >
               Create Campaign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmDeleteId !== null} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete campaign?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">This will permanently delete the campaign, all its posts, and the chat history. This cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmDeleteId !== null && deleteMutation.mutate({ id: confirmDeleteId })}
+              disabled={deleteMutation.isPending}
+            >
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
