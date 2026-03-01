@@ -119,6 +119,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: (_data, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.success("Image regenerated"); refetch(); },
     onError: (_e, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.error("Image regeneration failed"); },
   });
+  const publishNowMutation = trpc.campaign.post.publishNow.useMutation({
+    onSuccess: () => { toast.success("Posted to Instagram!"); refetch(); },
+    onError: (e) => toast.error(`Post failed: ${e.message}`),
+  });
   const approveAllMutation = trpc.campaign.post.approveAll.useMutation({
     onSuccess: () => { toast.success("All draft posts approved"); refetch(); },
     onError: () => toast.error("Failed to approve all"),
@@ -717,6 +721,21 @@ export default function MarketingCampaignWorkspace() {
                           >
                             <RefreshCw className="w-3 h-3" />
                             Regen Image
+                          </Button>
+                        )}
+                        {post.status === "approved" && post.imageUrl && (
+                          <Button
+                            size="sm"
+                            className="flex-1 h-7 text-xs bg-violet-600 hover:bg-violet-700 text-white gap-1"
+                            onClick={() => publishNowMutation.mutate({ postId: post.id })}
+                            disabled={publishNowMutation.isPending}
+                          >
+                            {publishNowMutation.isPending ? (
+                              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Zap className="w-3 h-3" />
+                            )}
+                            Post Now
                           </Button>
                         )}
                       </div>
