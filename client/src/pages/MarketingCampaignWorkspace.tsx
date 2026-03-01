@@ -74,6 +74,7 @@ export default function MarketingCampaignWorkspace() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -587,7 +588,12 @@ export default function MarketingCampaignWorkspace() {
                         </div>
                       ) : post.imageUrl ? (
                         <>
-                          <img src={post.imageUrl} alt="Post" className="w-full h-full object-cover" />
+                          <img
+                            src={post.imageUrl}
+                            alt="Post"
+                            className="w-full h-full object-cover cursor-zoom-in"
+                            onClick={() => setLightboxUrl(post.imageUrl!)}
+                          />
                           {/* Hover overlay: download + upload */}
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <button
@@ -825,6 +831,27 @@ export default function MarketingCampaignWorkspace() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* ── Image Lightbox ──────────────────────────────────────────────── */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Full size"
+            className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* ── Analytics Modal ─────────────────────────────────────────────── */}
       <Dialog open={!!analyticsPostId} onOpenChange={open => { if (!open) setAnalyticsPostId(null); }}>
