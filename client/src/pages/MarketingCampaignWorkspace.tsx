@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Minus } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -854,13 +854,13 @@ export default function MarketingCampaignWorkspace() {
               <p className="text-sm text-muted-foreground">No published posts yet — analytics will appear here once posts are live on Instagram.</p>
             </div>
           ) : (() => {
-            const METRICS: { key: keyof typeof perfData.rows[0]["insights"]; label: string; color: string }[] = [
-              { key: "reach",             label: "Reach",           color: "text-violet-600" },
-              { key: "likes",             label: "Likes",           color: "text-pink-600"   },
-              { key: "comments",          label: "Comments",        color: "text-amber-600"  },
-              { key: "shares",            label: "Shares",          color: "text-emerald-600"},
-              { key: "saved",             label: "Saves",           color: "text-indigo-600" },
-              { key: "totalInteractions", label: "Interactions",    color: "text-blue-600"   },
+            const METRICS: { key: keyof typeof perfData.rows[0]["insights"]; label: string; color: string; bg: string }[] = [
+              { key: "reach",             label: "Reach",        color: "text-violet-700",  bg: "bg-violet-50"  },
+              { key: "likes",             label: "Likes",        color: "text-pink-700",    bg: "bg-pink-50"    },
+              { key: "comments",          label: "Comments",     color: "text-amber-700",   bg: "bg-amber-50"   },
+              { key: "shares",            label: "Shares",       color: "text-emerald-700", bg: "bg-emerald-50" },
+              { key: "saved",             label: "Saves",        color: "text-indigo-700",  bg: "bg-indigo-50"  },
+              { key: "totalInteractions", label: "Interactions", color: "text-blue-700",    bg: "bg-blue-50"    },
             ];
 
             const sorted = [...perfData.rows].sort((a, b) => {
@@ -869,78 +869,73 @@ export default function MarketingCampaignWorkspace() {
               return perfSort.dir === "desc" ? bv - av : av - bv;
             });
 
-            // Max values per metric for bar scaling
-            const maxVals = Object.fromEntries(
-              METRICS.map(m => [m.key, Math.max(1, ...perfData.rows.map(r => (r.insights[m.key] as number | null) ?? 0))])
-            );
-
-            // Summary totals
             const totals = METRICS.map(m => ({
               ...m,
               total: perfData.rows.reduce((s, r) => s + ((r.insights[m.key] as number | null) ?? 0), 0),
             }));
 
-            function SortIcon({ metricKey }: { metricKey: string }) {
-              if (perfSort.key !== metricKey) return <Minus className="w-3 h-3 opacity-30" />;
-              return perfSort.dir === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />;
-            }
+            const totalReach = perfData.rows.reduce((s, r) => s + r.insights.reach, 0);
+            const totalInteractions = perfData.rows.reduce((s, r) => s + r.insights.totalInteractions, 0);
+            const avgEngRate = totalReach > 0 ? ((totalInteractions / totalReach) * 100).toFixed(1) : null;
 
-            function toggleSort(key: string) {
-              setPerfSort(s => s.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" });
-            }
+            const RANK_STYLES = [
+              "bg-violet-600 text-white",
+              "bg-violet-100 text-violet-700",
+              "bg-muted text-muted-foreground",
+            ];
 
             return (
-              <div className="space-y-4">
-                {/* Summary cards */}
+              <div className="space-y-5">
+
+                {/* ── Summary stat cards ── */}
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                   {totals.map(m => (
-                    <div key={m.key} className="rounded-xl border bg-card px-3 py-2.5 text-center">
+                    <div
+                      key={m.key}
+                      className={`rounded-xl border px-3 py-2.5 text-center cursor-pointer transition-all ${perfSort.key === m.key ? `${m.bg} border-transparent ring-1 ring-violet-300` : "bg-card hover:bg-muted/40"}`}
+                      onClick={() => setPerfSort(s => s.key === m.key ? { key: m.key, dir: s.dir === "desc" ? "asc" : "desc" } : { key: m.key, dir: "desc" })}
+                    >
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{m.label}</p>
-                      <p className={`text-xl font-bold mt-0.5 ${m.color}`}>{m.total.toLocaleString()}</p>
+                      <p className={`text-xl font-bold mt-0.5 ${perfSort.key === m.key ? m.color : "text-foreground"}`}>{m.total.toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Avg engagement rate */}
-                {(() => {
-                  const totalReach = perfData.rows.reduce((s, r) => s + r.insights.reach, 0);
-                  const totalInteractions = perfData.rows.reduce((s, r) => s + r.insights.totalInteractions, 0);
-                  return totalReach > 0 ? (
-                    <p className="text-xs text-muted-foreground text-center">
-                      Avg engagement rate across {perfData.rows.length} post{perfData.rows.length !== 1 ? "s" : ""}: <span className="font-semibold text-foreground">{((totalInteractions / totalReach) * 100).toFixed(1)}%</span>
-                    </p>
-                  ) : null;
-                })()}
+                {/* ── Context line ── */}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {perfData.rows.length} post{perfData.rows.length !== 1 ? "s" : ""} · sorted by <span className="font-medium text-foreground">{METRICS.find(m => m.key === perfSort.key)?.label}</span> {perfSort.dir === "desc" ? "(highest first)" : "(lowest first)"}
+                    {avgEngRate && <> · avg engagement <span className="font-medium text-foreground">{avgEngRate}%</span></>}
+                  </p>
+                  <button
+                    className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setPerfSort(s => ({ ...s, dir: s.dir === "desc" ? "asc" : "desc" }))}
+                  >
+                    {perfSort.dir === "desc" ? <ChevronDown className="w-3.5 h-3.5 inline" /> : <ChevronUp className="w-3.5 h-3.5 inline" />} Reverse
+                  </button>
+                </div>
 
-                {/* Sortable table */}
-                <div className="rounded-xl border overflow-hidden">
-                  {/* Header row */}
-                  <div className="grid bg-muted/50 border-b px-3 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium" style={{ gridTemplateColumns: "3.5rem 1fr repeat(6, 5.5rem)" }}>
-                    <span>Image</span>
-                    <span>Post</span>
-                    {METRICS.map(m => (
-                      <button
-                        key={m.key}
-                        className={`flex items-center justify-end gap-1 hover:text-foreground transition-colors ${perfSort.key === m.key ? "text-foreground" : ""}`}
-                        onClick={() => toggleSort(m.key)}
-                      >
-                        {m.label}
-                        <SortIcon metricKey={m.key} />
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Rows */}
-                  {sorted.map(({ post, insights: ins }) => {
+                {/* ── Ranked cards ── */}
+                <div className="space-y-2.5">
+                  {sorted.map(({ post, insights: ins }, idx) => {
                     const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
+                    const rankStyle = RANK_STYLES[idx] ?? "bg-muted text-muted-foreground";
+                    const isFirst = idx === 0 && perfData.rows.length > 1;
+
                     return (
                       <div
                         key={post.id}
-                        className="grid items-center px-3 py-3 border-b last:border-0 hover:bg-muted/30 transition-colors"
-                        style={{ gridTemplateColumns: "3.5rem 1fr repeat(6, 5.5rem)" }}
+                        className={`flex gap-3 rounded-xl border p-3 transition-colors ${isFirst ? "border-violet-200 bg-violet-50/40" : "bg-card hover:bg-muted/30"}`}
                       >
-                        {/* Thumbnail */}
-                        <div className="w-10 h-10 rounded-md overflow-hidden bg-muted shrink-0">
+                        {/* Rank */}
+                        <div className="flex flex-col items-center gap-1 shrink-0 w-7 pt-0.5">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${rankStyle}`}>
+                            {idx + 1}
+                          </span>
+                        </div>
+
+                        {/* Image */}
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
                           {post.imageUrl ? (
                             <img
                               src={post.imageUrl}
@@ -950,38 +945,45 @@ export default function MarketingCampaignWorkspace() {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
+                              <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
                             </div>
                           )}
                         </div>
 
-                        {/* Caption + date */}
-                        <div className="min-w-0 pr-4">
-                          <p className="text-xs font-medium leading-snug line-clamp-2 text-foreground">{post.caption ?? "—"}</p>
+                        {/* Caption + metrics */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="text-sm font-medium leading-snug line-clamp-2 text-foreground">{post.caption ?? "—"}</p>
+                            {engRate && (
+                              <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${isFirst ? "bg-violet-200 text-violet-800" : "bg-muted text-muted-foreground"}`}>
+                                {engRate}% eng.
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Metric chips */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {METRICS.map(m => {
+                              const val = (ins[m.key] as number | null) ?? 0;
+                              const isActive = perfSort.key === m.key;
+                              return (
+                                <span
+                                  key={m.key}
+                                  className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md ${isActive ? `${m.bg} ${m.color}` : "bg-muted text-muted-foreground"}`}
+                                >
+                                  {m.label}
+                                  <span className={`font-bold ${isActive ? m.color : "text-foreground"}`}>{val.toLocaleString()}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+
                           {post.scheduledAt && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                            <p className="text-[10px] text-muted-foreground mt-1.5">
                               {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-                              {engRate && <span className="ml-2 text-violet-600 font-medium">{engRate}% eng.</span>}
                             </p>
                           )}
                         </div>
-
-                        {/* Metric cells with bar */}
-                        {METRICS.map(m => {
-                          const val = (ins[m.key] as number | null) ?? 0;
-                          const pct = Math.round((val / maxVals[m.key]) * 100);
-                          const isTop = pct === 100 && perfData.rows.length > 1;
-                          return (
-                            <div key={m.key} className="text-right pr-1">
-                              <p className={`text-sm font-semibold leading-none ${isTop ? m.color : "text-foreground"}`}>
-                                {val.toLocaleString()}
-                              </p>
-                              <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
-                                <div className={`h-full rounded-full ${isTop ? "bg-violet-500" : "bg-muted-foreground/30"}`} style={{ width: `${pct}%` }} />
-                              </div>
-                            </div>
-                          );
-                        })}
                       </div>
                     );
                   })}
