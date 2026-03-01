@@ -92,20 +92,41 @@ export async function exchangeForLongLivedToken(shortToken: string): Promise<str
 
 /**
  * Fetch insights for a published post.
+ * Automatically selects the right metric set based on media_type.
  */
 export async function getPostInsights(igMediaId: string, token: string): Promise<{
-  impressions: number;
+  mediaType: string;
+  impressions: number | null;
   reach: number;
   likes: number;
   comments: number;
   shares: number;
   saved: number;
+  plays: number | null;
   totalInteractions: number;
-  profileVisits: number;
-  follows: number;
+  profileVisits: number | null;
+  follows: number | null;
 }> {
-  const metrics = 'impressions,reach,likes,comments,shares,saved,total_interactions,profile_visits,follows';
-  const url = `${GRAPH_BASE}/${igMediaId}/insights?metric=${metrics}&access_token=${encodeURIComponent(token)}`;
+  // Fetch media type first so we know which metrics are supported
+  const typeRes = await fetch(`${GRAPH_BASE}/${igMediaId}?fields=media_type&access_token=${encodeURIComponent(token)}`);
+  const typeData = await typeRes.json() as { media_type?: string; error?: { message: string } };
+  const mediaType = typeData.media_type ?? 'IMAGE';
+
+  // Metrics vary by media type — REELS don't support impressions/profile_visits/follows
+  const isReel = mediaType === 'REELS';
+  const isVideo = mediaType === 'VIDEO';
+  const metricList = [
+    'reach',
+    'likes',
+    'comments',
+    'shares',
+    'saved',
+    'total_interactions',
+    ...(isReel ? ['plays'] : ['impressions', 'profile_visits', 'follows']),
+    ...(isVideo ? ['plays'] : []),
+  ];
+
+  const url = `${GRAPH_BASE}/${igMediaId}/insights?metric=${metricList.join(',')}&access_token=${encodeURIComponent(token)}`;
   const res = await fetch(url);
   const data = await res.json() as {
     data?: Array<{ name: string; values?: Array<{ value: number }>; value?: number }>;
@@ -114,22 +135,23 @@ export async function getPostInsights(igMediaId: string, token: string): Promise
   if (!res.ok || !data.data) {
     throw new Error(`getPostInsights failed: ${data.error?.message ?? JSON.stringify(data)}`);
   }
-  const get = (name: string) => {
+  const get = (name: string): number | null => {
     const item = data.data!.find(d => d.name === name);
-    if (!item) return 0;
-    // insights can return either {value: n} or {values: [{value: n}]}
+    if (!item) return null;
     return item.value ?? item.values?.[0]?.value ?? 0;
   };
   return {
-    impressions:       get('impressions'),
-    reach:             get('reach'),
-    likes:             get('likes'),
-    comments:          get('comments'),
-    shares:            get('shares'),
-    saved:             get('saved'),
-    totalInteractions: get('total_interactions'),
-    profileVisits:     get('profile_visits'),
-    follows:           get('follows'),
+    mediaType,
+    impressions:       isReel ? null : get('impressions'),
+    reach:             get('reach') ?? 0,
+    likes:             get('likes') ?? 0,
+    comments:          get('comments') ?? 0,
+    shares:            get('shares') ?? 0,
+    saved:             get('saved') ?? 0,
+    plays:             (isReel || isVideo) ? get('plays') : null,
+    totalInteractions: get('total_interactions') ?? 0,
+    profileVisits:     isReel ? null : get('profile_visits'),
+    follows:           isReel ? null : get('follows'),
   };
 }
 
