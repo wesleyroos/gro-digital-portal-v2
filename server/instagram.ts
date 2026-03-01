@@ -93,10 +93,11 @@ export async function exchangeForLongLivedToken(shortToken: string): Promise<str
 /**
  * Fetch insights for a published post.
  * Automatically selects the right metric set based on media_type.
+ * Note: the Instagram Login for Business API does not support `impressions`
+ * for any media type — use `reach` instead.
  */
 export async function getPostInsights(igMediaId: string, token: string): Promise<{
   mediaType: string;
-  impressions: number | null;
   reach: number;
   likes: number;
   comments: number;
@@ -112,19 +113,15 @@ export async function getPostInsights(igMediaId: string, token: string): Promise
   const typeData = await typeRes.json() as { media_type?: string; error?: { message: string } };
   const mediaType = typeData.media_type ?? 'IMAGE';
 
-  // Metrics vary by media type — REELS don't support impressions/profile_visits/follows
   const isReel = mediaType === 'REELS';
   const isVideo = mediaType === 'VIDEO';
-  const metricList = [
-    'reach',
-    'likes',
-    'comments',
-    'shares',
-    'saved',
-    'total_interactions',
-    ...(isReel ? ['plays'] : ['impressions', 'profile_visits', 'follows']),
-    ...(isVideo ? ['plays'] : []),
-  ];
+
+  // Base metrics supported by all types
+  const metricList = ['reach', 'likes', 'comments', 'shares', 'saved', 'total_interactions'];
+  // Plays for video/reels
+  if (isReel || isVideo) metricList.push('plays');
+  // Profile engagement only for feed posts
+  if (!isReel) metricList.push('profile_visits', 'follows');
 
   const url = `${GRAPH_BASE}/${igMediaId}/insights?metric=${metricList.join(',')}&access_token=${encodeURIComponent(token)}`;
   const res = await fetch(url);
@@ -142,7 +139,6 @@ export async function getPostInsights(igMediaId: string, token: string): Promise
   };
   return {
     mediaType,
-    impressions:       isReel ? null : get('impressions'),
     reach:             get('reach') ?? 0,
     likes:             get('likes') ?? 0,
     comments:          get('comments') ?? 0,
