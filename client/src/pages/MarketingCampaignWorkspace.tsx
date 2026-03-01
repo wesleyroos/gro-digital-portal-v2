@@ -595,15 +595,15 @@ export default function MarketingCampaignWorkspace() {
                             onClick={() => setLightboxUrl(post.imageUrl!)}
                           />
                           {/* Hover overlay: download + upload */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2" onClick={() => setLightboxUrl(post.imageUrl!)}>
                             <button
-                              onClick={() => downloadImage(post.imageUrl!, post.id)}
+                              onClick={e => { e.stopPropagation(); downloadImage(post.imageUrl!, post.id); }}
                               className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                             >
                               <Download className="w-3.5 h-3.5" />
                               Download
                             </button>
-                            <label className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+                            <label className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors cursor-pointer" onClick={e => e.stopPropagation()}>
                               <Upload className="w-3.5 h-3.5" />
                               Replace
                               <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(post.id, f); e.target.value = ""; }} />
