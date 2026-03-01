@@ -31,12 +31,11 @@ export function registerInstagramOAuthRoutes(app: Express) {
     stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, clientSlug });
 
     const authUrl = new URL('https://www.instagram.com/oauth/authorize');
-    authUrl.searchParams.set('enable_fb_login', '0');
-    authUrl.searchParams.set('force_authentication', '1');
+    authUrl.searchParams.set('force_reauth', 'true');
     authUrl.searchParams.set('client_id', ENV.instagramAppId);
     authUrl.searchParams.set('redirect_uri', ENV.instagramRedirectUri);
-    authUrl.searchParams.set('scope', 'instagram_business_basic,instagram_content_publish');
     authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', 'instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights');
     authUrl.searchParams.set('state', state);
 
     res.redirect(302, authUrl.toString());
