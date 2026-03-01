@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +76,9 @@ export default function MarketingCampaignWorkspace() {
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [sharePasswordInput, setSharePasswordInput] = useState("");
+  const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -157,6 +160,18 @@ export default function MarketingCampaignWorkspace() {
   const deleteMutation = trpc.campaign.delete.useMutation({
     onSuccess: () => { toast.success("Campaign deleted"); setLocation("/marketing"); },
     onError: () => toast.error("Failed to delete campaign"),
+  });
+  const generateShareLinkMutation = trpc.campaign.generateShareLink.useMutation({
+    onSuccess: () => refetch(),
+    onError: () => toast.error("Failed to generate link"),
+  });
+  const setSharePasswordMutation = trpc.campaign.setSharePassword.useMutation({
+    onSuccess: () => { setSharePasswordSaved(true); refetch(); setTimeout(() => setSharePasswordSaved(false), 2000); },
+    onError: () => toast.error("Failed to set password"),
+  });
+  const revokeShareLinkMutation = trpc.campaign.revokeShareLink.useMutation({
+    onSuccess: () => { refetch(); setSharePasswordInput(""); },
+    onError: () => toast.error("Failed to revoke link"),
   });
   const updateContentMutation = trpc.campaign.post.updateContent.useMutation({
     onSuccess: () => { toast.success("Post updated"); setEditingPostId(null); refetch(); },
@@ -292,6 +307,15 @@ export default function MarketingCampaignWorkspace() {
             )}
           </div>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`h-8 px-2.5 gap-1.5 text-xs font-medium ${campaign.shareToken ? "text-violet-600 hover:text-violet-700 hover:bg-violet-50" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setShowShareDialog(true)}
+        >
+          <Link className="w-3.5 h-3.5" />
+          {campaign.shareToken ? "Shared" : "Share"}
+        </Button>
         <Button
           variant="ghost"
           size="sm"
@@ -1111,6 +1135,112 @@ export default function MarketingCampaignWorkspace() {
               )}
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Share with Client Dialog ─────────────────────────────────── */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link className="w-4 h-4 text-violet-600" />
+              Share with Client
+            </DialogTitle>
+          </DialogHeader>
+
+          {!campaign.shareToken ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Generate a private link to share this campaign with your client. They'll be able to review and approve posts, and see performance data — without needing a portal account.
+              </p>
+              <Button
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+                onClick={() => generateShareLinkMutation.mutate({ id: campaignId })}
+                disabled={generateShareLinkMutation.isPending}
+              >
+                {generateShareLinkMutation.isPending
+                  ? <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" /> Generating…</>
+                  : <><Link className="w-3.5 h-3.5" /> Generate client link</>}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Link display */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Client link</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-muted rounded-lg px-3 py-2 truncate text-foreground font-mono">
+                    {`${window.location.origin}/campaign/preview/${campaign.shareToken}`}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/campaign/preview/${campaign.shareToken}`);
+                      toast.success("Link copied");
+                    }}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                  <Lock className="w-3 h-3" />
+                  Password protection <span className="text-muted-foreground/60 font-normal">(optional)</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={sharePasswordInput}
+                    onChange={e => setSharePasswordInput(e.target.value)}
+                    placeholder={campaign.sharePassword ? "••••••••" : "Set a password…"}
+                    className="flex-1 text-sm bg-muted rounded-lg px-3 py-2 border-0 outline-none focus:ring-1 focus:ring-violet-400"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    disabled={setSharePasswordMutation.isPending}
+                    onClick={() => setSharePasswordMutation.mutate({ id: campaignId, password: sharePasswordInput })}
+                  >
+                    {sharePasswordSaved ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : "Save"}
+                  </Button>
+                  {campaign.sharePassword && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0 text-muted-foreground"
+                      onClick={() => { setSharePasswordInput(""); setSharePasswordMutation.mutate({ id: campaignId, password: "" }); }}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                {campaign.sharePassword && !sharePasswordInput && (
+                  <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Password protected
+                  </p>
+                )}
+              </div>
+
+              {/* Revoke */}
+              <div className="border-t pt-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50 w-full"
+                  onClick={() => revokeShareLinkMutation.mutate({ id: campaignId })}
+                  disabled={revokeShareLinkMutation.isPending}
+                >
+                  Revoke link — client access will be removed immediately
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

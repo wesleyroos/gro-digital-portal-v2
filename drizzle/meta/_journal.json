@@ -190,6 +190,13 @@
       "when": 1771936000000,
       "tag": "0026_image_aspect_ratio",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1771937000000,
+      "tag": "0027_campaign_share_token",
+      "breakpoints": true
     }
   ]
 }

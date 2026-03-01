@@ -64,7 +64,10 @@ import {
   clearInstagramTokens,
   storeInstagramTokens,
   updatePostImageUrl,
+  getCampaignByShareToken,
 } from "./db";
+import { nanoid } from "nanoid";
+import { createHash } from "crypto";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
 import { createMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
@@ -644,6 +647,51 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    generateShareLink: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        const token = nanoid(21);
+        await updateCampaign(input.id, { shareToken: token });
+        return { token };
+      }),
+
+    setSharePassword: adminProcedure
+      .input(z.object({ id: z.number().int(), password: z.string() }))
+      .mutation(async ({ input }) => {
+        const hashed = input.password
+          ? createHash('sha256').update(input.password).digest('hex')
+          : null;
+        await updateCampaign(input.id, { sharePassword: hashed });
+        return { success: true };
+      }),
+
+    revokeShareLink: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        await updateCampaign(input.id, { shareToken: null, sharePassword: null });
+        return { success: true };
+      }),
+
+    // Public — fetch campaign by share token (password checked here)
+    getByShareToken: publicProcedure
+      .input(z.object({ token: z.string(), password: z.string().optional() }))
+      .query(async ({ input }) => {
+        const campaign = await getCampaignByShareToken(input.token);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+        if (campaign.sharePassword) {
+          const provided = input.password
+            ? createHash('sha256').update(input.password).digest('hex')
+            : null;
+          if (provided !== campaign.sharePassword) {
+            throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Incorrect password' });
+          }
+        }
+        const posts = await getPostsByCampaign(campaign.id);
+        // Strip internal-only fields before sending to client
+        const { sharePassword, shareToken, strategy, brandVoice, targetAudience, contentThemes, imageModel, imageStyle, imageAspectRatio, ...publicCampaign } = campaign;
+        return { campaign: publicCampaign, posts };
+      }),
+
     post: router({
       approve: adminProcedure
         .input(z.object({ postId: z.number().int() }))
@@ -799,6 +847,38 @@ export const appRouter = router({
           const instagramPostId = await publishMedia(tokens.businessId, tokens.accessToken, creationId);
           await updatePostStatus(input.postId, 'posted', { instagramPostId });
           return { instagramPostId };
+        }),
+
+      // Public — approve a post via share token
+      approveByToken: publicProcedure
+        .input(z.object({ token: z.string(), postId: z.number().int(), password: z.string().optional() }))
+        .mutation(async ({ input }) => {
+          const campaign = await getCampaignByShareToken(input.token);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          if (campaign.sharePassword) {
+            const provided = input.password ? createHash('sha256').update(input.password).digest('hex') : null;
+            if (provided !== campaign.sharePassword) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Incorrect password' });
+          }
+          const post = await getPostById(input.postId);
+          if (!post || post.campaignId !== campaign.id) throw new TRPCError({ code: 'NOT_FOUND' });
+          await updatePostStatus(input.postId, 'approved');
+          return { success: true };
+        }),
+
+      // Public — reject a post via share token
+      rejectByToken: publicProcedure
+        .input(z.object({ token: z.string(), postId: z.number().int(), password: z.string().optional(), notes: z.string().optional() }))
+        .mutation(async ({ input }) => {
+          const campaign = await getCampaignByShareToken(input.token);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          if (campaign.sharePassword) {
+            const provided = input.password ? createHash('sha256').update(input.password).digest('hex') : null;
+            if (provided !== campaign.sharePassword) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Incorrect password' });
+          }
+          const post = await getPostById(input.postId);
+          if (!post || post.campaignId !== campaign.id) throw new TRPCError({ code: 'NOT_FOUND' });
+          await updatePostStatus(input.postId, 'rejected', { notes: input.notes });
+          return { success: true };
         }),
     }),
   }),

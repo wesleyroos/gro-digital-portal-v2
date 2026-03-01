@@ -24,6 +24,7 @@ import ClientAnalytics from "./pages/ClientAnalytics";
 import Login from "./pages/Login";
 import Marketing from "./pages/Marketing";
 import MarketingCampaignWorkspace from "./pages/MarketingCampaignWorkspace";
+import CampaignPreview from "./pages/CampaignPreview";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
   return <DashboardLayout>{children}</DashboardLayout>;
@@ -40,6 +41,7 @@ function Router() {
       <Route path={"/client/:slug/invoice/:invoiceNumber"} component={Invoice} />
       <Route path={"/i/:token"} component={SharedInvoice} />
       <Route path={"/analytics/:token"} component={ClientAnalytics} />
+      <Route path={"/campaign/preview/:token"} component={CampaignPreview} />
 
       {/* Admin routes — wrapped in sidebar layout */}
       <Route>

@@ -918,6 +918,8 @@ export async function updateCampaign(id: number, data: {
   imageModel?: string | null;
   imageStyle?: string | null;
   imageAspectRatio?: string | null;
+  shareToken?: string | null;
+  sharePassword?: string | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
@@ -933,7 +935,16 @@ export async function updateCampaign(id: number, data: {
   if ('imageModel' in data) set.imageModel = data.imageModel ?? 'dall-e-3';
   if ('imageStyle' in data) set.imageStyle = data.imageStyle ?? '';
   if ('imageAspectRatio' in data) set.imageAspectRatio = data.imageAspectRatio ?? '1:1';
+  if ('shareToken' in data) set.shareToken = data.shareToken ?? null;
+  if ('sharePassword' in data) set.sharePassword = data.sharePassword ?? null;
   await db.update(marketingCampaigns).set(set).where(eq(marketingCampaigns.id, id));
+}
+
+export async function getCampaignByShareToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.shareToken, token)).limit(1);
+  return result[0] ?? null;
 }
 
 // ── Marketing posts ────────────────────────────────────────────────────────────

@@ -238,6 +238,8 @@ export const marketingCampaigns = mysqlTable("marketing_campaigns", {
   imageModel: varchar("imageModel", { length: 64 }).default("dall-e-3"),
   imageStyle: varchar("imageStyle", { length: 128 }).default(""),
   imageAspectRatio: varchar("imageAspectRatio", { length: 16 }).default("1:1"),
+  shareToken: varchar("shareToken", { length: 21 }).unique(),
+  sharePassword: varchar("sharePassword", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
