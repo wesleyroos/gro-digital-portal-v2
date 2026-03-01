@@ -127,6 +127,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { toast.success("Campaign activated"); refetch(); },
     onError: () => toast.error("Failed to activate campaign"),
   });
+  const saveStrategyMutation = trpc.campaign.saveStrategy.useMutation({
+    onSuccess: () => { toast.success("Strategy saved — you can now generate the calendar"); refetch(); },
+    onError: () => toast.error("Failed to save strategy"),
+  });
   const deleteMutation = trpc.campaign.delete.useMutation({
     onSuccess: () => { toast.success("Campaign deleted"); setLocation("/marketing"); },
     onError: () => toast.error("Failed to delete campaign"),
@@ -288,24 +292,46 @@ export default function MarketingCampaignWorkspace() {
                   ? "Generating your content calendar…"
                   : campaign.strategy
                   ? "Strategy is ready. Generate the content calendar when you're happy."
-                  : "Complete the strategy with the agent first, then generate the calendar."}
+                  : "When the strategy chat is done, mark it as ready to unlock the calendar."}
               </p>
-              {(campaign.status === "discovery" || campaign.status === "strategy") && (
-                <Button
-                  size="sm"
-                  className="shrink-0 bg-violet-600 hover:bg-violet-700 text-white gap-1.5 disabled:opacity-40"
-                  onClick={generateCalendar}
-                  disabled={calendarGenerating || chatLoading || !campaign.strategy}
-                  title={!campaign.strategy ? "Complete the strategy chat first" : undefined}
-                >
-                  {calendarGenerating ? (
-                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5" />
-                  )}
-                  {calendarGenerating ? "Generating…" : "Generate Calendar"}
-                </Button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {!campaign.strategy && !calendarGenerating && (campaign.status === "discovery" || campaign.status === "strategy") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-violet-300 text-violet-700 hover:bg-violet-100 gap-1.5"
+                    onClick={() => {
+                      const lastAssistant = [...localMessages].reverse().find(m => m.role === "assistant");
+                      const strategyText = lastAssistant?.content ?? localMessages.map(m => `${m.role}: ${m.content}`).join("\n\n");
+                      saveStrategyMutation.mutate({ id: campaignId, strategy: strategyText });
+                    }}
+                    disabled={saveStrategyMutation.isPending}
+                  >
+                    {saveStrategyMutation.isPending ? (
+                      <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    Strategy Ready
+                  </Button>
+                )}
+                {(campaign.status === "discovery" || campaign.status === "strategy") && (
+                  <Button
+                    size="sm"
+                    className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5 disabled:opacity-40"
+                    onClick={generateCalendar}
+                    disabled={calendarGenerating || chatLoading || !campaign.strategy}
+                    title={!campaign.strategy ? "Mark strategy as ready first" : undefined}
+                  >
+                    {calendarGenerating ? (
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    {calendarGenerating ? "Generating…" : "Generate Calendar"}
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 

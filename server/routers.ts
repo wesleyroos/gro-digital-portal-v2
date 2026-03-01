@@ -618,6 +618,13 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    saveStrategy: adminProcedure
+      .input(z.object({ id: z.number().int(), strategy: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        await updateCampaign(input.id, { strategy: input.strategy, status: 'strategy' });
+        return { success: true };
+      }),
+
     delete: adminProcedure
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ input }) => {
