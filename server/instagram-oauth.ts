@@ -86,11 +86,11 @@ export function registerInstagramOAuthRoutes(app: Express) {
       // Upgrade to long-lived token
       const longToken = await exchangeForLongLivedToken(tokenData.access_token);
 
-      // Get user info
-      const { username } = await getIgUserInfo(longToken);
+      // Get user info — use the id from /me as the canonical business ID for API calls
+      const { id: igUserId, username } = await getIgUserInfo(longToken);
 
       // Store in DB
-      await storeInstagramTokens(clientSlug, tokenData.user_id, longToken, username);
+      await storeInstagramTokens(clientSlug, igUserId, longToken, username);
 
       res.redirect(302, `/marketing?instagram=connected&client=${encodeURIComponent(clientSlug)}`);
     } catch (error) {

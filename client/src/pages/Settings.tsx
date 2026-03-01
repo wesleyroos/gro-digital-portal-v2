@@ -268,6 +268,10 @@ function InstagramClientRow({ clientSlug, clientName }: { clientSlug: string; cl
     onSuccess: () => { refetch(); toast.success(`Instagram disconnected for ${clientName}`); },
     onError: () => toast.error("Failed to disconnect"),
   });
+  const refreshUserId = trpc.instagram.refreshUserId.useMutation({
+    onSuccess: ({ id, username }) => { refetch(); toast.success(`ID refreshed: ${id} (@${username})`); },
+    onError: (e) => toast.error(`Refresh failed: ${e.message}`),
+  });
 
   return (
     <div className="flex items-center justify-between gap-3 py-2">
@@ -281,6 +285,9 @@ function InstagramClientRow({ clientSlug, clientName }: { clientSlug: string; cl
         {data?.connected ? (
           <>
             <Badge variant="default" className="bg-green-500 hover:bg-green-500 text-white text-[10px]">Connected</Badge>
+            <Button variant="outline" size="sm" onClick={() => refreshUserId.mutate({ clientSlug })} disabled={refreshUserId.isPending}>
+              Fix ID
+            </Button>
             <Button variant="outline" size="sm" onClick={() => disconnect.mutate({ clientSlug })} disabled={disconnect.isPending}>
               Disconnect
             </Button>

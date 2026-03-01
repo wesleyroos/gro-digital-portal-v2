@@ -1,6 +1,6 @@
 import { ENV } from './_core/env';
 
-const GRAPH_BASE = 'https://graph.instagram.com';
+const GRAPH_BASE = 'https://graph.instagram.com/v21.0';
 
 /**
  * Create a media container (image post) on Instagram.

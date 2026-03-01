@@ -62,11 +62,12 @@ import {
   getCampaignMessages,
   getInstagramTokens,
   clearInstagramTokens,
+  storeInstagramTokens,
   updatePostImageUrl,
 } from "./db";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
-import { createMediaContainer, publishMedia } from "./instagram";
+import { createMediaContainer, publishMedia, getIgUserInfo } from "./instagram";
 import { getCalendarEvents } from "./calendar";
 
 export const appRouter = router({
@@ -768,6 +769,17 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await clearInstagramTokens(input.clientSlug);
         return { success: true };
+      }),
+
+    // Fix the stored businessId by re-fetching from /me using the existing token
+    refreshUserId: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ input }) => {
+        const tokens = await getInstagramTokens(input.clientSlug);
+        if (!tokens) throw new TRPCError({ code: 'NOT_FOUND', message: 'No Instagram connection found' });
+        const { id, username } = await getIgUserInfo(tokens.accessToken);
+        await storeInstagramTokens(input.clientSlug, id, tokens.accessToken, username);
+        return { id, username };
       }),
   }),
 });
