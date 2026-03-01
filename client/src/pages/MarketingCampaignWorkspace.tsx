@@ -854,13 +854,13 @@ export default function MarketingCampaignWorkspace() {
               <p className="text-sm text-muted-foreground">No published posts yet — analytics will appear here once posts are live on Instagram.</p>
             </div>
           ) : (() => {
-            const METRICS: { key: keyof typeof perfData.rows[0]["insights"]; label: string; color: string; bg: string }[] = [
-              { key: "reach",             label: "Reach",        color: "text-violet-700",  bg: "bg-violet-50"  },
-              { key: "likes",             label: "Likes",        color: "text-pink-700",    bg: "bg-pink-50"    },
-              { key: "comments",          label: "Comments",     color: "text-amber-700",   bg: "bg-amber-50"   },
-              { key: "shares",            label: "Shares",       color: "text-emerald-700", bg: "bg-emerald-50" },
-              { key: "saved",             label: "Saves",        color: "text-indigo-700",  bg: "bg-indigo-50"  },
-              { key: "totalInteractions", label: "Interactions", color: "text-blue-700",    bg: "bg-blue-50"    },
+            const METRICS: { key: keyof typeof perfData.rows[0]["insights"]; label: string; color: string }[] = [
+              { key: "reach",             label: "Reach",        color: "text-violet-600"  },
+              { key: "likes",             label: "Likes",        color: "text-pink-600"    },
+              { key: "comments",          label: "Comments",     color: "text-amber-600"   },
+              { key: "shares",            label: "Shares",       color: "text-emerald-600" },
+              { key: "saved",             label: "Saves",        color: "text-indigo-600"  },
+              { key: "totalInteractions", label: "Interactions", color: "text-blue-600"    },
             ];
 
             const sorted = [...perfData.rows].sort((a, b) => {
@@ -878,115 +878,129 @@ export default function MarketingCampaignWorkspace() {
             const totalInteractions = perfData.rows.reduce((s, r) => s + r.insights.totalInteractions, 0);
             const avgEngRate = totalReach > 0 ? ((totalInteractions / totalReach) * 100).toFixed(1) : null;
 
-            const RANK_STYLES = [
-              "bg-violet-600 text-white",
-              "bg-violet-100 text-violet-700",
-              "bg-muted text-muted-foreground",
-            ];
+            function SortHeader({ metricKey, label }: { metricKey: string; label: string }) {
+              const active = perfSort.key === metricKey;
+              return (
+                <th
+                  className={`px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap transition-colors ${active ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setPerfSort(s => s.key === metricKey ? { key: metricKey, dir: s.dir === "desc" ? "asc" : "desc" } : { key: metricKey, dir: "desc" })}
+                >
+                  <span className="inline-flex items-center justify-end gap-1">
+                    {label}
+                    {active
+                      ? (perfSort.dir === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />)
+                      : <ChevronDown className="w-3 h-3 opacity-20" />}
+                  </span>
+                </th>
+              );
+            }
 
             return (
-              <div className="space-y-5">
-
+              <div className="space-y-4">
                 {/* ── Summary stat cards ── */}
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                   {totals.map(m => (
-                    <div
-                      key={m.key}
-                      className={`rounded-xl border px-3 py-2.5 text-center cursor-pointer transition-all ${perfSort.key === m.key ? `${m.bg} border-transparent ring-1 ring-violet-300` : "bg-card hover:bg-muted/40"}`}
-                      onClick={() => setPerfSort(s => s.key === m.key ? { key: m.key, dir: s.dir === "desc" ? "asc" : "desc" } : { key: m.key, dir: "desc" })}
-                    >
+                    <div key={m.key} className="rounded-xl border bg-card px-3 py-2.5 text-center">
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{m.label}</p>
-                      <p className={`text-xl font-bold mt-0.5 ${perfSort.key === m.key ? m.color : "text-foreground"}`}>{m.total.toLocaleString()}</p>
+                      <p className={`text-xl font-bold mt-0.5 ${m.color}`}>{m.total.toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* ── Context line ── */}
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    {perfData.rows.length} post{perfData.rows.length !== 1 ? "s" : ""} · sorted by <span className="font-medium text-foreground">{METRICS.find(m => m.key === perfSort.key)?.label}</span> {perfSort.dir === "desc" ? "(highest first)" : "(lowest first)"}
-                    {avgEngRate && <> · avg engagement <span className="font-medium text-foreground">{avgEngRate}%</span></>}
+                {avgEngRate && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Avg engagement rate across {perfData.rows.length} post{perfData.rows.length !== 1 ? "s" : ""}: <span className="font-semibold text-foreground">{avgEngRate}%</span>
                   </p>
-                  <button
-                    className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setPerfSort(s => ({ ...s, dir: s.dir === "desc" ? "asc" : "desc" }))}
-                  >
-                    {perfSort.dir === "desc" ? <ChevronDown className="w-3.5 h-3.5 inline" /> : <ChevronUp className="w-3.5 h-3.5 inline" />} Reverse
-                  </button>
-                </div>
+                )}
 
-                {/* ── Ranked cards ── */}
-                <div className="space-y-2.5">
-                  {sorted.map(({ post, insights: ins }, idx) => {
-                    const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
-                    const rankStyle = RANK_STYLES[idx] ?? "bg-muted text-muted-foreground";
-                    const isFirst = idx === 0 && perfData.rows.length > 1;
-
-                    return (
-                      <div
-                        key={post.id}
-                        className={`flex gap-3 rounded-xl border p-3 transition-colors ${isFirst ? "border-violet-200 bg-violet-50/40" : "bg-card hover:bg-muted/30"}`}
-                      >
-                        {/* Rank */}
-                        <div className="flex flex-col items-center gap-1 shrink-0 w-7 pt-0.5">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${rankStyle}`}>
-                            {idx + 1}
-                          </span>
-                        </div>
-
-                        {/* Image */}
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
-                          {post.imageUrl ? (
-                            <img
-                              src={post.imageUrl}
-                              alt=""
-                              className="w-full h-full object-cover cursor-zoom-in"
-                              onClick={() => setLightboxUrl(post.imageUrl!)}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Caption + metrics */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <p className="text-sm font-medium leading-snug line-clamp-2 text-foreground">{post.caption ?? "—"}</p>
-                            {engRate && (
-                              <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${isFirst ? "bg-violet-200 text-violet-800" : "bg-muted text-muted-foreground"}`}>
-                                {engRate}% eng.
+                {/* ── Sortable table ── */}
+                <div className="rounded-xl border overflow-hidden">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-muted/50 border-b">
+                        <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-8">#</th>
+                        <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Post</th>
+                        {METRICS.map(m => <SortHeader key={m.key} metricKey={m.key} label={m.label} />)}
+                        <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Eng. Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map(({ post, insights: ins }, idx) => {
+                        const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
+                        const activeMetric = METRICS.find(m => m.key === perfSort.key);
+                        return (
+                          <tr key={post.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                            {/* Rank */}
+                            <td className="px-3 py-3 text-center">
+                              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${idx === 0 && sorted.length > 1 ? "bg-violet-600 text-white" : "text-muted-foreground"}`}>
+                                {idx + 1}
                               </span>
-                            )}
-                          </div>
+                            </td>
 
-                          {/* Metric chips */}
-                          <div className="flex flex-wrap gap-1.5">
+                            {/* Image + caption */}
+                            <td className="px-3 py-3">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-10 h-10 rounded-md overflow-hidden bg-muted shrink-0">
+                                  {post.imageUrl ? (
+                                    <img
+                                      src={post.imageUrl}
+                                      alt=""
+                                      className="w-full h-full object-cover cursor-zoom-in"
+                                      onClick={() => setLightboxUrl(post.imageUrl!)}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium line-clamp-2 leading-snug">{post.caption ?? "—"}</p>
+                                  {post.scheduledAt && (
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                      {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Metric columns */}
                             {METRICS.map(m => {
                               const val = (ins[m.key] as number | null) ?? 0;
-                              const isActive = perfSort.key === m.key;
+                              const active = perfSort.key === m.key;
                               return (
-                                <span
-                                  key={m.key}
-                                  className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md ${isActive ? `${m.bg} ${m.color}` : "bg-muted text-muted-foreground"}`}
-                                >
-                                  {m.label}
-                                  <span className={`font-bold ${isActive ? m.color : "text-foreground"}`}>{val.toLocaleString()}</span>
-                                </span>
+                                <td key={m.key} className={`px-3 py-3 text-right tabular-nums ${active ? `font-bold ${m.color}` : "text-foreground"}`}>
+                                  {val.toLocaleString()}
+                                </td>
                               );
                             })}
-                          </div>
 
-                          {post.scheduledAt && (
-                            <p className="text-[10px] text-muted-foreground mt-1.5">
-                              {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                            {/* Engagement rate */}
+                            <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">
+                              {engRate ? `${engRate}%` : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+
+                    {/* Totals footer */}
+                    <tfoot>
+                      <tr className="border-t-2 border-border bg-muted/30">
+                        <td className="px-3 py-2.5" />
+                        <td className="px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total</td>
+                        {totals.map(m => (
+                          <td key={m.key} className={`px-3 py-2.5 text-right text-[11px] font-bold tabular-nums ${m.color}`}>
+                            {m.total.toLocaleString()}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2.5 text-right text-[11px] font-bold text-muted-foreground tabular-nums">
+                          {avgEngRate ? `${avgEngRate}%` : "—"}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               </div>
             );
