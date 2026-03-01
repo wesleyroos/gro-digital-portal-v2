@@ -59,6 +59,11 @@ export default function MarketingCampaignWorkspace() {
   const posts = data?.posts ?? [];
   const messages = (data?.messages ?? []).filter(m => m.role === "user" || m.role === "assistant") as Message[];
 
+  const { data: igStatus } = trpc.instagram.getStatus.useQuery(
+    { clientSlug: campaign?.clientSlug ?? "" },
+    { enabled: !!campaign?.clientSlug }
+  );
+
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [calendarGenerating, setCalendarGenerating] = useState(false);
@@ -254,7 +259,20 @@ export default function MarketingCampaignWorkspace() {
               {campaign.status}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">{campaign.clientSlug}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-muted-foreground">{campaign.clientSlug}</p>
+            {igStatus?.connected ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                IG @{igStatus.username}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Instagram not connected
+              </span>
+            )}
+          </div>
         </div>
         <Button
           variant="ghost"
@@ -723,7 +741,7 @@ export default function MarketingCampaignWorkspace() {
                             Regen Image
                           </Button>
                         )}
-                        {post.status === "approved" && post.imageUrl && (
+                        {post.status === "approved" && post.imageUrl && igStatus?.connected && (
                           <Button
                             size="sm"
                             className="flex-1 h-7 text-xs bg-violet-600 hover:bg-violet-700 text-white gap-1"
