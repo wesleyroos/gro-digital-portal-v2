@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Eye, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -879,7 +879,6 @@ export default function MarketingCampaignWorkspace() {
               )}
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  insights.impressions !== null && { icon: Eye,          label: "Impressions",    value: insights.impressions,    color: "text-blue-600",    bg: "bg-blue-50"    },
                   { icon: Users,        label: "Reach",          value: insights.reach,          color: "text-violet-600",  bg: "bg-violet-50"  },
                   insights.plays !== null && { icon: RefreshCw,   label: "Plays",          value: insights.plays,          color: "text-purple-600",  bg: "bg-purple-50"  },
                   { icon: Heart,        label: "Likes",          value: insights.likes,          color: "text-pink-600",    bg: "bg-pink-50"    },
