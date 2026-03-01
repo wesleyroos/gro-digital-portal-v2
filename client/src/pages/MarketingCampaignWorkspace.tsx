@@ -75,7 +75,7 @@ export default function MarketingCampaignWorkspace() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "reach", dir: "desc" });
+  const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -863,9 +863,25 @@ export default function MarketingCampaignWorkspace() {
               { key: "totalInteractions", label: "Interactions", color: "text-blue-600"    },
             ];
 
-            const sorted = [...perfData.rows].sort((a, b) => {
-              const av = (a.insights[perfSort.key as keyof typeof a.insights] as number | null) ?? 0;
-              const bv = (b.insights[perfSort.key as keyof typeof b.insights] as number | null) ?? 0;
+            // Normalise each metric to 0–1 relative to best post, average → 0–100 composite
+            const maxVals = Object.fromEntries(
+              METRICS.map(m => [m.key, Math.max(1, ...perfData.rows.map(r => (r.insights[m.key] as number | null) ?? 0))])
+            );
+            const withScores = perfData.rows.map(row => {
+              const avg = METRICS.reduce((s, m) => {
+                const val = (row.insights[m.key] as number | null) ?? 0;
+                return s + val / maxVals[m.key];
+              }, 0) / METRICS.length;
+              return { ...row, bestOverall: Math.round(avg * 1000) / 10 }; // 1 decimal 0–100
+            });
+
+            const sorted = [...withScores].sort((a, b) => {
+              const av = perfSort.key === "bestOverall"
+                ? a.bestOverall
+                : (a.insights[perfSort.key as keyof typeof a.insights] as number | null) ?? 0;
+              const bv = perfSort.key === "bestOverall"
+                ? b.bestOverall
+                : (b.insights[perfSort.key as keyof typeof b.insights] as number | null) ?? 0;
               return perfSort.dir === "desc" ? bv - av : av - bv;
             });
 
@@ -920,14 +936,15 @@ export default function MarketingCampaignWorkspace() {
                       <tr className="bg-muted/50 border-b">
                         <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground w-8">#</th>
                         <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Post</th>
+                        <SortHeader metricKey="bestOverall" label="Best Overall" />
                         {METRICS.map(m => <SortHeader key={m.key} metricKey={m.key} label={m.label} />)}
                         <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">Eng. Rate</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {sorted.map(({ post, insights: ins }, idx) => {
+                      {sorted.map((row, idx) => {
+                        const { post, insights: ins } = row;
                         const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
-                        const activeMetric = METRICS.find(m => m.key === perfSort.key);
                         return (
                           <tr key={post.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                             {/* Rank */}
@@ -965,6 +982,11 @@ export default function MarketingCampaignWorkspace() {
                               </div>
                             </td>
 
+                            {/* Best Overall */}
+                            <td className={`px-3 py-3 text-right tabular-nums font-semibold ${perfSort.key === "bestOverall" ? "text-violet-600" : "text-muted-foreground"}`}>
+                              {row.bestOverall.toFixed(1)}
+                            </td>
+
                             {/* Metric columns */}
                             {METRICS.map(m => {
                               const val = (ins[m.key] as number | null) ?? 0;
@@ -990,6 +1012,7 @@ export default function MarketingCampaignWorkspace() {
                       <tr className="border-t-2 border-border bg-muted/30">
                         <td className="px-3 py-2.5" />
                         <td className="px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total</td>
+                        <td className="px-3 py-2.5" />
                         {totals.map(m => (
                           <td key={m.key} className={`px-3 py-2.5 text-right text-[11px] font-bold tabular-nums ${m.color}`}>
                             {m.total.toLocaleString()}
