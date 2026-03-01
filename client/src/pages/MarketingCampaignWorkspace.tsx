@@ -1164,7 +1164,7 @@ export default function MarketingCampaignWorkspace() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 min-w-0">
               {/* Link display */}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">Client link</p>
@@ -1194,7 +1194,7 @@ export default function MarketingCampaignWorkspace() {
                 </p>
                 <div className="flex items-center gap-2 min-w-0">
                   <input
-                    type="text"
+                    type="password"
                     value={sharePasswordInput}
                     onChange={e => setSharePasswordInput(e.target.value)}
                     placeholder={campaign.sharePassword ? "••••••••" : "Set a password…"}
