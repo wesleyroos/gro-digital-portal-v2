@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -20,17 +20,17 @@ export default function CampaignPreview() {
   const token = params?.token ?? "";
 
   const [password, setPassword] = useState("");
-  const [submittedPassword, setSubmittedPassword] = useState<string | undefined>(undefined);
-  const [passwordError, setPasswordError] = useState(false);
+  // null = not yet decided (show gate), string = decided (empty = no password, non-empty = password submitted)
+  const [submittedPassword, setSubmittedPassword] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [rejectingPostId, setRejectingPostId] = useState<number | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
 
   const { data, isLoading, error, refetch } = trpc.campaign.getByShareToken.useQuery(
-    { token, password: submittedPassword },
+    { token, password: submittedPassword || undefined },
     {
-      enabled: !!token && submittedPassword !== undefined,
+      enabled: !!token && submittedPassword !== null,
       retry: false,
     }
   );
@@ -44,17 +44,8 @@ export default function CampaignPreview() {
     onError: () => toast.error("Failed to reject post"),
   });
 
-  // Password gate — show form until password submitted
-  const needsPassword = error?.data?.code === "UNAUTHORIZED" || (submittedPassword === undefined && !data);
-
-  function submitPassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPasswordError(false);
-    setSubmittedPassword(password);
-  }
-
-  // If we got an UNAUTHORIZED after submitting, show error
-  if (submittedPassword !== undefined && error?.data?.code === "UNAUTHORIZED") {
+  // If we got an UNAUTHORIZED after submitting a password, show wrong-password form
+  if (submittedPassword !== null && submittedPassword !== "" && error?.data?.code === "UNAUTHORIZED") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
@@ -82,8 +73,7 @@ export default function CampaignPreview() {
     );
   }
 
-  if (submittedPassword === undefined) {
-    // Check if we need a password at all — try a no-password query first
+  if (submittedPassword === null) {
     return (
       <PasswordGate token={token} onSubmit={pw => setSubmittedPassword(pw)} />
     );
@@ -309,7 +299,7 @@ export default function CampaignPreview() {
 }
 
 // ── Password gate shown on first load ────────────────────────────────────────
-function PasswordGate({ token, onSubmit }: { token: string; onSubmit: (pw: string | undefined) => void }) {
+function PasswordGate({ token, onSubmit }: { token: string; onSubmit: (pw: string) => void }) {
   const [password, setPassword] = useState("");
 
   // Try without a password first — if it works, no gate needed
@@ -318,18 +308,19 @@ function PasswordGate({ token, onSubmit }: { token: string; onSubmit: (pw: strin
     { retry: false, enabled: !!token }
   );
 
-  if (isLoading) {
+  // Call onSubmit outside of render to avoid triggering state updates during render
+  useEffect(() => {
+    if (!isLoading && !error) {
+      onSubmit(""); // empty string = no password required
+    }
+  }, [isLoading, error]);
+
+  if (isLoading || !error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <span className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
-  }
-
-  // No password needed — pass through with no password
-  if (!error) {
-    onSubmit(undefined);
-    return null;
   }
 
   if (error.data?.code !== "UNAUTHORIZED") {
