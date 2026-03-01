@@ -1168,8 +1168,8 @@ export default function MarketingCampaignWorkspace() {
               {/* Link display */}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">Client link</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs bg-muted rounded-lg px-3 py-2 truncate text-foreground font-mono">
+                <div className="flex items-center gap-2 min-w-0">
+                  <code className="flex-1 min-w-0 text-xs bg-muted rounded-lg px-3 py-2 truncate text-foreground font-mono block">
                     {`${window.location.origin}/campaign/preview/${campaign.shareToken}`}
                   </code>
                   <Button
@@ -1192,13 +1192,13 @@ export default function MarketingCampaignWorkspace() {
                   <Lock className="w-3 h-3" />
                   Password protection <span className="text-muted-foreground/60 font-normal">(optional)</span>
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <input
                     type="text"
                     value={sharePasswordInput}
                     onChange={e => setSharePasswordInput(e.target.value)}
                     placeholder={campaign.sharePassword ? "••••••••" : "Set a password…"}
-                    className="flex-1 text-sm bg-muted rounded-lg px-3 py-2 border-0 outline-none focus:ring-1 focus:ring-violet-400"
+                    className="flex-1 min-w-0 text-sm bg-muted rounded-lg px-3 py-2 border-0 outline-none focus:ring-1 focus:ring-violet-400"
                   />
                   <Button
                     size="sm"
