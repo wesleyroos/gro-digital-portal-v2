@@ -33,7 +33,7 @@ export function registerInstagramOAuthRoutes(app: Express) {
     const authUrl = new URL('https://api.instagram.com/oauth/authorize');
     authUrl.searchParams.set('client_id', ENV.instagramAppId);
     authUrl.searchParams.set('redirect_uri', ENV.instagramRedirectUri);
-    authUrl.searchParams.set('scope', 'instagram_basic,instagram_content_publish,pages_read_engagement');
+    authUrl.searchParams.set('scope', 'instagram_business_basic,instagram_content_publish');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('state', state);
 
