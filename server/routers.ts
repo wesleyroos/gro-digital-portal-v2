@@ -67,7 +67,7 @@ import {
 } from "./db";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
-import { createMediaContainer, publishMedia, getIgUserInfo } from "./instagram";
+import { createMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
 import { getCalendarEvents } from "./calendar";
 
 export const appRouter = router({
@@ -746,6 +746,20 @@ export const appRouter = router({
         .mutation(async ({ input }) => {
           await approveAllPosts(input.campaignId);
           return { success: true };
+        }),
+
+      getInsights: adminProcedure
+        .input(z.object({ postId: z.number().int() }))
+        .query(async ({ input }) => {
+          const post = await getPostById(input.postId);
+          if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
+          if (!post.instagramPostId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Post has not been published to Instagram yet' });
+          const campaign = await getCampaignById(post.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          const tokens = await getInstagramTokens(campaign.clientSlug);
+          if (!tokens) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Instagram not connected' });
+          const insights = await getPostInsights(post.instagramPostId, tokens.accessToken);
+          return insights;
         }),
 
       publishNow: adminProcedure

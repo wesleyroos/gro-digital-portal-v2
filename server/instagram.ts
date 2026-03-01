@@ -91,6 +91,49 @@ export async function exchangeForLongLivedToken(shortToken: string): Promise<str
 }
 
 /**
+ * Fetch insights for a published post.
+ */
+export async function getPostInsights(igMediaId: string, token: string): Promise<{
+  impressions: number;
+  reach: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  saved: number;
+  totalInteractions: number;
+  profileVisits: number;
+  follows: number;
+}> {
+  const metrics = 'impressions,reach,likes,comments,shares,saved,total_interactions,profile_visits,follows';
+  const url = `${GRAPH_BASE}/${igMediaId}/insights?metric=${metrics}&access_token=${encodeURIComponent(token)}`;
+  const res = await fetch(url);
+  const data = await res.json() as {
+    data?: Array<{ name: string; values?: Array<{ value: number }>; value?: number }>;
+    error?: { message: string };
+  };
+  if (!res.ok || !data.data) {
+    throw new Error(`getPostInsights failed: ${data.error?.message ?? JSON.stringify(data)}`);
+  }
+  const get = (name: string) => {
+    const item = data.data!.find(d => d.name === name);
+    if (!item) return 0;
+    // insights can return either {value: n} or {values: [{value: n}]}
+    return item.value ?? item.values?.[0]?.value ?? 0;
+  };
+  return {
+    impressions:       get('impressions'),
+    reach:             get('reach'),
+    likes:             get('likes'),
+    comments:          get('comments'),
+    shares:            get('shares'),
+    saved:             get('saved'),
+    totalInteractions: get('total_interactions'),
+    profileVisits:     get('profile_visits'),
+    follows:           get('follows'),
+  };
+}
+
+/**
  * Fetch basic user info (id + username) for the token holder.
  */
 export async function getIgUserInfo(token: string): Promise<{ id: string; username: string }> {

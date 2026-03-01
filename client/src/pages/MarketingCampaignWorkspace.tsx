@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Eye, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -73,8 +73,15 @@ export default function MarketingCampaignWorkspace() {
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const analyticsPost = posts.find(p => p.id === analyticsPostId);
+  const { data: insights, isLoading: insightsLoading, error: insightsError } = trpc.campaign.post.getInsights.useQuery(
+    { postId: analyticsPostId ?? 0 },
+    { enabled: !!analyticsPostId }
+  );
 
   async function generateCalendar() {
     if (calendarGenerating) return;
@@ -759,6 +766,17 @@ export default function MarketingCampaignWorkspace() {
                             Regen Image
                           </Button>
                         )}
+                        {post.status === "posted" && post.instagramPostId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-7 text-xs gap-1"
+                            onClick={() => setAnalyticsPostId(post.id)}
+                          >
+                            <BarChart2 className="w-3 h-3" />
+                            Analytics
+                          </Button>
+                        )}
                         {post.status === "approved" && post.imageUrl && igStatus?.connected && (
                           <Button
                             size="sm"
@@ -807,6 +825,61 @@ export default function MarketingCampaignWorkspace() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* ── Analytics Modal ─────────────────────────────────────────────── */}
+      <Dialog open={!!analyticsPostId} onOpenChange={open => { if (!open) setAnalyticsPostId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart2 className="w-4 h-4 text-violet-600" />
+              Post Analytics
+            </DialogTitle>
+          </DialogHeader>
+          {analyticsPost && (
+            <p className="text-xs text-muted-foreground -mt-1 line-clamp-2">{analyticsPost.caption}</p>
+          )}
+          {insightsLoading ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground">
+              <span className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Fetching live data…</span>
+            </div>
+          ) : insightsError ? (
+            <p className="text-sm text-red-600 py-4">{insightsError.message}</p>
+          ) : insights ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { icon: Eye,         label: "Impressions",   value: insights.impressions,       color: "text-blue-600",   bg: "bg-blue-50"   },
+                  { icon: Users,       label: "Reach",         value: insights.reach,             color: "text-violet-600", bg: "bg-violet-50" },
+                  { icon: Heart,       label: "Likes",         value: insights.likes,             color: "text-pink-600",   bg: "bg-pink-50"   },
+                  { icon: MessageCircle, label: "Comments",    value: insights.comments,          color: "text-amber-600",  bg: "bg-amber-50"  },
+                  { icon: Share2,      label: "Shares",        value: insights.shares,            color: "text-emerald-600",bg: "bg-emerald-50"},
+                  { icon: Bookmark,    label: "Saves",         value: insights.saved,             color: "text-indigo-600", bg: "bg-indigo-50" },
+                  { icon: UserCheck,   label: "Profile Visits",value: insights.profileVisits,     color: "text-teal-600",   bg: "bg-teal-50"   },
+                  { icon: Users,       label: "New Follows",   value: insights.follows,           color: "text-cyan-600",   bg: "bg-cyan-50"   },
+                ].map(({ icon: Icon, label, value, color, bg }) => (
+                  <div key={label} className={`flex items-center gap-3 rounded-lg ${bg} px-3 py-2.5`}>
+                    <Icon className={`w-4 h-4 shrink-0 ${color}`} />
+                    <div>
+                      <p className="text-xs text-muted-foreground leading-none mb-0.5">{label}</p>
+                      <p className={`text-lg font-bold leading-none ${color}`}>{value.toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-lg bg-muted px-3 py-2.5 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-medium">Total Interactions</span>
+                <span className="text-base font-bold">{insights.totalInteractions.toLocaleString()}</span>
+              </div>
+              {insights.reach > 0 && (
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Engagement rate: {((insights.totalInteractions / insights.reach) * 100).toFixed(1)}%
+                </p>
+              )}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
