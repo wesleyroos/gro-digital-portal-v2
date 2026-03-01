@@ -620,6 +620,16 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    setImageAspectRatio: adminProcedure
+      .input(z.object({
+        id: z.number().int(),
+        imageAspectRatio: z.enum(['1:1', '4:5', '9:16', '16:9']),
+      }))
+      .mutation(async ({ input }) => {
+        await updateCampaign(input.id, { imageAspectRatio: input.imageAspectRatio });
+        return { success: true };
+      }),
+
     saveStrategy: adminProcedure
       .input(z.object({ id: z.number().int(), strategy: z.string().min(1) }))
       .mutation(async ({ input }) => {
@@ -658,7 +668,8 @@ export const appRouter = router({
           const campaign = await getCampaignById(post.campaignId);
           const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
           const style = campaign?.imageStyle ?? '';
-          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style);
+          const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio);
           return { url };
         }),
 
@@ -671,7 +682,8 @@ export const appRouter = router({
           const campaign = await getCampaignById(post.campaignId);
           const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
           const style = campaign?.imageStyle ?? '';
-          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style);
+          const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio);
           return { url };
         }),
 

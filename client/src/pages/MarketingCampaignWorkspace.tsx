@@ -160,6 +160,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { toast.success("Image style updated"); refetch(); },
     onError: () => toast.error("Failed to update style"),
   });
+  const setImageAspectRatioMutation = trpc.campaign.setImageAspectRatio.useMutation({
+    onSuccess: () => { toast.success("Aspect ratio updated"); refetch(); },
+    onError: () => toast.error("Failed to update aspect ratio"),
+  });
   const suggestPromptMutation = trpc.campaign.post.suggestImagePrompt.useMutation({
     onSuccess: ({ prompt }) => setEditDraft(d => ({ ...d, imagePrompt: prompt })),
     onError: () => toast.error("Failed to suggest prompt"),
@@ -493,8 +497,22 @@ export default function MarketingCampaignWorkspace() {
                   <ImageIcon className="w-3.5 h-3.5" />
                   Generate All Images
                 </Button>
-                {/* Image style + model selectors */}
+                {/* Image style + model + aspect ratio selectors */}
                 <div className="flex items-center gap-3 ml-auto flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground font-medium">Ratio:</span>
+                    <select
+                      value={campaign.imageAspectRatio ?? "1:1"}
+                      onChange={e => setImageAspectRatioMutation.mutate({ id: campaignId, imageAspectRatio: e.target.value as "1:1" | "4:5" | "9:16" | "16:9" })}
+                      disabled={setImageAspectRatioMutation.isPending}
+                      className="text-xs h-7 rounded-md border border-input bg-background px-2 pr-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-400 appearance-auto"
+                    >
+                      <option value="1:1">1:1 Square</option>
+                      <option value="4:5">4:5 Portrait</option>
+                      <option value="9:16">9:16 Story</option>
+                      <option value="16:9">16:9 Landscape</option>
+                    </select>
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] text-muted-foreground font-medium">Style:</span>
                     <select

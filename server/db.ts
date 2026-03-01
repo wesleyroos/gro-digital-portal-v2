@@ -917,6 +917,7 @@ export async function updateCampaign(id: number, data: {
   endDate?: string | null;
   imageModel?: string | null;
   imageStyle?: string | null;
+  imageAspectRatio?: string | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
@@ -931,6 +932,7 @@ export async function updateCampaign(id: number, data: {
   if ('endDate' in data) set.endDate = data.endDate ? new Date(data.endDate) : null;
   if ('imageModel' in data) set.imageModel = data.imageModel ?? 'dall-e-3';
   if ('imageStyle' in data) set.imageStyle = data.imageStyle ?? '';
+  if ('imageAspectRatio' in data) set.imageAspectRatio = data.imageAspectRatio ?? '1:1';
   await db.update(marketingCampaigns).set(set).where(eq(marketingCampaigns.id, id));
 }
 
