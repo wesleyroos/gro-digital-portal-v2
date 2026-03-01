@@ -762,6 +762,28 @@ export const appRouter = router({
           return insights;
         }),
 
+      getPerformance: adminProcedure
+        .input(z.object({ campaignId: z.number().int() }))
+        .query(async ({ input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          const posts = await getPostsByCampaign(input.campaignId);
+          const postedPosts = posts.filter(p => p.status === 'posted' && p.instagramPostId);
+          if (postedPosts.length === 0) return { rows: [] };
+          const tokens = await getInstagramTokens(campaign.clientSlug);
+          if (!tokens) return { rows: [] };
+          const results = await Promise.allSettled(
+            postedPosts.map(async (post) => {
+              const insights = await getPostInsights(post.instagramPostId!, tokens.accessToken);
+              return { post, insights };
+            })
+          );
+          const rows = results
+            .filter((r): r is PromiseFulfilledResult<{ post: typeof postedPosts[0]; insights: Awaited<ReturnType<typeof getPostInsights>> }> => r.status === 'fulfilled')
+            .map(r => r.value);
+          return { rows };
+        }),
+
       publishNow: adminProcedure
         .input(z.object({ postId: z.number().int() }))
         .mutation(async ({ input }) => {

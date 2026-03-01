@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Minus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +75,7 @@ export default function MarketingCampaignWorkspace() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "reach", dir: "desc" });
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -82,6 +83,11 @@ export default function MarketingCampaignWorkspace() {
   const { data: insights, isLoading: insightsLoading, error: insightsError } = trpc.campaign.post.getInsights.useQuery(
     { postId: analyticsPostId ?? 0 },
     { enabled: !!analyticsPostId }
+  );
+
+  const { data: perfData, isLoading: perfLoading } = trpc.campaign.post.getPerformance.useQuery(
+    { campaignId },
+    { enabled: !!campaignId }
   );
 
   async function generateCalendar() {
@@ -311,6 +317,10 @@ export default function MarketingCampaignWorkspace() {
           <TabsTrigger value="calendar" className="gap-1.5">
             <CalendarDays className="w-3.5 h-3.5" />
             Calendar
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" />
+            Performance
           </TabsTrigger>
         </TabsList>
 
@@ -829,6 +839,156 @@ export default function MarketingCampaignWorkspace() {
               />
             </div>
           )}
+        </TabsContent>
+
+        {/* ── Performance Tab ──────────────────────────────────────────── */}
+        <TabsContent value="performance" className="flex-1 overflow-y-auto mt-0">
+          {perfLoading ? (
+            <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+              <span className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Fetching analytics…</span>
+            </div>
+          ) : !perfData?.rows.length ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+              <TrendingUp className="w-8 h-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">No published posts yet — analytics will appear here once posts are live on Instagram.</p>
+            </div>
+          ) : (() => {
+            const METRICS: { key: keyof typeof perfData.rows[0]["insights"]; label: string; color: string }[] = [
+              { key: "reach",             label: "Reach",           color: "text-violet-600" },
+              { key: "likes",             label: "Likes",           color: "text-pink-600"   },
+              { key: "comments",          label: "Comments",        color: "text-amber-600"  },
+              { key: "shares",            label: "Shares",          color: "text-emerald-600"},
+              { key: "saved",             label: "Saves",           color: "text-indigo-600" },
+              { key: "totalInteractions", label: "Interactions",    color: "text-blue-600"   },
+            ];
+
+            const sorted = [...perfData.rows].sort((a, b) => {
+              const av = (a.insights[perfSort.key as keyof typeof a.insights] as number | null) ?? 0;
+              const bv = (b.insights[perfSort.key as keyof typeof b.insights] as number | null) ?? 0;
+              return perfSort.dir === "desc" ? bv - av : av - bv;
+            });
+
+            // Max values per metric for bar scaling
+            const maxVals = Object.fromEntries(
+              METRICS.map(m => [m.key, Math.max(1, ...perfData.rows.map(r => (r.insights[m.key] as number | null) ?? 0))])
+            );
+
+            // Summary totals
+            const totals = METRICS.map(m => ({
+              ...m,
+              total: perfData.rows.reduce((s, r) => s + ((r.insights[m.key] as number | null) ?? 0), 0),
+            }));
+
+            function SortIcon({ metricKey }: { metricKey: string }) {
+              if (perfSort.key !== metricKey) return <Minus className="w-3 h-3 opacity-30" />;
+              return perfSort.dir === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />;
+            }
+
+            function toggleSort(key: string) {
+              setPerfSort(s => s.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" });
+            }
+
+            return (
+              <div className="space-y-4">
+                {/* Summary cards */}
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {totals.map(m => (
+                    <div key={m.key} className="rounded-xl border bg-card px-3 py-2.5 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{m.label}</p>
+                      <p className={`text-xl font-bold mt-0.5 ${m.color}`}>{m.total.toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Avg engagement rate */}
+                {(() => {
+                  const totalReach = perfData.rows.reduce((s, r) => s + r.insights.reach, 0);
+                  const totalInteractions = perfData.rows.reduce((s, r) => s + r.insights.totalInteractions, 0);
+                  return totalReach > 0 ? (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Avg engagement rate across {perfData.rows.length} post{perfData.rows.length !== 1 ? "s" : ""}: <span className="font-semibold text-foreground">{((totalInteractions / totalReach) * 100).toFixed(1)}%</span>
+                    </p>
+                  ) : null;
+                })()}
+
+                {/* Sortable table */}
+                <div className="rounded-xl border overflow-hidden">
+                  {/* Header row */}
+                  <div className="grid bg-muted/50 border-b px-3 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium" style={{ gridTemplateColumns: "3.5rem 1fr repeat(6, 5.5rem)" }}>
+                    <span>Image</span>
+                    <span>Post</span>
+                    {METRICS.map(m => (
+                      <button
+                        key={m.key}
+                        className={`flex items-center justify-end gap-1 hover:text-foreground transition-colors ${perfSort.key === m.key ? "text-foreground" : ""}`}
+                        onClick={() => toggleSort(m.key)}
+                      >
+                        {m.label}
+                        <SortIcon metricKey={m.key} />
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Rows */}
+                  {sorted.map(({ post, insights: ins }) => {
+                    const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
+                    return (
+                      <div
+                        key={post.id}
+                        className="grid items-center px-3 py-3 border-b last:border-0 hover:bg-muted/30 transition-colors"
+                        style={{ gridTemplateColumns: "3.5rem 1fr repeat(6, 5.5rem)" }}
+                      >
+                        {/* Thumbnail */}
+                        <div className="w-10 h-10 rounded-md overflow-hidden bg-muted shrink-0">
+                          {post.imageUrl ? (
+                            <img
+                              src={post.imageUrl}
+                              alt=""
+                              className="w-full h-full object-cover cursor-zoom-in"
+                              onClick={() => setLightboxUrl(post.imageUrl!)}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Caption + date */}
+                        <div className="min-w-0 pr-4">
+                          <p className="text-xs font-medium leading-snug line-clamp-2 text-foreground">{post.caption ?? "—"}</p>
+                          {post.scheduledAt && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                              {engRate && <span className="ml-2 text-violet-600 font-medium">{engRate}% eng.</span>}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Metric cells with bar */}
+                        {METRICS.map(m => {
+                          const val = (ins[m.key] as number | null) ?? 0;
+                          const pct = Math.round((val / maxVals[m.key]) * 100);
+                          const isTop = pct === 100 && perfData.rows.length > 1;
+                          return (
+                            <div key={m.key} className="text-right pr-1">
+                              <p className={`text-sm font-semibold leading-none ${isTop ? m.color : "text-foreground"}`}>
+                                {val.toLocaleString()}
+                              </p>
+                              <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
+                                <div className={`h-full rounded-full ${isTop ? "bg-violet-500" : "bg-muted-foreground/30"}`} style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </TabsContent>
       </Tabs>
 
