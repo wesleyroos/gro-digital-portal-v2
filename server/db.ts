@@ -322,7 +322,8 @@ export async function getDistinctClients() {
   const db = await getDb();
   if (!db) return [];
 
-  const result = await db
+  // Clients derived from invoices
+  const fromInvoices = await db
     .select({
       clientSlug: invoices.clientSlug,
       clientName: sql<string>`MAX(${invoices.clientName})`,
@@ -336,7 +337,32 @@ export async function getDistinctClients() {
     .leftJoin(clientProfiles, eq(invoices.clientSlug, clientProfiles.clientSlug))
     .groupBy(invoices.clientSlug, clientProfiles.address, clientProfiles.analyticsToken);
 
-  return result;
+  const invoiceSlugs = new Set(fromInvoices.map(c => c.clientSlug));
+
+  // Standalone clients that exist only in clientProfiles (no invoices yet)
+  const allProfiles = await db.select().from(clientProfiles);
+  const standaloneProfiles = allProfiles
+    .filter(p => !invoiceSlugs.has(p.clientSlug))
+    .map(p => ({
+      clientSlug: p.clientSlug,
+      clientName: p.name ?? p.clientSlug,
+      clientContact: p.contact ?? null,
+      clientEmail: p.email ?? null,
+      clientPhone: p.phone ?? null,
+      address: p.address ?? null,
+      analyticsToken: p.analyticsToken ?? null,
+    }));
+
+  return [...fromInvoices, ...standaloneProfiles];
+}
+
+export async function createStandaloneClient(data: { clientSlug: string; name: string; contact?: string; email?: string; phone?: string }) {
+  await upsertClientProfile(data.clientSlug, {
+    name: data.name,
+    contact: data.contact ?? null,
+    email: data.email ?? null,
+    phone: data.phone ?? null,
+  });
 }
 
 // ── Task queries ──

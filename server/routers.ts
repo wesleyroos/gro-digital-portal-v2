@@ -24,6 +24,7 @@ import {
   deleteTask,
   getClientProfile,
   upsertClientProfile,
+  createStandaloneClient,
   sendInvoiceEmail,
   updateInvoice,
   getLeads,
@@ -267,6 +268,19 @@ export const appRouter = router({
   }),
 
   client: router({
+    create: adminProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        contact: z.string().optional(),
+        email: z.string().optional(),
+        phone: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const clientSlug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        await createStandaloneClient({ clientSlug, ...input });
+        return { clientSlug };
+      }),
+
     getProfile: adminProcedure
       .input(z.object({ clientSlug: z.string() }))
       .query(async ({ input }) => getClientProfile(input.clientSlug)),

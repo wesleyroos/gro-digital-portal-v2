@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Building2, ArrowRight, FileText, Plus, LayoutGrid, List, BarChart2, Link2, ExternalLink, Trash2, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 type ViewMode = "card" | "list";
 
@@ -31,6 +32,18 @@ export default function Clients() {
     client: null,
   });
   const [embedUrl, setEmbedUrl] = useState("");
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({ name: "", contact: "", email: "", phone: "" });
+
+  const createClientMutation = trpc.client.create.useMutation({
+    onSuccess: () => {
+      utils.invoice.clients.invalidate();
+      setNewClientOpen(false);
+      setNewClientForm({ name: "", contact: "", email: "", phone: "" });
+      toast.success("Client created");
+    },
+    onError: () => toast.error("Failed to create client"),
+  });
 
   const openTaskSlugs = new Set(
     tasks.filter(t => t.status !== 'done' && t.clientSlug).map(t => t.clientSlug!)
@@ -138,6 +151,10 @@ export default function Clients() {
               <List className="w-3.5 h-3.5" />
             </button>
           </div>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setNewClientOpen(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            New Client
+          </Button>
           <Link href="/invoice/new">
             <Button size="sm" className="gap-1.5 text-xs">
               <Plus className="w-3.5 h-3.5" />
@@ -270,10 +287,69 @@ export default function Clients() {
         <Card className="shadow-sm">
           <CardContent className="p-10 text-center">
             <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">No clients yet. Create an invoice to get started.</p>
+            <p className="text-sm text-muted-foreground">No clients yet. Add one with the New Client button above.</p>
           </CardContent>
         </Card>
       )}
+
+      {/* New Client dialog */}
+      <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Client name *</Label>
+              <Input
+                placeholder="e.g. GRO Digital"
+                value={newClientForm.name}
+                onChange={e => setNewClientForm(f => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Contact person</Label>
+              <Input
+                placeholder="e.g. Wesley Roos"
+                value={newClientForm.contact}
+                onChange={e => setNewClientForm(f => ({ ...f, contact: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email</Label>
+              <Input
+                placeholder="e.g. hello@grodigital.co.za"
+                value={newClientForm.email}
+                onChange={e => setNewClientForm(f => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Phone</Label>
+              <Input
+                placeholder="e.g. +27 82 000 0000"
+                value={newClientForm.phone}
+                onChange={e => setNewClientForm(f => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setNewClientOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              disabled={!newClientForm.name.trim() || createClientMutation.isPending}
+              onClick={() => createClientMutation.mutate({
+                name: newClientForm.name.trim(),
+                contact: newClientForm.contact || undefined,
+                email: newClientForm.email || undefined,
+                phone: newClientForm.phone || undefined,
+              })}
+            >
+              {createClientMutation.isPending ? "Creating…" : "Create Client"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Analytics management sheet */}
       <Sheet
