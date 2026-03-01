@@ -30,7 +30,9 @@ export function registerInstagramOAuthRoutes(app: Express) {
     const state = crypto.randomUUID();
     stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, clientSlug });
 
-    const authUrl = new URL('https://api.instagram.com/oauth/authorize');
+    const authUrl = new URL('https://www.instagram.com/oauth/authorize');
+    authUrl.searchParams.set('enable_fb_login', '0');
+    authUrl.searchParams.set('force_authentication', '1');
     authUrl.searchParams.set('client_id', ENV.instagramAppId);
     authUrl.searchParams.set('redirect_uri', ENV.instagramRedirectUri);
     authUrl.searchParams.set('scope', 'instagram_business_basic,instagram_content_publish');
