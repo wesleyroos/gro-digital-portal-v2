@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Check, X, ImageIcon, Lock, TrendingUp, ChevronUp, ChevronDown, Calendar } from "lucide-react";
+import { Check, X, ImageIcon, Lock, TrendingUp, ChevronUp, ChevronDown, Calendar, Heart, MessageCircle, Share2, Bookmark, Users, BarChart2 } from "lucide-react";
 
 const POST_STATUS_COLORS: Record<string, string> = {
   draft:     "bg-gray-100 text-gray-600",
@@ -26,6 +26,11 @@ export default function CampaignPreview() {
   const [rejectingPostId, setRejectingPostId] = useState<number | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
+  const [selectedPost, setSelectedPost] = useState<{
+    id: number; status: string; imageUrl?: string | null;
+    caption?: string | null; hashtags?: string | null;
+    scheduledAt?: string | number | null; theme?: string | null;
+  } | null>(null);
 
   const { data, isLoading, error, refetch } = trpc.campaign.getByShareToken.useQuery(
     { token, password: submittedPassword || undefined },
@@ -34,6 +39,12 @@ export default function CampaignPreview() {
       retry: false,
     }
   );
+
+  const { data: perfData } = trpc.campaign.post.getPerformance.useQuery(
+    { campaignId: data?.campaign.id ?? 0 },
+    { enabled: !!data?.campaign.id }
+  );
+  const insightsByPostId = new Map(perfData?.rows.map(r => [r.post.id, r.insights]) ?? []);
 
   const approveMutation = trpc.campaign.post.approveByToken.useMutation({
     onSuccess: () => { toast.success("Post approved"); refetch(); },
@@ -245,7 +256,7 @@ export default function CampaignPreview() {
             <h2 className="text-sm font-semibold mb-3">Coming up</h2>
             <div className="space-y-2">
               {upcomingPosts.map(post => (
-                <div key={post.id} className="bg-white rounded-2xl border flex gap-3 p-3">
+                <div key={post.id} className="bg-white rounded-2xl border flex gap-3 p-3 cursor-pointer hover:border-violet-300 hover:shadow-sm transition-all" onClick={() => setSelectedPost(post)}>
                   <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
                     {post.imageUrl ? (
                       <img src={post.imageUrl} alt="" className="w-full h-full object-cover cursor-zoom-in" onClick={() => setLightboxUrl(post.imageUrl!)} />
@@ -262,6 +273,41 @@ export default function CampaignPreview() {
                     <p className="text-xs text-foreground line-clamp-2">{post.caption}</p>
                   </div>
                   <Badge className={`${POST_STATUS_COLORS[post.status]} self-start text-[10px] shrink-0`} variant="secondary">{post.status}</Badge>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Published ─────────────────────────────────────────────────── */}
+        {postedPosts.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3">Published</h2>
+            <div className="space-y-2">
+              {postedPosts.map(post => (
+                <div key={post.id} className="bg-white rounded-2xl border flex gap-3 p-3 cursor-pointer hover:border-violet-300 hover:shadow-sm transition-all" onClick={() => setSelectedPost(post)}>
+                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
+                    {post.imageUrl ? (
+                      <img src={post.imageUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-muted-foreground/40" /></div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {post.scheduledAt && (
+                      <p className="text-[11px] text-muted-foreground mb-0.5">
+                        {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                      </p>
+                    )}
+                    <p className="text-xs text-foreground line-clamp-2">{post.caption}</p>
+                    {insightsByPostId.has(post.id) && (
+                      <p className="text-[10px] text-violet-600 mt-0.5 flex items-center gap-1">
+                        <BarChart2 className="w-3 h-3" />
+                        {insightsByPostId.get(post.id)!.reach.toLocaleString()} reach · {insightsByPostId.get(post.id)!.likes.toLocaleString()} likes
+                      </p>
+                    )}
+                  </div>
+                  <Badge className={`${POST_STATUS_COLORS[post.status]} self-start text-[10px] shrink-0`} variant="secondary">posted</Badge>
                 </div>
               ))}
             </div>
@@ -294,6 +340,94 @@ export default function CampaignPreview() {
           <p className="text-[11px] text-muted-foreground">Powered by <span className="font-semibold text-foreground">GROdigital</span> · grodigital.co.za</p>
         </div>
       </div>
+
+      {/* ── Post detail modal ─────────────────────────────────────────── */}
+      {selectedPost && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setSelectedPost(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Image */}
+            <div className="relative shrink-0">
+              {selectedPost.imageUrl ? (
+                <img src={selectedPost.imageUrl} alt="" className="w-full aspect-square object-cover" />
+              ) : (
+                <div className="w-full aspect-square bg-muted flex items-center justify-center">
+                  <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
+                </div>
+              )}
+              <button
+                className="absolute top-3 right-3 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-1.5 transition-colors"
+                onClick={() => setSelectedPost(null)}
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="absolute top-3 left-3">
+                <Badge className={`${POST_STATUS_COLORS[selectedPost.status]} text-[10px]`} variant="secondary">
+                  {selectedPost.status}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 overflow-y-auto space-y-3">
+              {selectedPost.scheduledAt && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="w-3 h-3" />
+                  {new Date(selectedPost.scheduledAt).toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              )}
+              {selectedPost.theme && (
+                <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{selectedPost.theme}</p>
+              )}
+              {selectedPost.caption && (
+                <p className="text-sm leading-relaxed text-foreground">{selectedPost.caption}</p>
+              )}
+              {selectedPost.hashtags && (
+                <p className="text-xs text-violet-500 leading-relaxed">{selectedPost.hashtags}</p>
+              )}
+
+              {/* Analytics for posted posts */}
+              {selectedPost.status === "posted" && insightsByPostId.has(selectedPost.id) && (() => {
+                const ins = insightsByPostId.get(selectedPost.id)!;
+                const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
+                return (
+                  <div className="border-t pt-3 space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <BarChart2 className="w-3 h-3" /> Performance
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Reach",        value: ins.reach,             icon: Users         },
+                        { label: "Likes",         value: ins.likes,             icon: Heart         },
+                        { label: "Comments",      value: ins.comments,          icon: MessageCircle },
+                        { label: "Shares",        value: ins.shares,            icon: Share2        },
+                        { label: "Saves",         value: ins.saved,             icon: Bookmark      },
+                        { label: "Interactions",  value: ins.totalInteractions, icon: TrendingUp    },
+                      ].map(({ label, value, icon: Icon }) => (
+                        <div key={label} className="bg-muted rounded-xl px-2 py-2.5 text-center">
+                          <Icon className="w-3.5 h-3.5 mx-auto mb-0.5 text-muted-foreground" />
+                          <p className="text-sm font-bold leading-none">{value.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {engRate && (
+                      <p className="text-[11px] text-muted-foreground text-center">
+                        Engagement rate: <span className="font-semibold text-foreground">{engRate}%</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
