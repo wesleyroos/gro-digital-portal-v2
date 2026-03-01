@@ -28,7 +28,26 @@ export async function createMediaContainer(
 }
 
 /**
+ * Poll a media container until its status_code is FINISHED (ready to publish).
+ * Instagram requires this wait between container creation and media_publish.
+ */
+async function waitForContainer(creationId: string, token: string, maxWaitMs = 30_000): Promise<void> {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    const res = await fetch(`${GRAPH_BASE}/${creationId}?fields=status_code&access_token=${encodeURIComponent(token)}`);
+    const data = await res.json() as { status_code?: string; error?: { message: string } };
+    if (data.status_code === 'FINISHED') return;
+    if (data.status_code === 'ERROR') throw new Error('Media container processing failed on Instagram');
+    if (data.status_code === 'EXPIRED') throw new Error('Media container expired before publishing');
+    // IN_PROGRESS or undefined — wait and retry
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  throw new Error('Timed out waiting for Instagram media container to become ready');
+}
+
+/**
  * Publish a previously created media container.
+ * Polls until the container is ready, then publishes.
  * Returns the Instagram media ID of the published post.
  */
 export async function publishMedia(
@@ -36,6 +55,9 @@ export async function publishMedia(
   token: string,
   creationId: string,
 ): Promise<string> {
+  // Must wait for container to finish processing before publishing
+  await waitForContainer(creationId, token);
+
   const url = `${GRAPH_BASE}/${igUserId}/media_publish`;
   const body = new URLSearchParams({
     creation_id: creationId,

@@ -278,7 +278,7 @@ function InstagramClientRow({ clientSlug, clientName }: { clientSlug: string; cl
       <div>
         <p className="text-sm font-medium">{clientName}</p>
         {data?.connected && data.username && (
-          <p className="text-xs text-muted-foreground">@{data.username}</p>
+          <p className="text-xs text-muted-foreground">@{data.username} · ID: {data.businessId}</p>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">

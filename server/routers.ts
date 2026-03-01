@@ -760,8 +760,8 @@ export const appRouter = router({
       .input(z.object({ clientSlug: z.string() }))
       .query(async ({ input }) => {
         const tokens = await getInstagramTokens(input.clientSlug);
-        if (!tokens) return { connected: false, username: null };
-        return { connected: true, username: tokens.username };
+        if (!tokens) return { connected: false, username: null, businessId: null };
+        return { connected: true, username: tokens.username, businessId: tokens.businessId };
       }),
 
     disconnect: adminProcedure
