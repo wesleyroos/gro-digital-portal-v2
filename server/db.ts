@@ -1001,6 +1001,12 @@ export async function updatePostImageUrl(postId: number, imageUrl: string) {
   await db.update(marketingPosts).set({ imageUrl }).where(eq(marketingPosts.id, postId));
 }
 
+export async function updatePostVideo(postId: number, videoUrl: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.update(marketingPosts).set({ videoUrl, mediaType: 'video' }).where(eq(marketingPosts.id, postId));
+}
+
 export async function approveAllPosts(campaignId: number) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');

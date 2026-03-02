@@ -27,6 +27,7 @@ export default function CampaignPreview() {
   const [rejectNote, setRejectNote] = useState("");
   const [selectedPost, setSelectedPost] = useState<{
     id: number; status: string; imageUrl?: string | null;
+    mediaType?: string | null; videoUrl?: string | null;
     caption?: string | null; hashtags?: string | null;
     scheduledAt?: string | number | null; theme?: string | null;
   } | null>(null);
@@ -172,7 +173,9 @@ export default function CampaignPreview() {
             onClick={e => e.stopPropagation()}
           >
             <div className="relative shrink-0">
-              {selectedPost.imageUrl ? (
+              {selectedPost.mediaType === "video" && selectedPost.videoUrl ? (
+                <video src={selectedPost.videoUrl} className="w-full aspect-square object-cover" controls preload="metadata" />
+              ) : selectedPost.imageUrl ? (
                 <img src={selectedPost.imageUrl} alt="" className="w-full aspect-square object-cover" />
               ) : (
                 <div className="w-full aspect-square bg-muted flex items-center justify-center">
@@ -297,9 +300,11 @@ export default function CampaignPreview() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {draftPosts.map(post => (
                 <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
-                  {/* Image */}
+                  {/* Media */}
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                    {post.imageUrl ? (
+                    {post.mediaType === "video" && post.videoUrl ? (
+                      <video src={post.videoUrl} className="w-full h-full object-cover" controls preload="metadata" />
+                    ) : post.imageUrl ? (
                       <img
                         src={post.imageUrl}
                         alt=""
@@ -365,7 +370,9 @@ export default function CampaignPreview() {
                   onClick={() => setSelectedPost(post)}
                 >
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                    {post.imageUrl ? (
+                    {post.mediaType === "video" && post.videoUrl ? (
+                      <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
+                    ) : post.imageUrl ? (
                       <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -405,7 +412,9 @@ export default function CampaignPreview() {
                     onClick={() => setSelectedPost(post)}
                   >
                     <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                      {post.imageUrl ? (
+                      {post.mediaType === "video" && post.videoUrl ? (
+                        <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
+                      ) : post.imageUrl ? (
                         <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">

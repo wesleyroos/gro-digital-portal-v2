@@ -64,13 +64,14 @@ import {
   clearInstagramTokens,
   storeInstagramTokens,
   updatePostImageUrl,
+  updatePostVideo,
   getCampaignByShareToken,
 } from "./db";
 import { nanoid } from "nanoid";
 import { createHash } from "crypto";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
-import { createMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
+import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
 import { getCalendarEvents } from "./calendar";
 
 export const appRouter = router({
@@ -789,6 +790,20 @@ export const appRouter = router({
           return { url };
         }),
 
+      uploadVideo: adminProcedure
+        .input(z.object({
+          postId: z.number().int(),
+          base64: z.string(),
+          mimeType: z.string(),
+        }))
+        .mutation(async ({ input }) => {
+          const buffer = Buffer.from(input.base64, 'base64');
+          const ext = input.mimeType.split('/')[1] ?? 'mp4';
+          const { url } = await storagePut(`videos/${Date.now()}.${ext}`, buffer, input.mimeType);
+          await updatePostVideo(input.postId, url);
+          return { url };
+        }),
+
       approveAll: adminProcedure
         .input(z.object({ campaignId: z.number().int() }))
         .mutation(async ({ input }) => {
@@ -837,13 +852,17 @@ export const appRouter = router({
         .mutation(async ({ input }) => {
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
-          if (!post.imageUrl) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Post has no image — generate one first' });
+          const isVideo = post.mediaType === 'video';
+          const mediaUrl = isVideo ? post.videoUrl : post.imageUrl;
+          if (!mediaUrl) throw new TRPCError({ code: 'BAD_REQUEST', message: `Post has no ${isVideo ? 'video' : 'image'} — upload one first` });
           const campaign = await getCampaignById(post.campaignId);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
           const tokens = await getInstagramTokens(campaign.clientSlug);
           if (!tokens) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Instagram not connected for this client' });
           const caption = [post.caption ?? '', post.hashtags ?? ''].filter(Boolean).join('\n\n');
-          const creationId = await createMediaContainer(tokens.businessId, tokens.accessToken, post.imageUrl, caption);
+          const creationId = isVideo
+            ? await createVideoMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption)
+            : await createMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption);
           const instagramPostId = await publishMedia(tokens.businessId, tokens.accessToken, creationId);
           await updatePostStatus(input.postId, 'posted', { instagramPostId });
           return { instagramPostId };

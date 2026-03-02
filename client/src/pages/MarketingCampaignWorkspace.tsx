@@ -181,6 +181,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { toast.success("Image uploaded"); refetch(); },
     onError: () => toast.error("Upload failed"),
   });
+  const uploadVideoMutation = trpc.campaign.post.uploadVideo.useMutation({
+    onSuccess: () => { toast.success("Video uploaded"); refetch(); },
+    onError: () => toast.error("Video upload failed"),
+  });
   const setImageModelMutation = trpc.campaign.setImageModel.useMutation({
     onSuccess: () => { toast.success("Image model updated"); refetch(); },
     onError: () => toast.error("Failed to update model"),
@@ -218,6 +222,16 @@ export default function MarketingCampaignWorkspace() {
       const dataUrl = reader.result as string;
       const base64 = dataUrl.split(",")[1];
       uploadImageMutation.mutate({ postId, base64, mimeType: file.type });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleVideoUpload(postId: number, file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1];
+      uploadVideoMutation.mutate({ postId, base64, mimeType: file.type });
     };
     reader.readAsDataURL(file);
   }
@@ -603,7 +617,7 @@ export default function MarketingCampaignWorkspace() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {posts.map(post => (
                   <div key={post.id} className="rounded-xl border bg-card overflow-hidden">
-                    {/* Image area */}
+                    {/* Media area */}
                     <div className="relative aspect-square bg-muted group/img">
                       {generatingPostIds.has(post.id) ? (
                         /* ── Generating overlay ── */
@@ -620,7 +634,26 @@ export default function MarketingCampaignWorkspace() {
                             <p className="text-[10px] text-violet-500 mt-0.5">This takes 10–30 seconds</p>
                           </div>
                         </div>
+                      ) : post.mediaType === "video" && post.videoUrl ? (
+                        /* ── Video preview ── */
+                        <>
+                          <video
+                            src={post.videoUrl}
+                            className="w-full h-full object-cover"
+                            controls
+                            preload="metadata"
+                          />
+                          {/* Hover overlay: replace video */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <label className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors cursor-pointer pointer-events-auto" onClick={e => e.stopPropagation()}>
+                              <Upload className="w-3.5 h-3.5" />
+                              Replace video
+                              <input type="file" accept="video/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoUpload(post.id, f); e.target.value = ""; }} />
+                            </label>
+                          </div>
+                        </>
                       ) : post.imageUrl ? (
+                        /* ── Image preview ── */
                         <>
                           <img
                             src={post.imageUrl}
@@ -628,7 +661,7 @@ export default function MarketingCampaignWorkspace() {
                             className="w-full h-full object-cover cursor-zoom-in"
                             onClick={() => setLightboxUrl(post.imageUrl!)}
                           />
-                          {/* Hover overlay: download + upload */}
+                          {/* Hover overlay: download + replace */}
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2" onClick={() => setLightboxUrl(post.imageUrl!)}>
                             <button
                               onClick={e => { e.stopPropagation(); downloadImage(post.imageUrl!, post.id); }}
@@ -645,6 +678,7 @@ export default function MarketingCampaignWorkspace() {
                           </div>
                         </>
                       ) : (
+                        /* ── No media yet ── */
                         <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                           <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
                           <Button
@@ -658,8 +692,13 @@ export default function MarketingCampaignWorkspace() {
                           </Button>
                           <label className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
                             <Upload className="w-3 h-3" />
-                            Upload instead
+                            Upload image
                             <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(post.id, f); e.target.value = ""; }} />
+                          </label>
+                          <label className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+                            <Upload className="w-3 h-3" />
+                            Upload video
+                            <input type="file" accept="video/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoUpload(post.id, f); e.target.value = ""; }} />
                           </label>
                         </div>
                       )}

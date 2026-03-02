@@ -28,6 +28,33 @@ export async function createMediaContainer(
 }
 
 /**
+ * Create a video (Reel) media container on Instagram.
+ * Returns the creation ID needed for publishMedia().
+ * Note: the video must be publicly accessible via videoUrl (R2 public URL).
+ */
+export async function createVideoMediaContainer(
+  igUserId: string,
+  token: string,
+  videoUrl: string,
+  caption: string,
+): Promise<string> {
+  const url = `${GRAPH_BASE}/${igUserId}/media`;
+  const body = new URLSearchParams({
+    media_type: 'REELS',
+    video_url: videoUrl,
+    caption,
+    access_token: token,
+  });
+
+  const res = await fetch(url, { method: 'POST', body });
+  const data = await res.json() as { id?: string; error?: { message: string } };
+  if (!res.ok || !data.id) {
+    throw new Error(`createVideoMediaContainer failed: ${data.error?.message ?? JSON.stringify(data)}`);
+  }
+  return data.id;
+}
+
+/**
  * Poll a media container until its status_code is FINISHED (ready to publish).
  * Instagram requires this wait between container creation and media_publish.
  */

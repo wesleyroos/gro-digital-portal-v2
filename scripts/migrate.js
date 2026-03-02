@@ -19,6 +19,7 @@ const connection = await mysql.createConnection(DATABASE_URL);
 // We run each statement individually and skip ER_DUP_FIELDNAME (1060) / ER_DUP_KEYNAME (1061).
 const SAFE_MIGRATIONS = [
   'drizzle/0027_campaign_share_token.sql',
+  'drizzle/0028_post_video.sql',
 ];
 
 for (const relPath of SAFE_MIGRATIONS) {

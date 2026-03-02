@@ -258,6 +258,8 @@ export const marketingPosts = mysqlTable("marketing_posts", {
   hashtags: text("hashtags"),
   imagePrompt: text("imagePrompt"),
   imageUrl: text("imageUrl"),
+  mediaType: mysqlEnum("mediaType", ["image", "video"]).default("image").notNull(),
+  videoUrl: text("videoUrl"),
   status: mysqlEnum("status", ["draft", "approved", "rejected", "scheduled", "posted", "failed"]).default("draft").notNull(),
   instagramPostId: varchar("instagramPostId", { length: 128 }),
   theme: varchar("theme", { length: 255 }),
