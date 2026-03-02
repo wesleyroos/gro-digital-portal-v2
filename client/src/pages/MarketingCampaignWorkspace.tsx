@@ -673,7 +673,21 @@ export default function MarketingCampaignWorkspace() {
                             <label className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors cursor-pointer" onClick={e => e.stopPropagation()}>
                               <Upload className="w-3.5 h-3.5" />
                               Replace
-                              <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(post.id, f); e.target.value = ""; }} />
+                              <input
+                                type="file"
+                                accept="image/*,video/*"
+                                className="hidden"
+                                onChange={e => {
+                                  const f = e.target.files?.[0];
+                                  if (!f) return;
+                                  if (f.type.startsWith("video/")) {
+                                    handleVideoUpload(post.id, f);
+                                  } else {
+                                    handleFileUpload(post.id, f);
+                                  }
+                                  e.target.value = "";
+                                }}
+                              />
                             </label>
                           </div>
                         </>
@@ -692,13 +706,22 @@ export default function MarketingCampaignWorkspace() {
                           </Button>
                           <label className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
                             <Upload className="w-3 h-3" />
-                            Upload image
-                            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(post.id, f); e.target.value = ""; }} />
-                          </label>
-                          <label className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
-                            <Upload className="w-3 h-3" />
-                            Upload video
-                            <input type="file" accept="video/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoUpload(post.id, f); e.target.value = ""; }} />
+                            Upload image or video
+                            <input
+                              type="file"
+                              accept="image/*,video/*"
+                              className="hidden"
+                              onChange={e => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                if (f.type.startsWith("video/")) {
+                                  handleVideoUpload(post.id, f);
+                                } else {
+                                  handleFileUpload(post.id, f);
+                                }
+                                e.target.value = "";
+                              }}
+                            />
                           </label>
                         </div>
                       )}
