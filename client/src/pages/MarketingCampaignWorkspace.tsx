@@ -83,9 +83,9 @@ export default function MarketingCampaignWorkspace() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const analyticsPost = posts.find(p => p.id === analyticsPostId);
-  const { data: insights, isLoading: insightsLoading, error: insightsError } = trpc.campaign.post.getInsights.useQuery(
+  const { data: insights, isLoading: insightsLoading } = trpc.campaign.post.getInsights.useQuery(
     { postId: analyticsPostId ?? 0 },
-    { enabled: !!analyticsPostId }
+    { enabled: !!analyticsPostId && analyticsPost?.status === "posted" && !!analyticsPost?.instagramPostId }
   );
 
   const { data: perfData, isLoading: perfLoading } = trpc.campaign.post.getPerformance.useQuery(
@@ -896,8 +896,7 @@ export default function MarketingCampaignWorkspace() {
                 headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
                 height="auto"
                 eventClick={info => {
-                  const postId = info.event.extendedProps.postId;
-                  toast.info(`Post #${postId} — ${info.event.extendedProps.status}`);
+                  setAnalyticsPostId(info.event.extendedProps.postId);
                 }}
               />
             </div>
@@ -1117,63 +1116,107 @@ export default function MarketingCampaignWorkspace() {
 
       {/* ── Analytics Modal ─────────────────────────────────────────────── */}
       <Dialog open={!!analyticsPostId} onOpenChange={open => { if (!open) setAnalyticsPostId(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BarChart2 className="w-4 h-4 text-violet-600" />
-              Post Analytics
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-sm p-0 overflow-hidden gap-0" showCloseButton={false}>
           {analyticsPost && (
-            <p className="text-xs text-muted-foreground -mt-1 line-clamp-2">{analyticsPost.caption}</p>
-          )}
-          {insightsLoading ? (
-            <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground">
-              <span className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm">Fetching live data…</span>
-            </div>
-          ) : insightsError ? (
-            <p className="text-sm text-red-600 py-4">{insightsError.message}</p>
-          ) : insights ? (
-            <div className="space-y-3">
-              {insights.mediaType && (
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{insights.mediaType.replace('_', ' ')}</p>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                {([
-                  { icon: Users,        label: "Reach",          value: insights.reach,          color: "text-violet-600",  bg: "bg-violet-50"  },
-                  insights.plays !== null && { icon: RefreshCw,   label: "Plays",          value: insights.plays,          color: "text-purple-600",  bg: "bg-purple-50"  },
-                  { icon: Heart,        label: "Likes",          value: insights.likes,          color: "text-pink-600",    bg: "bg-pink-50"    },
-                  { icon: MessageCircle,label: "Comments",       value: insights.comments,       color: "text-amber-600",   bg: "bg-amber-50"   },
-                  { icon: Share2,       label: "Shares",         value: insights.shares,         color: "text-emerald-600", bg: "bg-emerald-50" },
-                  { icon: Bookmark,     label: "Saves",          value: insights.saved,          color: "text-indigo-600",  bg: "bg-indigo-50"  },
-                  insights.profileVisits !== null && { icon: UserCheck, label: "Profile Visits", value: insights.profileVisits,  color: "text-teal-600",    bg: "bg-teal-50"    },
-                  insights.follows !== null && { icon: Users,     label: "New Follows",    value: insights.follows,        color: "text-cyan-600",    bg: "bg-cyan-50"    },
-                ] as const).filter(Boolean).map((item) => {
-                  if (!item) return null;
-                  const { icon: Icon, label, value, color, bg } = item as { icon: React.ElementType; label: string; value: number; color: string; bg: string };
-                  return (
-                    <div key={label} className={`flex items-center gap-3 rounded-lg ${bg} px-3 py-2.5`}>
-                      <Icon className={`w-4 h-4 shrink-0 ${color}`} />
-                      <div>
-                        <p className="text-xs text-muted-foreground leading-none mb-0.5">{label}</p>
-                        <p className={`text-lg font-bold leading-none ${color}`}>{value.toLocaleString()}</p>
+            <>
+              {/* ── Media ── */}
+              <div className="relative aspect-square bg-muted">
+                {analyticsPost.mediaType === "video" && analyticsPost.videoUrl ? (
+                  <video src={analyticsPost.videoUrl} className="w-full h-full object-cover" controls preload="metadata" />
+                ) : analyticsPost.imageUrl ? (
+                  <img src={analyticsPost.imageUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ImageIcon className="w-10 h-10 text-muted-foreground/30" />
+                  </div>
+                )}
+                {/* Overlaid UI */}
+                <button
+                  className="absolute top-3 right-3 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-1.5 transition-colors"
+                  onClick={() => setAnalyticsPostId(null)}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="absolute top-3 left-3">
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${POST_STATUS_COLORS[analyticsPost.status] ?? ""}`}>
+                    {analyticsPost.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* ── Post info ── */}
+              <div className="p-4 space-y-3 max-h-[50vh] overflow-y-auto">
+                {analyticsPost.scheduledAt && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <CalendarDays className="w-3 h-3" />
+                    {new Date(analyticsPost.scheduledAt).toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                    {" · "}
+                    {new Date(analyticsPost.scheduledAt).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
+                {analyticsPost.theme && (
+                  <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{analyticsPost.theme}</p>
+                )}
+                {analyticsPost.caption && (
+                  <p className="text-sm leading-relaxed text-foreground">{analyticsPost.caption}</p>
+                )}
+                {analyticsPost.hashtags && (
+                  <p className="text-xs text-violet-500 leading-relaxed">{analyticsPost.hashtags}</p>
+                )}
+
+                {/* ── Analytics (posted only) ── */}
+                {analyticsPost.status === "posted" && analyticsPost.instagramPostId && (
+                  <div className="border-t pt-3 space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <BarChart2 className="w-3 h-3" /> Performance
+                    </p>
+                    {insightsLoading ? (
+                      <div className="flex items-center gap-2 py-3 text-muted-foreground">
+                        <span className="w-3.5 h-3.5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs">Fetching live data…</span>
                       </div>
-                    </div>
-                  );
-                })}
+                    ) : insights ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { icon: Users,         label: "Reach",          value: insights.reach,             color: "text-violet-600",  bg: "bg-violet-50"  },
+                            insights.plays !== null && { icon: RefreshCw,   label: "Plays",          value: insights.plays!,            color: "text-purple-600",  bg: "bg-purple-50"  },
+                            { icon: Heart,         label: "Likes",          value: insights.likes,             color: "text-pink-600",    bg: "bg-pink-50"    },
+                            { icon: MessageCircle, label: "Comments",       value: insights.comments,          color: "text-amber-600",   bg: "bg-amber-50"   },
+                            { icon: Share2,        label: "Shares",         value: insights.shares,            color: "text-emerald-600", bg: "bg-emerald-50" },
+                            { icon: Bookmark,      label: "Saves",          value: insights.saved,             color: "text-indigo-600",  bg: "bg-indigo-50"  },
+                            insights.profileVisits !== null && { icon: UserCheck, label: "Profile Visits", value: insights.profileVisits!,  color: "text-teal-600",  bg: "bg-teal-50"  },
+                            insights.follows !== null && { icon: Users,     label: "New Follows",    value: insights.follows!,          color: "text-cyan-600",    bg: "bg-cyan-50"    },
+                          ] as const).filter(Boolean).map((item) => {
+                            if (!item) return null;
+                            const { icon: Icon, label, value, color, bg } = item as { icon: React.ElementType; label: string; value: number; color: string; bg: string };
+                            return (
+                              <div key={label} className={`flex items-center gap-2.5 rounded-lg ${bg} px-3 py-2`}>
+                                <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground leading-none mb-0.5">{label}</p>
+                                  <p className={`text-base font-bold leading-none ${color}`}>{value.toLocaleString()}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="rounded-lg bg-muted px-3 py-2 flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground font-medium">Total Interactions</span>
+                          <span className="text-sm font-bold">{insights.totalInteractions.toLocaleString()}</span>
+                        </div>
+                        {insights.reach > 0 && (
+                          <p className="text-[11px] text-muted-foreground text-center">
+                            Engagement rate: <span className="font-semibold text-foreground">{((insights.totalInteractions / insights.reach) * 100).toFixed(1)}%</span>
+                          </p>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                )}
               </div>
-              <div className="rounded-lg bg-muted px-3 py-2.5 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground font-medium">Total Interactions</span>
-                <span className="text-base font-bold">{insights.totalInteractions.toLocaleString()}</span>
-              </div>
-              {insights.reach > 0 && (
-                <p className="text-[11px] text-muted-foreground text-center">
-                  Engagement rate: {((insights.totalInteractions / insights.reach) * 100).toFixed(1)}%
-                </p>
-              )}
-            </div>
-          ) : null}
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
