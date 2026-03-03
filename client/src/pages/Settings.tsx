@@ -306,6 +306,64 @@ function InstagramClientRow({ clientSlug, clientName }: { clientSlug: string; cl
   );
 }
 
+function FacebookSection() {
+  const { data: clients } = trpc.invoice.clients.useQuery();
+
+  return (
+    <div className="rounded-xl border bg-card p-6 mt-4">
+      <h2 className="text-base font-semibold mb-1">Facebook</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        Connect each client's Facebook Page to enable automatic cross-posting.
+      </p>
+      <div className="space-y-3">
+        {(clients ?? []).map(client => (
+          <FacebookClientRow key={client.clientSlug} clientSlug={client.clientSlug} clientName={client.clientName} />
+        ))}
+        {(clients ?? []).length === 0 && (
+          <p className="text-sm text-muted-foreground">No clients found.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FacebookClientRow({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
+  const { data, refetch } = trpc.facebook.getStatus.useQuery({ clientSlug });
+  const disconnect = trpc.facebook.disconnect.useMutation({
+    onSuccess: () => { refetch(); toast.success(`Facebook disconnected for ${clientName}`); },
+    onError: () => toast.error("Failed to disconnect"),
+  });
+
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <div>
+        <p className="text-sm font-medium">{clientName}</p>
+        {data?.connected && data.pageName && (
+          <p className="text-xs text-muted-foreground">{data.pageName} · ID: {data.pageId}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {data?.connected ? (
+          <>
+            <Badge variant="default" className="bg-green-500 hover:bg-green-500 text-white text-[10px]">Connected</Badge>
+            <Button variant="outline" size="sm" onClick={() => disconnect.mutate({ clientSlug })} disabled={disconnect.isPending}>
+              Disconnect
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { window.location.href = `/api/auth/facebook/init/${encodeURIComponent(clientSlug)}`; }}
+          >
+            Connect Facebook
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   const [location] = useLocation();
 
@@ -318,6 +376,23 @@ export default function Settings() {
     },
   });
 
+  // Facebook multi-page selection state
+  const [fbSelectState, setFbSelectState] = useState<string | null>(null);
+  const [fbSelectClient, setFbSelectClient] = useState<string | null>(null);
+  const { data: pendingPages } = trpc.facebook.getPendingPages.useQuery(
+    { state: fbSelectState! },
+    { enabled: !!fbSelectState }
+  );
+  const confirmPage = trpc.facebook.confirmPage.useMutation({
+    onSuccess: () => {
+      toast.success("Facebook Page connected");
+      setFbSelectState(null);
+      setFbSelectClient(null);
+      window.history.replaceState({}, "", window.location.pathname);
+    },
+    onError: (e) => toast.error(`Failed to connect page: ${e.message}`),
+  });
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("google") === "connected") {
@@ -327,6 +402,19 @@ export default function Settings() {
     if (params.get("instagram") === "error") {
       toast.error("Instagram connection failed");
       window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("facebook") === "connected") {
+      toast.success("Facebook Page connected");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("facebook") === "error") {
+      toast.error("Facebook connection failed");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("facebook") === "select") {
+      const state = params.get("state");
+      const client = params.get("client");
+      if (state) { setFbSelectState(state); setFbSelectClient(client); }
     }
   }, [location]);
 
@@ -376,7 +464,41 @@ export default function Settings() {
               )}
             </div>
             <InstagramSection />
+            <FacebookSection />
           </div>
+
+          {/* Facebook multi-page selection dialog */}
+          {fbSelectState && pendingPages && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="bg-card rounded-xl border shadow-xl p-6 w-full max-w-sm">
+                <h3 className="text-base font-semibold mb-1">Select a Facebook Page</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Multiple pages found for {fbSelectClient ?? "this client"}. Choose one:
+                </p>
+                <div className="space-y-2">
+                  {pendingPages.pages.map(page => (
+                    <Button
+                      key={page.id}
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => confirmPage.mutate({ state: fbSelectState, pageId: page.id })}
+                      disabled={confirmPage.isPending}
+                    >
+                      {page.name}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() => { setFbSelectState(null); setFbSelectClient(null); window.history.replaceState({}, "", window.location.pathname); }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="railway">

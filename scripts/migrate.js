@@ -20,6 +20,7 @@ const connection = await mysql.createConnection(DATABASE_URL);
 const SAFE_MIGRATIONS = [
   'drizzle/0027_campaign_share_token.sql',
   'drizzle/0028_post_video.sql',
+  'drizzle/0029_facebook.sql',
 ];
 
 for (const relPath of SAFE_MIGRATIONS) {

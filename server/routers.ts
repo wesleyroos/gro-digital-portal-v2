@@ -66,12 +66,17 @@ import {
   updatePostImageUrl,
   updatePostVideo,
   getCampaignByShareToken,
+  storeFacebookPage,
+  clearFacebookTokens,
+  getFacebookTokens,
 } from "./db";
 import { nanoid } from "nanoid";
 import { createHash } from "crypto";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
 import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
+import { getFacebookPostInsights } from "./facebook";
+import { getPendingFacebookPages, confirmFacebookPage } from "./facebook-oauth";
 import { getCalendarEvents } from "./calendar";
 
 export const appRouter = router({
@@ -899,7 +904,15 @@ export const appRouter = router({
           await updatePostStatus(input.postId, 'rejected', { notes: input.notes });
           return { success: true };
         }),
+
     }),
+
+    setPlatforms: adminProcedure
+      .input(z.object({ id: z.number().int(), postToInstagram: z.boolean(), postToFacebook: z.boolean() }))
+      .mutation(async ({ input }) => {
+        await updateCampaign(input.id, { postToInstagram: input.postToInstagram, postToFacebook: input.postToFacebook });
+        return { success: true };
+      }),
   }),
 
   instagram: router({
@@ -927,6 +940,36 @@ export const appRouter = router({
         const { id, username } = await getIgUserInfo(tokens.accessToken);
         await storeInstagramTokens(input.clientSlug, id, tokens.accessToken, username);
         return { id, username };
+      }),
+  }),
+
+  facebook: router({
+    getStatus: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .query(async ({ input }) => {
+        const tokens = await getFacebookTokens(input.clientSlug);
+        if (!tokens) return { connected: false, pageName: null, pageId: null };
+        return { connected: true, pageName: tokens.pageName, pageId: tokens.pageId };
+      }),
+
+    disconnect: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ input }) => {
+        await clearFacebookTokens(input.clientSlug);
+        return { success: true };
+      }),
+
+    getPendingPages: adminProcedure
+      .input(z.object({ state: z.string() }))
+      .query(({ input }) => {
+        return getPendingFacebookPages(input.state) ?? null;
+      }),
+
+    confirmPage: adminProcedure
+      .input(z.object({ state: z.string(), pageId: z.string() }))
+      .mutation(async ({ input }) => {
+        await confirmFacebookPage(input.state, input.pageId);
+        return { success: true };
       }),
   }),
 });

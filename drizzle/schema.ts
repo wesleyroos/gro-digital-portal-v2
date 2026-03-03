@@ -1,4 +1,4 @@
-import { date, decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, date, decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -114,6 +114,9 @@ export const clientProfiles = mysqlTable("clientProfiles", {
   instagramBusinessId: varchar("instagramBusinessId", { length: 255 }),
   instagramAccessToken: text("instagramAccessToken"),
   instagramUsername: varchar("instagramUsername", { length: 255 }),
+  facebookPageId: varchar("facebookPageId", { length: 128 }),
+  facebookPageAccessToken: text("facebookPageAccessToken"),
+  facebookPageName: varchar("facebookPageName", { length: 255 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
@@ -240,6 +243,8 @@ export const marketingCampaigns = mysqlTable("marketing_campaigns", {
   imageAspectRatio: varchar("imageAspectRatio", { length: 16 }).default("1:1"),
   shareToken: varchar("shareToken", { length: 21 }).unique(),
   sharePassword: varchar("sharePassword", { length: 255 }),
+  postToInstagram: boolean("postToInstagram").default(true).notNull(),
+  postToFacebook: boolean("postToFacebook").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -262,6 +267,7 @@ export const marketingPosts = mysqlTable("marketing_posts", {
   videoUrl: text("videoUrl"),
   status: mysqlEnum("status", ["draft", "approved", "rejected", "scheduled", "posted", "failed"]).default("draft").notNull(),
   instagramPostId: varchar("instagramPostId", { length: 128 }),
+  facebookPostId: varchar("facebookPostId", { length: 128 }),
   theme: varchar("theme", { length: 255 }),
   notes: text("notes"),
   sortOrder: int("sortOrder").default(0),

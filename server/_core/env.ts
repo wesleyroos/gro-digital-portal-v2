@@ -16,6 +16,7 @@ export const ENV = {
   instagramAppId: process.env.INSTAGRAM_APP_ID ?? "",
   instagramAppSecret: process.env.INSTAGRAM_APP_SECRET ?? "",
   instagramRedirectUri: process.env.INSTAGRAM_REDIRECT_URI ?? "",
+  facebookRedirectUri: process.env.FACEBOOK_REDIRECT_URI ?? "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   r2AccessKeyId: process.env.R2_ACCESS_KEY_ID ?? "",

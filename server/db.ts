@@ -920,6 +920,8 @@ export async function updateCampaign(id: number, data: {
   imageAspectRatio?: string | null;
   shareToken?: string | null;
   sharePassword?: string | null;
+  postToInstagram?: boolean;
+  postToFacebook?: boolean;
 }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
@@ -937,6 +939,8 @@ export async function updateCampaign(id: number, data: {
   if ('imageAspectRatio' in data) set.imageAspectRatio = data.imageAspectRatio ?? '1:1';
   if ('shareToken' in data) set.shareToken = data.shareToken ?? null;
   if ('sharePassword' in data) set.sharePassword = data.sharePassword ?? null;
+  if ('postToInstagram' in data) set.postToInstagram = data.postToInstagram;
+  if ('postToFacebook' in data) set.postToFacebook = data.postToFacebook;
   await db.update(marketingCampaigns).set(set).where(eq(marketingCampaigns.id, id));
 }
 
@@ -1089,4 +1093,42 @@ export async function getInstagramTokens(clientSlug: string) {
   const { instagramBusinessId, instagramAccessToken, instagramUsername } = result[0];
   if (!instagramBusinessId || !instagramAccessToken) return null;
   return { businessId: instagramBusinessId, accessToken: instagramAccessToken, username: instagramUsername ?? '' };
+}
+
+// ── Facebook page tokens ───────────────────────────────────────────────────────
+
+export async function storeFacebookPage(clientSlug: string, pageId: string, pageAccessToken: string, pageName: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(clientProfiles)
+    .values({ clientSlug, facebookPageId: pageId, facebookPageAccessToken: pageAccessToken, facebookPageName: pageName } as any)
+    .onDuplicateKeyUpdate({ set: { facebookPageId: pageId, facebookPageAccessToken: pageAccessToken, facebookPageName: pageName } });
+}
+
+export async function clearFacebookTokens(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(clientProfiles)
+    .set({ facebookPageId: null, facebookPageAccessToken: null, facebookPageName: null })
+    .where(eq(clientProfiles.clientSlug, clientSlug));
+}
+
+export async function getFacebookTokens(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({ facebookPageId: clientProfiles.facebookPageId, facebookPageAccessToken: clientProfiles.facebookPageAccessToken, facebookPageName: clientProfiles.facebookPageName })
+    .from(clientProfiles)
+    .where(eq(clientProfiles.clientSlug, clientSlug))
+    .limit(1);
+  if (result.length === 0) return null;
+  const { facebookPageId, facebookPageAccessToken, facebookPageName } = result[0];
+  if (!facebookPageId || !facebookPageAccessToken) return null;
+  return { pageId: facebookPageId, pageAccessToken: facebookPageAccessToken, pageName: facebookPageName ?? '' };
+}
+
+export async function updatePostFacebookId(postId: number, facebookPostId: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.update(marketingPosts).set({ facebookPostId }).where(eq(marketingPosts.id, postId));
 }

@@ -197,6 +197,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { toast.success("Aspect ratio updated"); refetch(); },
     onError: () => toast.error("Failed to update aspect ratio"),
   });
+  const setPlatformsMutation = trpc.campaign.setPlatforms.useMutation({
+    onSuccess: () => refetch(),
+    onError: () => toast.error("Failed to update platforms"),
+  });
   const suggestPromptMutation = trpc.campaign.post.suggestImagePrompt.useMutation({
     onSuccess: ({ prompt }) => setEditDraft(d => ({ ...d, imagePrompt: prompt })),
     onError: () => toast.error("Failed to suggest prompt"),
@@ -553,6 +557,30 @@ export default function MarketingCampaignWorkspace() {
                   <ImageIcon className="w-3.5 h-3.5" />
                   Generate All Images
                 </Button>
+                {/* Platform toggles */}
+                <div className="flex items-center gap-3 border rounded-md px-3 py-1.5">
+                  <span className="text-[11px] text-muted-foreground font-medium">Post to:</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={campaign.postToInstagram ?? true}
+                      onChange={e => setPlatformsMutation.mutate({ id: campaignId, postToInstagram: e.target.checked, postToFacebook: campaign.postToFacebook ?? false })}
+                      disabled={setPlatformsMutation.isPending}
+                      className="w-3.5 h-3.5 accent-violet-600"
+                    />
+                    <span className="text-xs font-medium">Instagram</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={campaign.postToFacebook ?? false}
+                      onChange={e => setPlatformsMutation.mutate({ id: campaignId, postToInstagram: campaign.postToInstagram ?? true, postToFacebook: e.target.checked })}
+                      disabled={setPlatformsMutation.isPending}
+                      className="w-3.5 h-3.5 accent-violet-600"
+                    />
+                    <span className="text-xs font-medium">Facebook</span>
+                  </label>
+                </div>
                 {/* Image style + model + aspect ratio selectors */}
                 <div className="flex items-center gap-3 ml-auto flex-wrap">
                   <div className="flex items-center gap-1.5">
