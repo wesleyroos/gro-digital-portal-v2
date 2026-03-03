@@ -75,7 +75,7 @@ import { createHash } from "crypto";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
 import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
-import { getFacebookPostInsights } from "./facebook";
+import { getFacebookPostInsights, postImageToPage, postVideoToPage } from "./facebook";
 import { getPendingFacebookPages, confirmFacebookPage } from "./facebook-oauth";
 import { getCalendarEvents } from "./calendar";
 
@@ -862,14 +862,34 @@ export const appRouter = router({
           if (!mediaUrl) throw new TRPCError({ code: 'BAD_REQUEST', message: `Post has no ${isVideo ? 'video' : 'image'} — upload one first` });
           const campaign = await getCampaignById(post.campaignId);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
-          const tokens = await getInstagramTokens(campaign.clientSlug);
-          if (!tokens) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Instagram not connected for this client' });
           const caption = [post.caption ?? '', post.hashtags ?? ''].filter(Boolean).join('\n\n');
-          const creationId = isVideo
-            ? await createVideoMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption)
-            : await createMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption);
-          const instagramPostId = await publishMedia(tokens.businessId, tokens.accessToken, creationId);
-          await updatePostStatus(input.postId, 'posted', { instagramPostId });
+          let instagramPostId: string | undefined;
+
+          // ── Instagram ──
+          if (campaign.postToInstagram !== false) {
+            const tokens = await getInstagramTokens(campaign.clientSlug);
+            if (!tokens) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Instagram not connected for this client' });
+            const creationId = isVideo
+              ? await createVideoMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption)
+              : await createMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption);
+            instagramPostId = await publishMedia(tokens.businessId, tokens.accessToken, creationId);
+            await updatePostStatus(input.postId, 'posted', { instagramPostId });
+          }
+
+          // ── Facebook ──
+          if (campaign.postToFacebook) {
+            const fbTokens = await getFacebookTokens(campaign.clientSlug);
+            if (fbTokens) {
+              const facebookPostId = isVideo
+                ? await postVideoToPage(fbTokens.pageId, fbTokens.pageAccessToken, mediaUrl, caption)
+                : await postImageToPage(fbTokens.pageId, fbTokens.pageAccessToken, mediaUrl, caption);
+              await updatePostFacebookId(input.postId, facebookPostId);
+              if (campaign.postToInstagram === false) {
+                await updatePostStatus(input.postId, 'posted');
+              }
+            }
+          }
+
           return { instagramPostId };
         }),
 
