@@ -6,6 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Check, X, ImageIcon, Lock, TrendingUp, ChevronUp, ChevronDown, Calendar, Heart, MessageCircle, Share2, Bookmark, Users, BarChart2 } from "lucide-react";
 
+function PlatformBadges({ hasIg, hasFb }: { hasIg: boolean; hasFb: boolean }) {
+  if (!hasIg && !hasFb) return null;
+  return (
+    <div className="flex items-center gap-1">
+      {hasIg && <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-100 text-pink-700">IG</span>}
+      {hasFb && <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">FB</span>}
+    </div>
+  );
+}
+
 const POST_STATUS_COLORS: Record<string, string> = {
   draft:     "bg-amber-100 text-amber-700",
   approved:  "bg-emerald-100 text-emerald-700",
@@ -29,7 +39,8 @@ export default function CampaignPreview() {
     id: number; status: string; imageUrl?: string | null;
     mediaType?: string | null; videoUrl?: string | null;
     caption?: string | null; hashtags?: string | null;
-    scheduledAt?: string | number | null; theme?: string | null;
+    scheduledAt?: string | number | Date | null; theme?: string | null;
+    instagramPostId?: string | null; facebookPostId?: string | null;
   } | null>(null);
 
   const { data, isLoading, error, refetch } = trpc.campaign.getByShareToken.useQuery(
@@ -327,9 +338,12 @@ export default function CampaignPreview() {
                   </div>
                   {/* Content */}
                   <div className="p-4 flex-1">
-                    {post.theme && (
-                      <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider mb-1">{post.theme}</p>
-                    )}
+                    <div className="flex items-center justify-between mb-1">
+                      {post.theme && (
+                        <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{post.theme}</p>
+                      )}
+                      <PlatformBadges hasIg={data?.campaign.postToInstagram ?? true} hasFb={data?.campaign.postToFacebook ?? false} />
+                    </div>
                     <p className="text-sm text-slate-700 leading-relaxed line-clamp-3">{post.caption}</p>
                     {post.hashtags && (
                       <p className="text-xs text-violet-500 mt-2 line-clamp-1">{post.hashtags}</p>
@@ -384,12 +398,15 @@ export default function CampaignPreview() {
                     </div>
                   </div>
                   <div className="p-3">
-                    {post.scheduledAt && (
-                      <p className="text-[11px] text-slate-400 mb-1 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                      </p>
-                    )}
+                    <div className="flex items-center justify-between mb-1">
+                      {post.scheduledAt && (
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                        </p>
+                      )}
+                      <PlatformBadges hasIg={data?.campaign.postToInstagram ?? true} hasFb={data?.campaign.postToFacebook ?? false} />
+                    </div>
                     <p className="text-xs text-slate-700 line-clamp-2 leading-relaxed">{post.caption}</p>
                   </div>
                 </div>
@@ -439,9 +456,12 @@ export default function CampaignPreview() {
                       </div>
                     </div>
                     <div className="p-3">
-                      {post.scheduledAt && (
-                        <p className="text-[11px] text-slate-400 mb-1">{new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</p>
-                      )}
+                      <div className="flex items-center justify-between mb-1">
+                        {post.scheduledAt && (
+                          <p className="text-[11px] text-slate-400">{new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</p>
+                        )}
+                        <PlatformBadges hasIg={!!post.instagramPostId} hasFb={!!post.facebookPostId} />
+                      </div>
                       <p className="text-xs text-slate-700 line-clamp-2 leading-relaxed">{post.caption}</p>
                       {ins && (
                         <p className="text-[10px] text-violet-600 mt-1.5 flex items-center gap-1 font-medium">

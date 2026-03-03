@@ -63,6 +63,10 @@ export default function MarketingCampaignWorkspace() {
     { clientSlug: campaign?.clientSlug ?? "" },
     { enabled: !!campaign?.clientSlug }
   );
+  const { data: fbStatus } = trpc.facebook.getStatus.useQuery(
+    { clientSlug: campaign?.clientSlug ?? "" },
+    { enabled: !!campaign?.clientSlug }
+  );
 
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -274,13 +278,19 @@ export default function MarketingCampaignWorkspace() {
 
   const calendarEvents = posts
     .filter(p => p.scheduledAt)
-    .map(p => ({
-      title: p.theme ?? p.caption?.slice(0, 30) ?? "Post",
-      date: new Date(p.scheduledAt!).toISOString().slice(0, 10),
-      backgroundColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af",
-      borderColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af",
-      extendedProps: { postId: p.id, status: p.status },
-    }));
+    .map(p => {
+      const platforms: string[] = [];
+      if (p.instagramPostId) platforms.push('IG');
+      if (p.facebookPostId) platforms.push('FB');
+      const prefix = platforms.length ? `[${platforms.join('+')}] ` : '';
+      return {
+        title: prefix + (p.theme ?? p.caption?.slice(0, 30) ?? "Post"),
+        date: new Date(p.scheduledAt!).toISOString().slice(0, 10),
+        backgroundColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af",
+        borderColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af",
+        extendedProps: { postId: p.id, status: p.status },
+      };
+    });
 
   if (isLoading) {
     return (
@@ -321,6 +331,17 @@ export default function MarketingCampaignWorkspace() {
               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                 Instagram not connected
+              </span>
+            )}
+            {fbStatus?.connected ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                FB {fbStatus.pageName}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Facebook not connected
               </span>
             )}
           </div>
@@ -907,6 +928,18 @@ export default function MarketingCampaignWorkspace() {
                             Analytics
                           </Button>
                         )}
+                        {post.status === "posted" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-7 text-xs gap-1"
+                            onClick={() => publishNowMutation.mutate({ postId: post.id })}
+                            disabled={publishNowMutation.isPending}
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            Re-post
+                          </Button>
+                        )}
                         {post.status === "approved" && post.imageUrl && igStatus?.connected && (
                           <Button
                             size="sm"
@@ -964,7 +997,7 @@ export default function MarketingCampaignWorkspace() {
           ) : !perfData?.rows.length ? (
             <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
               <TrendingUp className="w-8 h-8 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">No published posts yet — analytics will appear here once posts are live on Instagram.</p>
+              <p className="text-sm text-muted-foreground">No published posts yet — analytics will appear here once posts are live.</p>
             </div>
           ) : (() => {
             const METRICS: { key: keyof typeof perfData.rows[0]["insights"]; label: string; color: string }[] = [
@@ -1086,10 +1119,17 @@ export default function MarketingCampaignWorkspace() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-xs font-medium line-clamp-2 leading-snug">{post.caption ?? "—"}</p>
-                                  {post.scheduledAt && (
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                      {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                                    </p>
+                                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                    {post.scheduledAt && (
+                                      <p className="text-[10px] text-muted-foreground">
+                                        {new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                                      </p>
+                                    )}
+                                    {post.instagramPostId && <span className="inline-flex px-1 py-px rounded text-[9px] font-bold bg-pink-100 text-pink-700">IG</span>}
+                                    {post.facebookPostId && <span className="inline-flex px-1 py-px rounded text-[9px] font-bold bg-blue-100 text-blue-700">FB</span>}
+                                  </div>
+                                  {row.fbInsights && post.instagramPostId && (
+                                    <p className="text-[9px] text-blue-600 mt-0.5">{row.fbInsights.reach.toLocaleString()} FB reach · {row.fbInsights.reactions.toLocaleString()} reactions</p>
                                   )}
                                 </div>
                               </div>

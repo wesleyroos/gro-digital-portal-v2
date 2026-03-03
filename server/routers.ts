@@ -69,6 +69,7 @@ import {
   storeFacebookPage,
   clearFacebookTokens,
   getFacebookTokens,
+  updatePostFacebookId,
 } from "./db";
 import { nanoid } from "nanoid";
 import { createHash } from "crypto";
@@ -836,18 +837,30 @@ export const appRouter = router({
           const campaign = await getCampaignById(input.campaignId);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
           const posts = await getPostsByCampaign(input.campaignId);
-          const postedPosts = posts.filter(p => p.status === 'posted' && p.instagramPostId);
+          const postedPosts = posts.filter(p => p.status === 'posted' && (p.instagramPostId || p.facebookPostId));
           if (postedPosts.length === 0) return { rows: [] };
-          const tokens = await getInstagramTokens(campaign.clientSlug);
-          if (!tokens) return { rows: [] };
+          const igTokens = await getInstagramTokens(campaign.clientSlug);
+          const fbTokens = await getFacebookTokens(campaign.clientSlug);
+          type FbInsights = Awaited<ReturnType<typeof getFacebookPostInsights>>;
+          type Row = { post: typeof postedPosts[0]; insights: { reach: number; likes: number; comments: number; shares: number; saved: number; totalInteractions: number }; fbInsights: FbInsights | null };
           const results = await Promise.allSettled(
-            postedPosts.map(async (post) => {
-              const insights = await getPostInsights(post.instagramPostId!, tokens.accessToken);
-              return { post, insights };
+            postedPosts.map(async (post): Promise<Row> => {
+              const igInsights = post.instagramPostId && igTokens
+                ? await getPostInsights(post.instagramPostId, igTokens.accessToken).catch(() => null)
+                : null;
+              const fbInsights = post.facebookPostId && fbTokens
+                ? await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null)
+                : null;
+              const insights = igInsights ?? (fbInsights ? {
+                reach: fbInsights.reach, likes: fbInsights.reactions, comments: 0,
+                shares: fbInsights.shares, saved: 0,
+                totalInteractions: fbInsights.reactions + fbInsights.shares + fbInsights.clicks,
+              } : { reach: 0, likes: 0, comments: 0, shares: 0, saved: 0, totalInteractions: 0 });
+              return { post, insights, fbInsights };
             })
           );
           const rows = results
-            .filter((r): r is PromiseFulfilledResult<{ post: typeof postedPosts[0]; insights: Awaited<ReturnType<typeof getPostInsights>> }> => r.status === 'fulfilled')
+            .filter((r): r is PromiseFulfilledResult<Row> => r.status === 'fulfilled')
             .map(r => r.value);
           return { rows };
         }),
