@@ -42,8 +42,8 @@ export function registerFacebookOAuthRoutes(app: Express) {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
-    if (!ENV.instagramAppId || !ENV.facebookRedirectUri) {
-      res.status(503).json({ error: 'Facebook OAuth not configured (INSTAGRAM_APP_ID or FACEBOOK_REDIRECT_URI missing)' });
+    if (!ENV.facebookAppId || !ENV.facebookRedirectUri) {
+      res.status(503).json({ error: 'Facebook OAuth not configured (FACEBOOK_APP_ID or FACEBOOK_REDIRECT_URI missing)' });
       return;
     }
 
@@ -51,9 +51,8 @@ export function registerFacebookOAuthRoutes(app: Express) {
     const state = crypto.randomUUID();
     stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, clientSlug });
 
-    // Uses the same Meta App ID as Instagram — just different scopes + redirect URI
     const authUrl = new URL('https://www.facebook.com/v21.0/dialog/oauth');
-    authUrl.searchParams.set('client_id', ENV.instagramAppId);
+    authUrl.searchParams.set('client_id', ENV.facebookAppId);
     authUrl.searchParams.set('redirect_uri', ENV.facebookRedirectUri);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'pages_show_list,pages_manage_posts,pages_read_engagement');
@@ -84,8 +83,8 @@ export function registerFacebookOAuthRoutes(app: Express) {
     try {
       // Exchange code for short-lived user access token
       const tokenUrl = new URL('https://graph.facebook.com/v21.0/oauth/access_token');
-      tokenUrl.searchParams.set('client_id', ENV.instagramAppId);
-      tokenUrl.searchParams.set('client_secret', ENV.instagramAppSecret);
+      tokenUrl.searchParams.set('client_id', ENV.facebookAppId);
+      tokenUrl.searchParams.set('client_secret', ENV.facebookAppSecret);
       tokenUrl.searchParams.set('redirect_uri', ENV.facebookRedirectUri);
       tokenUrl.searchParams.set('code', code);
 
