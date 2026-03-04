@@ -857,12 +857,18 @@ export const appRouter = router({
               let fbInsights: FbInsights | null = null;
               let fbInsightsSource: Row['fbInsightsSource'] = null;
               if (post.facebookPostId && fbTokens) {
-                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null);
+                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
+                  console.error(`[FB insights] post ${post.id} (${post.facebookPostId}) full insights failed:`, e?.message ?? e);
+                  return null;
+                });
                 if (full) {
                   fbInsights = full;
                   fbInsightsSource = 'full';
                 } else {
-                  const basic = await getFacebookPostBasicMetrics(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null);
+                  const basic = await getFacebookPostBasicMetrics(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
+                    console.error(`[FB insights] post ${post.id} (${post.facebookPostId}) basic metrics failed:`, e?.message ?? e);
+                    return null;
+                  });
                   if (basic) { fbInsights = basic; fbInsightsSource = 'basic'; }
                 }
               }
