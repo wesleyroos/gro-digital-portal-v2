@@ -1134,9 +1134,12 @@ export default function MarketingCampaignWorkspace() {
                                     )}
                                     {post.instagramPostId && <span className="inline-flex px-1 py-px rounded text-[9px] font-bold bg-pink-100 text-pink-700">IG</span>}
                                     {post.facebookPostId && <span className="inline-flex px-1 py-px rounded text-[9px] font-bold bg-blue-100 text-blue-700">FB</span>}
+                                    {!post.instagramPostId && post.facebookPostId && (
+                                      <span className="text-[9px] text-blue-500">metrics from FB</span>
+                                    )}
                                   </div>
                                   {row.fbInsights && post.instagramPostId && (
-                                    <p className="text-[9px] text-blue-600 mt-0.5">{row.fbInsights.reach.toLocaleString()} FB reach · {row.fbInsights.reactions.toLocaleString()} reactions</p>
+                                    <p className="text-[9px] text-blue-600 mt-0.5">FB: {row.fbInsights.reach.toLocaleString()} reach · {row.fbInsights.reactions.toLocaleString()} reactions · {row.fbInsights.shares.toLocaleString()} shares</p>
                                   )}
                                 </div>
                               </div>
