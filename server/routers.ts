@@ -76,7 +76,7 @@ import { createHash } from "crypto";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
 import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
-import { getFacebookPostInsights, postImageToPage, postVideoToPage } from "./facebook";
+import { getFacebookPostInsights, getFacebookPostBasicMetrics, postImageToPage, postVideoToPage } from "./facebook";
 import { getPendingFacebookPages, confirmFacebookPage } from "./facebook-oauth";
 import { getCalendarEvents } from "./calendar";
 
@@ -842,21 +842,37 @@ export const appRouter = router({
           const igTokens = await getInstagramTokens(campaign.clientSlug);
           const fbTokens = await getFacebookTokens(campaign.clientSlug);
           type FbInsights = Awaited<ReturnType<typeof getFacebookPostInsights>>;
-          type Row = { post: typeof postedPosts[0]; insights: { reach: number; likes: number; comments: number; shares: number; saved: number; totalInteractions: number }; fbInsights: FbInsights | null };
+          type Row = {
+            post: typeof postedPosts[0];
+            insights: { reach: number; likes: number; comments: number; shares: number; saved: number; totalInteractions: number };
+            fbInsights: FbInsights | null;
+            fbInsightsSource: 'full' | 'basic' | null; // so client can show a note
+          };
           const results = await Promise.allSettled(
             postedPosts.map(async (post): Promise<Row> => {
               const igInsights = post.instagramPostId && igTokens
                 ? await getPostInsights(post.instagramPostId, igTokens.accessToken).catch(() => null)
                 : null;
-              const fbInsights = post.facebookPostId && fbTokens
-                ? await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null)
-                : null;
+
+              let fbInsights: FbInsights | null = null;
+              let fbInsightsSource: Row['fbInsightsSource'] = null;
+              if (post.facebookPostId && fbTokens) {
+                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null);
+                if (full) {
+                  fbInsights = full;
+                  fbInsightsSource = 'full';
+                } else {
+                  const basic = await getFacebookPostBasicMetrics(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null);
+                  if (basic) { fbInsights = basic; fbInsightsSource = 'basic'; }
+                }
+              }
+
               const insights = igInsights ?? (fbInsights ? {
                 reach: fbInsights.reach, likes: fbInsights.reactions, comments: 0,
                 shares: fbInsights.shares, saved: 0,
                 totalInteractions: fbInsights.reactions + fbInsights.shares + fbInsights.clicks,
               } : { reach: 0, likes: 0, comments: 0, shares: 0, saved: 0, totalInteractions: 0 });
-              return { post, insights, fbInsights };
+              return { post, insights, fbInsights, fbInsightsSource };
             })
           );
           const rows = results

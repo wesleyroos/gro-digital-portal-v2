@@ -57,6 +57,41 @@ export async function postVideoToPage(
 }
 
 /**
+ * Fetch basic engagement counts for a Facebook post using simple field reads.
+ * Works with any page access token — no insights permission required.
+ * Use as a fallback when getFacebookPostInsights fails.
+ */
+export async function getFacebookPostBasicMetrics(postId: string, pageToken: string): Promise<{
+  impressions: number;
+  reach: number;
+  reactions: number;
+  clicks: number;
+  shares: number;
+  videoViews: number;
+}> {
+  const res = await fetch(
+    `${GRAPH_BASE}/${postId}?fields=reactions.summary(true),comments.summary(true),shares&access_token=${encodeURIComponent(pageToken)}`
+  );
+  const data = await res.json() as {
+    reactions?: { summary: { total_count: number } };
+    comments?: { summary: { total_count: number } };
+    shares?: { count: number };
+    error?: { message: string };
+  };
+  if (!res.ok || data.error) {
+    throw new Error(`getFacebookPostBasicMetrics failed: ${data.error?.message ?? JSON.stringify(data)}`);
+  }
+  return {
+    impressions: 0,
+    reach: 0,
+    reactions: data.reactions?.summary?.total_count ?? 0,
+    clicks: data.comments?.summary?.total_count ?? 0, // repurpose clicks column for comments
+    shares: data.shares?.count ?? 0,
+    videoViews: 0,
+  };
+}
+
+/**
  * Fetch insights for a Facebook Page post.
  */
 export async function getFacebookPostInsights(postId: string, pageToken: string): Promise<{

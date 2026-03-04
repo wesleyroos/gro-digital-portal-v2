@@ -1017,12 +1017,13 @@ export default function MarketingCampaignWorkspace() {
               <p className="text-sm text-muted-foreground">No published posts yet — analytics will appear here once posts are live.</p>
             </div>
           ) : (() => {
+            const isFbView = perfPlatform === 'fb';
             const METRICS: { key: keyof typeof perfData.rows[0]["insights"]; label: string; color: string }[] = [
-              { key: "reach",             label: "Reach",        color: "text-violet-600"  },
-              { key: "likes",             label: "Likes",        color: "text-pink-600"    },
+              { key: "reach",             label: isFbView ? "Reach (imp)" : "Reach",     color: "text-violet-600"  },
+              { key: "likes",             label: isFbView ? "Reactions"   : "Likes",     color: "text-pink-600"    },
               { key: "comments",          label: "Comments",     color: "text-amber-600"   },
               { key: "shares",            label: "Shares",       color: "text-emerald-600" },
-              { key: "saved",             label: "Saves",        color: "text-indigo-600"  },
+              { key: "saved",             label: isFbView ? "—" : "Saves", color: "text-indigo-600"  },
               { key: "totalInteractions", label: "Interactions", color: "text-blue-600"    },
             ];
 
@@ -1034,13 +1035,17 @@ export default function MarketingCampaignWorkspace() {
                 return true;
               })
               .map(row => {
-                if (perfPlatform === 'fb' && row.fbInsights) {
-                  const fb = row.fbInsights;
-                  return { ...row, insights: {
-                    reach: fb.reach, likes: fb.reactions, comments: 0,
-                    shares: fb.shares, saved: 0,
-                    totalInteractions: fb.reactions + fb.shares + fb.clicks,
-                  }};
+                if (perfPlatform === 'fb') {
+                  if (row.fbInsights) {
+                    const fb = row.fbInsights;
+                    return { ...row, insights: {
+                      reach: fb.reach, likes: fb.reactions, comments: fb.clicks, // clicks = comments in basic mode
+                      shares: fb.shares, saved: 0,
+                      totalInteractions: fb.reactions + fb.shares + fb.clicks,
+                    }};
+                  }
+                  // No FB data at all — show zeros, never show IG numbers
+                  return { ...row, insights: { reach: 0, likes: 0, comments: 0, shares: 0, saved: 0, totalInteractions: 0 } };
                 }
                 return row;
               });
@@ -1123,9 +1128,16 @@ export default function MarketingCampaignWorkspace() {
                       )}
                     </button>
                   ))}
-                  {perfPlatform === 'fb' && (
-                    <span className="text-[10px] text-muted-foreground ml-1">Comments &amp; Saves not available from Facebook API</span>
-                  )}
+                  {perfPlatform === 'fb' && (() => {
+                    const fbRows = perfData.rows.filter(r => r.post.facebookPostId);
+                    const noData = fbRows.filter(r => !r.fbInsights).length;
+                    const basicOnly = fbRows.filter(r => r.fbInsights && r.fbInsightsSource === 'basic').length;
+                    if (noData > 0)
+                      return <span className="text-[10px] text-amber-600 ml-1">{noData} post{noData > 1 ? 's' : ''} missing FB data — reconnect Facebook to enable analytics</span>;
+                    if (basicOnly > 0)
+                      return <span className="text-[10px] text-muted-foreground ml-1">Showing reactions, comments &amp; shares. Reconnect Facebook for full reach &amp; impressions.</span>;
+                    return <span className="text-[10px] text-muted-foreground ml-1">Saves not available from Facebook API</span>;
+                  })()}
                 </div>
 
                 {filteredRows.length === 0 ? (
