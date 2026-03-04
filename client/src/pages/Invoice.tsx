@@ -636,9 +636,9 @@ export default function Invoice() {
         </Card>
 
         {/* Payment details grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Banking details */}
-          <Card className="shadow-sm">
+        <div className={`grid grid-cols-1 gap-6 mb-8 ${!invoice.paymentUrl ? "md:grid-cols-2" : ""}`}>
+          {/* Banking details — hidden when a PayFast link is present */}
+          {!invoice.paymentUrl && <Card className="shadow-sm">
             <CardContent className="p-5 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Landmark className="w-4 h-4 text-primary" />
@@ -678,7 +678,7 @@ export default function Invoice() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Payment terms */}
           <Card className="shadow-sm">
