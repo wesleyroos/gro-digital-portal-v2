@@ -1129,7 +1129,7 @@ export default function MarketingCampaignWorkspace() {
                     </button>
                   ))}
                   {perfPlatform === 'fb' && (
-                    <span className="text-[10px] text-muted-foreground ml-1">Facebook post analytics not available for this app type</span>
+                    <span className="text-[10px] text-muted-foreground ml-1">Views &amp; clicks — data may take a few hours after posting</span>
                   )}
                 </div>
 
