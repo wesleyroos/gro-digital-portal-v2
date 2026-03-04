@@ -103,6 +103,11 @@ export function registerFacebookOAuthRoutes(app: Express) {
         ENV.facebookAppSecret,
       );
 
+      // Log exactly which permissions were granted on this token
+      const permsRes = await fetch(`https://graph.facebook.com/v21.0/me/permissions?access_token=${encodeURIComponent(longLivedToken)}`);
+      const permsData = await permsRes.json() as { data?: Array<{ permission: string; status: string }> };
+      console.log('[Facebook OAuth] Granted permissions:', JSON.stringify(permsData?.data ?? []));
+
       // Get the list of Pages this user manages (each with its own non-expiring page access token)
       const pages = await getFacebookPages(longLivedToken);
       if (pages.length === 0) throw new Error('No Facebook Pages found for this account');
