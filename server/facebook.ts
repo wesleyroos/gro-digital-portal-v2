@@ -1,8 +1,26 @@
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
 
 /**
+ * Exchange a short-lived user access token for a long-lived one (valid ~60 days).
+ * Page tokens obtained from /me/accounts after this exchange never expire.
+ */
+export async function exchangeForLongLivedToken(shortToken: string, appId: string, appSecret: string): Promise<string> {
+  const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
+  url.searchParams.set('grant_type', 'fb_exchange_token');
+  url.searchParams.set('client_id', appId);
+  url.searchParams.set('client_secret', appSecret);
+  url.searchParams.set('fb_exchange_token', shortToken);
+  const res = await fetch(url.toString());
+  const data = await res.json() as { access_token?: string; error?: { message: string } };
+  if (!res.ok || !data.access_token) {
+    throw new Error(`exchangeForLongLivedToken failed: ${data.error?.message ?? JSON.stringify(data)}`);
+  }
+  return data.access_token;
+}
+
+/**
  * Get all Facebook Pages managed by the authenticated user.
- * Each page has its own long-lived page access token.
+ * Pass a long-lived user token to get non-expiring page access tokens.
  */
 export async function getFacebookPages(userToken: string): Promise<Array<{ id: string; name: string; access_token: string }>> {
   const res = await fetch(`${GRAPH_BASE}/me/accounts?access_token=${encodeURIComponent(userToken)}`);

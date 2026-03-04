@@ -2,7 +2,7 @@ import type { Express, Request, Response } from 'express';
 import { sdk } from './_core/sdk';
 import { ENV } from './_core/env';
 import { storeFacebookPage } from './db';
-import { getFacebookPages } from './facebook';
+import { exchangeForLongLivedToken, getFacebookPages } from './facebook';
 
 // CSRF state store: nonce → { expiry, clientSlug }
 const stateStore = new Map<string, { expiry: number; clientSlug: string }>();
@@ -94,8 +94,16 @@ export function registerFacebookOAuthRoutes(app: Express) {
         throw new Error(`Token exchange failed: ${tokenData.error?.message ?? JSON.stringify(tokenData)}`);
       }
 
-      // Get the list of Pages this user manages (each with its own page access token)
-      const pages = await getFacebookPages(tokenData.access_token);
+      // Exchange short-lived user token for long-lived token (~60 days).
+      // Page tokens obtained via /me/accounts from a long-lived user token never expire.
+      const longLivedToken = await exchangeForLongLivedToken(
+        tokenData.access_token,
+        ENV.facebookAppId,
+        ENV.facebookAppSecret,
+      );
+
+      // Get the list of Pages this user manages (each with its own non-expiring page access token)
+      const pages = await getFacebookPages(longLivedToken);
       if (pages.length === 0) throw new Error('No Facebook Pages found for this account');
 
       // Auto-select if only one page
