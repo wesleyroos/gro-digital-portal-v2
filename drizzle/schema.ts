@@ -271,6 +271,7 @@ export const marketingPosts = mysqlTable("marketing_posts", {
   theme: varchar("theme", { length: 255 }),
   notes: text("notes"),
   sortOrder: int("sortOrder").default(0),
+  postedAt: timestamp("postedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

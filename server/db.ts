@@ -985,6 +985,7 @@ export async function updatePostStatus(
   const set: Record<string, unknown> = { status };
   if (extra?.instagramPostId !== undefined) set.instagramPostId = extra.instagramPostId;
   if (extra?.notes !== undefined) set.notes = extra.notes;
+  if (status === 'posted') set.postedAt = new Date();
   await db.update(marketingPosts).set(set).where(eq(marketingPosts.id, postId));
 }
 
@@ -1130,5 +1131,8 @@ export async function getFacebookTokens(clientSlug: string) {
 export async function updatePostFacebookId(postId: number, facebookPostId: string) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
-  await db.update(marketingPosts).set({ facebookPostId }).where(eq(marketingPosts.id, postId));
+  // Also stamp postedAt if not already set (covers FB-only posts)
+  await db.update(marketingPosts)
+    .set({ facebookPostId, postedAt: new Date() })
+    .where(eq(marketingPosts.id, postId));
 }

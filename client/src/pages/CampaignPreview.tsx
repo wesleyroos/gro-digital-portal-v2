@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Check, X, ImageIcon, Lock, TrendingUp, ChevronUp, ChevronDown, Calendar, Heart, MessageCircle, Share2, Bookmark, Users, BarChart2 } from "lucide-react";
+import { Check, X, ImageIcon, Lock, TrendingUp, ChevronUp, ChevronDown, Calendar, Heart, MessageCircle, Share2, Bookmark, Users, BarChart2, Instagram, Facebook } from "lucide-react";
 
 function PlatformBadges({ hasIg, hasFb }: { hasIg: boolean; hasFb: boolean }) {
   if (!hasIg && !hasFb) return null;
@@ -14,6 +14,12 @@ function PlatformBadges({ hasIg, hasFb }: { hasIg: boolean; hasFb: boolean }) {
       {hasFb && <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700">FB</span>}
     </div>
   );
+}
+
+function formatPostedDate(postedAt: string | Date | null | undefined, scheduledAt: string | Date | null | undefined) {
+  const d = postedAt ? new Date(postedAt) : scheduledAt ? new Date(scheduledAt) : null;
+  if (!d) return null;
+  return { date: d, isPosted: !!postedAt };
 }
 
 const POST_STATUS_COLORS: Record<string, string> = {
@@ -30,7 +36,6 @@ export default function CampaignPreview() {
   const token = params?.token ?? "";
 
   const [password, setPassword] = useState("");
-  // null = not yet decided (show gate), string = decided (empty = no password, non-empty = password submitted)
   const [submittedPassword, setSubmittedPassword] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [rejectingPostId, setRejectingPostId] = useState<number | null>(null);
@@ -39,23 +44,22 @@ export default function CampaignPreview() {
     id: number; status: string; imageUrl?: string | null;
     mediaType?: string | null; videoUrl?: string | null;
     caption?: string | null; hashtags?: string | null;
-    scheduledAt?: string | number | Date | null; theme?: string | null;
+    scheduledAt?: string | number | Date | null;
+    postedAt?: string | number | Date | null;
+    theme?: string | null;
     instagramPostId?: string | null; facebookPostId?: string | null;
   } | null>(null);
 
   const { data, isLoading, error, refetch } = trpc.campaign.getByShareToken.useQuery(
     { token, password: submittedPassword || undefined },
-    {
-      enabled: !!token && submittedPassword !== null,
-      retry: false,
-    }
+    { enabled: !!token && submittedPassword !== null, retry: false }
   );
 
   const { data: perfData } = trpc.campaign.post.getPerformance.useQuery(
     { campaignId: data?.campaign.id ?? 0 },
     { enabled: !!data?.campaign.id }
   );
-  const insightsByPostId = new Map(perfData?.rows.map(r => [r.post.id, r.insights]) ?? []);
+  const rowByPostId = new Map(perfData?.rows.map(r => [r.post.id, r]) ?? []);
 
   const approveMutation = trpc.campaign.post.approveByToken.useMutation({
     onSuccess: () => { toast.success("Post approved"); refetch(); },
@@ -66,7 +70,6 @@ export default function CampaignPreview() {
     onError: () => toast.error("Failed to reject post"),
   });
 
-  // If we got an UNAUTHORIZED after submitting a password, show wrong-password form
   if (submittedPassword !== null && submittedPassword !== "" && error?.data?.code === "UNAUTHORIZED") {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -81,11 +84,8 @@ export default function CampaignPreview() {
           </div>
           <form onSubmit={e => { e.preventDefault(); setSubmittedPassword(password); }} className="space-y-3">
             <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Enter password"
-              autoFocus
+              type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="Enter password" autoFocus
               className="w-full bg-white/10 border border-red-500/60 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-red-400/50"
             />
             <p className="text-xs text-red-400">Incorrect password. Please try again.</p>
@@ -98,74 +98,38 @@ export default function CampaignPreview() {
     );
   }
 
-  if (submittedPassword === null) {
-    return <PasswordGate token={token} onSubmit={pw => setSubmittedPassword(pw)} />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (error?.data?.code === "NOT_FOUND" || !data) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <p className="text-slate-400 text-sm">This campaign link is no longer active.</p>
-      </div>
-    );
-  }
+  if (submittedPassword === null) return <PasswordGate token={token} onSubmit={pw => setSubmittedPassword(pw)} />;
+  if (isLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (error?.data?.code === "NOT_FOUND" || !data) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><p className="text-slate-400 text-sm">This campaign link is no longer active.</p></div>;
 
   const { campaign, posts } = data;
-  const draftPosts     = posts.filter(p => p.status === "draft");
-  const upcomingPosts  = posts.filter(p => p.status === "approved" || p.status === "scheduled");
-  const postedPosts    = posts.filter(p => p.status === "posted");
+  const draftPosts    = posts.filter(p => p.status === "draft");
+  const upcomingPosts = posts.filter(p => p.status === "approved" || p.status === "scheduled");
+  const postedPosts   = posts.filter(p => p.status === "posted");
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ── Lightbox ──────────────────────────────────────────────────────── */}
+      {/* ── Lightbox ── */}
       {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <button
-            className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-            onClick={() => setLightboxUrl(null)}
-          >
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setLightboxUrl(null)}>
+          <button className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors" onClick={() => setLightboxUrl(null)}>
             <X className="w-5 h-5" />
           </button>
-          <img
-            src={lightboxUrl}
-            alt="Full size"
-            className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain"
-            onClick={e => e.stopPropagation()}
-          />
+          <img src={lightboxUrl} alt="Full size" className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
         </div>
       )}
 
-      {/* ── Reject note modal ─────────────────────────────────────────────── */}
+      {/* ── Reject modal ── */}
       {rejectingPostId && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
             <h3 className="font-semibold text-base">Reject post</h3>
             <p className="text-sm text-muted-foreground">Optional: leave a note for the GRO Digital team explaining what to change.</p>
-            <textarea
-              value={rejectNote}
-              onChange={e => setRejectNote(e.target.value)}
-              placeholder="e.g. Wrong tone, please make it more playful..."
-              rows={3}
-              className="w-full border rounded-xl px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-red-400"
-            />
+            <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="e.g. Wrong tone, please make it more playful..." rows={3} className="w-full border rounded-xl px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-red-400" />
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 rounded-xl" onClick={() => { setRejectingPostId(null); setRejectNote(""); }}>Cancel</Button>
-              <Button
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl"
-                disabled={rejectMutation.isPending}
-                onClick={() => rejectMutation.mutate({ token, postId: rejectingPostId, password: submittedPassword, notes: rejectNote || undefined })}
-              >
+              <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl" disabled={rejectMutation.isPending}
+                onClick={() => rejectMutation.mutate({ token, postId: rejectingPostId, password: submittedPassword, notes: rejectNote || undefined })}>
                 Reject
               </Button>
             </div>
@@ -173,92 +137,109 @@ export default function CampaignPreview() {
         </div>
       )}
 
-      {/* ── Post detail modal ─────────────────────────────────────────────── */}
-      {selectedPost && (
-        <div
-          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
-          onClick={() => setSelectedPost(null)}
-        >
-          <div
-            className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="relative shrink-0">
-              {selectedPost.mediaType === "video" && selectedPost.videoUrl ? (
-                <video src={selectedPost.videoUrl} className="w-full aspect-square object-cover" controls preload="metadata" />
-              ) : selectedPost.imageUrl ? (
-                <img src={selectedPost.imageUrl} alt="" className="w-full aspect-square object-cover" />
-              ) : (
-                <div className="w-full aspect-square bg-muted flex items-center justify-center">
-                  <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
+      {/* ── Post detail modal ── */}
+      {selectedPost && (() => {
+        const row = rowByPostId.get(selectedPost.id);
+        const dateInfo = formatPostedDate(selectedPost.postedAt, selectedPost.scheduledAt);
+        return (
+          <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4" onClick={() => setSelectedPost(null)}>
+            <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+              <div className="relative shrink-0">
+                {selectedPost.mediaType === "video" && selectedPost.videoUrl
+                  ? <video src={selectedPost.videoUrl} className="w-full aspect-square object-cover" controls preload="metadata" />
+                  : selectedPost.imageUrl
+                  ? <img src={selectedPost.imageUrl} alt="" className="w-full aspect-square object-cover" />
+                  : <div className="w-full aspect-square bg-muted flex items-center justify-center"><ImageIcon className="w-12 h-12 text-muted-foreground/30" /></div>
+                }
+                <button className="absolute top-3 right-3 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-1.5 transition-colors" onClick={() => setSelectedPost(null)}>
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                  <Badge className={`${POST_STATUS_COLORS[selectedPost.status]} text-[10px]`} variant="secondary">{selectedPost.status}</Badge>
+                  <PlatformBadges hasIg={!!selectedPost.instagramPostId} hasFb={!!selectedPost.facebookPostId} />
                 </div>
-              )}
-              <button
-                className="absolute top-3 right-3 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-1.5 transition-colors"
-                onClick={() => setSelectedPost(null)}
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="absolute top-3 left-3">
-                <Badge className={`${POST_STATUS_COLORS[selectedPost.status]} text-[10px]`} variant="secondary">
-                  {selectedPost.status}
-                </Badge>
+              </div>
+              <div className="p-4 overflow-y-auto space-y-3">
+                {dateInfo && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3" />
+                    {dateInfo.isPosted ? "Posted " : "Scheduled "}
+                    {dateInfo.date.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                  </p>
+                )}
+                {selectedPost.theme && <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{selectedPost.theme}</p>}
+                {selectedPost.caption && <p className="text-sm leading-relaxed text-foreground">{selectedPost.caption}</p>}
+                {selectedPost.hashtags && <p className="text-xs text-violet-500 leading-relaxed">{selectedPost.hashtags}</p>}
+
+                {/* Analytics — IG */}
+                {selectedPost.status === "posted" && selectedPost.instagramPostId && row?.insights && (() => {
+                  const ins = row.insights;
+                  const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
+                  return (
+                    <div className="border-t pt-3 space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Instagram className="w-3 h-3 text-pink-500" /> Instagram
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: "Reach",        value: ins.reach,             icon: Users         },
+                          { label: "Likes",         value: ins.likes,             icon: Heart         },
+                          { label: "Comments",      value: ins.comments,          icon: MessageCircle },
+                          { label: "Shares",        value: ins.shares,            icon: Share2        },
+                          { label: "Saves",         value: ins.saved,             icon: Bookmark      },
+                          { label: "Interactions",  value: ins.totalInteractions, icon: TrendingUp    },
+                        ].map(({ label, value, icon: Icon }) => (
+                          <div key={label} className="bg-muted rounded-xl px-2 py-2.5 text-center">
+                            <Icon className="w-3.5 h-3.5 mx-auto mb-0.5 text-muted-foreground" />
+                            <p className="text-sm font-bold leading-none">{value.toLocaleString()}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {engRate && <p className="text-[11px] text-muted-foreground text-center">Engagement rate: <span className="font-semibold text-foreground">{engRate}%</span></p>}
+                    </div>
+                  );
+                })()}
+
+                {/* Analytics — FB */}
+                {selectedPost.status === "posted" && selectedPost.facebookPostId && row?.fbInsights && (() => {
+                  const fb = row.fbInsights;
+                  const total = fb.reactions + fb.shares + fb.clicks;
+                  const engRate = fb.reach > 0 ? ((total / fb.reach) * 100).toFixed(1) : null;
+                  const isFull = row.fbInsightsSource === 'full';
+                  return (
+                    <div className="border-t pt-3 space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Facebook className="w-3 h-3 text-blue-600" /> Facebook
+                        {!isFull && <span className="text-[9px] font-normal text-muted-foreground/70">(basic)</span>}
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: isFull ? "Reach"     : "—",         value: fb.reach,     icon: Users        },
+                          { label: "Reactions",                          value: fb.reactions, icon: Heart        },
+                          { label: "Comments",                           value: fb.clicks,    icon: MessageCircle},
+                          { label: "Shares",                             value: fb.shares,    icon: Share2       },
+                          { label: isFull ? "Impressions" : "—",        value: fb.impressions, icon: BarChart2  },
+                          { label: "Total",                              value: total,        icon: TrendingUp   },
+                        ].map(({ label, value, icon: Icon }) => (
+                          <div key={label} className="bg-blue-50 rounded-xl px-2 py-2.5 text-center">
+                            <Icon className="w-3.5 h-3.5 mx-auto mb-0.5 text-blue-400" />
+                            <p className="text-sm font-bold leading-none text-blue-700">{label === '—' ? '—' : value.toLocaleString()}</p>
+                            <p className="text-[10px] text-blue-500/70 mt-0.5">{label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {engRate && <p className="text-[11px] text-muted-foreground text-center">Engagement rate: <span className="font-semibold text-foreground">{engRate}%</span></p>}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
-            <div className="p-4 overflow-y-auto space-y-3">
-              {selectedPost.scheduledAt && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Calendar className="w-3 h-3" />
-                  {new Date(selectedPost.scheduledAt).toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-                </p>
-              )}
-              {selectedPost.theme && (
-                <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{selectedPost.theme}</p>
-              )}
-              {selectedPost.caption && (
-                <p className="text-sm leading-relaxed text-foreground">{selectedPost.caption}</p>
-              )}
-              {selectedPost.hashtags && (
-                <p className="text-xs text-violet-500 leading-relaxed">{selectedPost.hashtags}</p>
-              )}
-              {selectedPost.status === "posted" && insightsByPostId.has(selectedPost.id) && (() => {
-                const ins = insightsByPostId.get(selectedPost.id)!;
-                const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
-                return (
-                  <div className="border-t pt-3 space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <BarChart2 className="w-3 h-3" /> Performance
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { label: "Reach",       value: ins.reach,             icon: Users         },
-                        { label: "Likes",        value: ins.likes,             icon: Heart         },
-                        { label: "Comments",     value: ins.comments,          icon: MessageCircle },
-                        { label: "Shares",       value: ins.shares,            icon: Share2        },
-                        { label: "Saves",        value: ins.saved,             icon: Bookmark      },
-                        { label: "Interactions", value: ins.totalInteractions, icon: TrendingUp    },
-                      ].map(({ label, value, icon: Icon }) => (
-                        <div key={label} className="bg-muted rounded-xl px-2 py-2.5 text-center">
-                          <Icon className="w-3.5 h-3.5 mx-auto mb-0.5 text-muted-foreground" />
-                          <p className="text-sm font-bold leading-none">{value.toLocaleString()}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
-                        </div>
-                      ))}
-                    </div>
-                    {engRate && (
-                      <p className="text-[11px] text-muted-foreground text-center">
-                        Engagement rate: <span className="font-semibold text-foreground">{engRate}%</span>
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
+      {/* ── Header ── */}
       <header className="bg-slate-950 text-white">
         <div className="max-w-6xl mx-auto px-6 py-6 flex items-start justify-between gap-4">
           <div>
@@ -267,26 +248,18 @@ export default function CampaignPreview() {
             <p className="text-sm text-slate-400 mt-1 capitalize">{campaign.clientSlug}</p>
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
-            <Badge className="bg-violet-600/30 text-violet-300 border border-violet-500/30 capitalize text-xs">
-              {campaign.status}
-            </Badge>
-            {draftPosts.length > 0 && (
-              <span className="text-xs text-amber-400 font-medium">
-                {draftPosts.length} post{draftPosts.length !== 1 ? "s" : ""} awaiting approval
-              </span>
-            )}
+            <Badge className="bg-violet-600/30 text-violet-300 border border-violet-500/30 capitalize text-xs">{campaign.status}</Badge>
+            {draftPosts.length > 0 && <span className="text-xs text-amber-400 font-medium">{draftPosts.length} post{draftPosts.length !== 1 ? "s" : ""} awaiting approval</span>}
           </div>
         </div>
-
-        {/* Stats strip */}
         {posts.length > 0 && (
           <div className="border-t border-white/10">
             <div className="max-w-6xl mx-auto px-6 py-4 grid grid-cols-4 gap-4">
               {[
-                { label: "Total posts",       value: posts.length,         active: false },
-                { label: "Need approval",     value: draftPosts.length,    active: draftPosts.length > 0, accent: "text-amber-400" },
-                { label: "Scheduled",         value: upcomingPosts.length, active: false },
-                { label: "Published",         value: postedPosts.length,   active: false, accent: "text-emerald-400" },
+                { label: "Total posts",   value: posts.length,         active: false },
+                { label: "Need approval", value: draftPosts.length,    active: draftPosts.length > 0, accent: "text-amber-400" },
+                { label: "Scheduled",     value: upcomingPosts.length, active: false },
+                { label: "Published",     value: postedPosts.length,   active: false, accent: "text-emerald-400" },
               ].map(stat => (
                 <div key={stat.label} className="text-center sm:text-left">
                   <p className={`text-xl sm:text-2xl font-bold ${stat.active && stat.accent ? stat.accent : "text-white"}`}>{stat.value}</p>
@@ -298,10 +271,10 @@ export default function CampaignPreview() {
         )}
       </header>
 
-      {/* ── Main content ──────────────────────────────────────────────────── */}
+      {/* ── Main content ── */}
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-10">
 
-        {/* ── Needs approval ──────────────────────────────────────────────── */}
+        {/* Needs approval */}
         {draftPosts.length > 0 && (
           <section>
             <div className="flex items-center gap-3 mb-5">
@@ -311,22 +284,13 @@ export default function CampaignPreview() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {draftPosts.map(post => (
                 <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
-                  {/* Media */}
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                    {post.mediaType === "video" && post.videoUrl ? (
-                      <video src={post.videoUrl} className="w-full h-full object-cover" controls preload="metadata" />
-                    ) : post.imageUrl ? (
-                      <img
-                        src={post.imageUrl}
-                        alt=""
-                        className="w-full h-full object-cover cursor-zoom-in"
-                        onClick={() => setLightboxUrl(post.imageUrl!)}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="w-8 h-8 text-slate-300" />
-                      </div>
-                    )}
+                    {post.mediaType === "video" && post.videoUrl
+                      ? <video src={post.videoUrl} className="w-full h-full object-cover" controls preload="metadata" />
+                      : post.imageUrl
+                      ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover cursor-zoom-in" onClick={() => setLightboxUrl(post.imageUrl!)} />
+                      : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-slate-300" /></div>
+                    }
                     {post.scheduledAt && (
                       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
                         <p className="text-[11px] text-white/90 flex items-center gap-1">
@@ -336,33 +300,21 @@ export default function CampaignPreview() {
                       </div>
                     )}
                   </div>
-                  {/* Content */}
                   <div className="p-4 flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      {post.theme && (
-                        <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{post.theme}</p>
-                      )}
+                      {post.theme && <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{post.theme}</p>}
                       <PlatformBadges hasIg={data?.campaign.postToInstagram ?? true} hasFb={data?.campaign.postToFacebook ?? false} />
                     </div>
                     <p className="text-sm text-slate-700 leading-relaxed line-clamp-3">{post.caption}</p>
-                    {post.hashtags && (
-                      <p className="text-xs text-violet-500 mt-2 line-clamp-1">{post.hashtags}</p>
-                    )}
+                    {post.hashtags && <p className="text-xs text-violet-500 mt-2 line-clamp-1">{post.hashtags}</p>}
                   </div>
-                  {/* Actions */}
                   <div className="flex border-t border-slate-100">
-                    <button
-                      className="flex-1 flex items-center justify-center gap-1.5 py-3.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                      onClick={() => setRejectingPostId(post.id)}
-                    >
+                    <button className="flex-1 flex items-center justify-center gap-1.5 py-3.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors" onClick={() => setRejectingPostId(post.id)}>
                       <X className="w-4 h-4" /> Reject
                     </button>
                     <div className="w-px bg-slate-100" />
-                    <button
-                      className="flex-1 flex items-center justify-center gap-1.5 py-3.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors"
-                      disabled={approveMutation.isPending}
-                      onClick={() => approveMutation.mutate({ token, postId: post.id, password: submittedPassword })}
-                    >
+                    <button className="flex-1 flex items-center justify-center gap-1.5 py-3.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors" disabled={approveMutation.isPending}
+                      onClick={() => approveMutation.mutate({ token, postId: post.id, password: submittedPassword })}>
                       <Check className="w-4 h-4" /> Approve
                     </button>
                   </div>
@@ -372,27 +324,17 @@ export default function CampaignPreview() {
           </section>
         )}
 
-        {/* ── Coming up ───────────────────────────────────────────────────── */}
+        {/* Coming up */}
         {upcomingPosts.length > 0 && (
           <section>
             <h2 className="text-base font-semibold text-slate-900 mb-5">Coming up</h2>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {upcomingPosts.map(post => (
-                <div
-                  key={post.id}
-                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group"
-                  onClick={() => setSelectedPost(post)}
-                >
+                <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPost(post)}>
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                    {post.mediaType === "video" && post.videoUrl ? (
-                      <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
-                    ) : post.imageUrl ? (
-                      <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="w-6 h-6 text-slate-300" />
-                      </div>
-                    )}
+                    {post.mediaType === "video" && post.videoUrl ? <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
+                      : post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-6 h-6 text-slate-300" /></div>}
                     <div className="absolute top-2 right-2">
                       <Badge className={`${POST_STATUS_COLORS[post.status]} text-[9px] px-1.5`} variant="secondary">{post.status}</Badge>
                     </div>
@@ -415,30 +357,21 @@ export default function CampaignPreview() {
           </section>
         )}
 
-        {/* ── Published ───────────────────────────────────────────────────── */}
+        {/* Published */}
         {postedPosts.length > 0 && (
           <section>
             <h2 className="text-base font-semibold text-slate-900 mb-5">Published</h2>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {postedPosts.map(post => {
-                const ins = insightsByPostId.get(post.id);
+                const row = rowByPostId.get(post.id);
+                const ins = row?.insights;
+                const dateInfo = formatPostedDate(post.postedAt, post.scheduledAt);
                 return (
-                  <div
-                    key={post.id}
-                    className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group"
-                    onClick={() => setSelectedPost(post)}
-                  >
+                  <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPost(post)}>
                     <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                      {post.mediaType === "video" && post.videoUrl ? (
-                        <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
-                      ) : post.imageUrl ? (
-                        <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon className="w-6 h-6 text-slate-300" />
-                        </div>
-                      )}
-                      {/* Stats overlay on hover */}
+                      {post.mediaType === "video" && post.videoUrl ? <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
+                        : post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-6 h-6 text-slate-300" /></div>}
                       {ins && (
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                           <div className="text-center text-white">
@@ -447,7 +380,7 @@ export default function CampaignPreview() {
                           </div>
                           <div className="text-center text-white">
                             <p className="text-base font-bold">{ins.likes.toLocaleString()}</p>
-                            <p className="text-[10px] text-white/70">likes</p>
+                            <p className="text-[10px] text-white/70">{post.instagramPostId ? "likes" : "reactions"}</p>
                           </div>
                         </div>
                       )}
@@ -457,8 +390,10 @@ export default function CampaignPreview() {
                     </div>
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-1">
-                        {post.scheduledAt && (
-                          <p className="text-[11px] text-slate-400">{new Date(post.scheduledAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</p>
+                        {dateInfo && (
+                          <p className="text-[11px] text-slate-400">
+                            {dateInfo.date.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                          </p>
                         )}
                         <PlatformBadges hasIg={!!post.instagramPostId} hasFb={!!post.facebookPostId} />
                       </div>
@@ -466,7 +401,7 @@ export default function CampaignPreview() {
                       {ins && (
                         <p className="text-[10px] text-violet-600 mt-1.5 flex items-center gap-1 font-medium">
                           <BarChart2 className="w-3 h-3" />
-                          {ins.reach.toLocaleString()} reach · {ins.likes.toLocaleString()} likes
+                          {ins.reach > 0 ? `${ins.reach.toLocaleString()} reach · ` : ""}{ins.likes.toLocaleString()} {post.instagramPostId ? "likes" : "reactions"}
                         </p>
                       )}
                     </div>
@@ -477,7 +412,6 @@ export default function CampaignPreview() {
           </section>
         )}
 
-        {/* ── No posts yet ────────────────────────────────────────────────── */}
         {draftPosts.length === 0 && upcomingPosts.length === 0 && postedPosts.length === 0 && (
           <div className="text-center py-20 text-slate-400">
             <Calendar className="w-10 h-10 mx-auto mb-4 opacity-30" />
@@ -485,19 +419,17 @@ export default function CampaignPreview() {
           </div>
         )}
 
-        {/* ── Performance ─────────────────────────────────────────────────── */}
+        {/* Performance */}
         {postedPosts.length > 0 && (
           <section>
             <h2 className="text-base font-semibold text-slate-900 mb-5 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-violet-600" />
-              Performance
+              <TrendingUp className="w-4 h-4 text-violet-600" /> Performance
             </h2>
-            <PerformanceSection token={token} password={submittedPassword} campaignId={campaign.id} />
+            <PerformanceSection campaignId={campaign.id} />
           </section>
         )}
       </div>
 
-      {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer className="border-t border-slate-200 bg-white mt-8">
         <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
           <p className="text-[11px] text-slate-400">Powered by <span className="font-semibold text-slate-700">GROdigital</span></p>
@@ -508,92 +440,73 @@ export default function CampaignPreview() {
   );
 }
 
-// ── Password gate shown on first load ────────────────────────────────────────
 function PasswordGate({ token, onSubmit }: { token: string; onSubmit: (pw: string) => void }) {
   const [password, setPassword] = useState("");
-
-  const { isLoading, error } = trpc.campaign.getByShareToken.useQuery(
-    { token },
-    { retry: false, enabled: !!token }
-  );
-
-  useEffect(() => {
-    if (!isLoading && !error) {
-      onSubmit("");
-    }
-  }, [isLoading, error]);
-
-  if (isLoading || !error) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (error.data?.code !== "UNAUTHORIZED") {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <p className="text-slate-400 text-sm">This campaign link is no longer active.</p>
-      </div>
-    );
-  }
-
+  const { isLoading, error } = trpc.campaign.getByShareToken.useQuery({ token }, { retry: false, enabled: !!token });
+  useEffect(() => { if (!isLoading && !error) onSubmit(""); }, [isLoading, error]);
+  if (isLoading || !error) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (error.data?.code !== "UNAUTHORIZED") return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><p className="text-slate-400 text-sm">This campaign link is no longer active.</p></div>;
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-400 mb-4">GROdigital</p>
-          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-5 h-5 text-white" />
-          </div>
+          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4"><Lock className="w-5 h-5 text-white" /></div>
           <h1 className="text-xl font-bold text-white">Password protected</h1>
           <p className="text-sm text-slate-400 mt-1">Enter the password to access this campaign.</p>
         </div>
         <form onSubmit={e => { e.preventDefault(); onSubmit(password); }} className="space-y-3">
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Enter password"
-            autoFocus
-            className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
-          />
-          <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 text-white h-11 rounded-xl">
-            Access campaign
-          </Button>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" autoFocus
+            className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50" />
+          <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-500 text-white h-11 rounded-xl">Access campaign</Button>
         </form>
       </div>
     </div>
   );
 }
 
-// ── Performance section ───────────────────────────────────────────────────────
-function PerformanceSection({ token, password, campaignId }: { token: string; password: string | null | undefined; campaignId: number }) {
+function PerformanceSection({ campaignId }: { campaignId: number }) {
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
+  const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb">("all");
 
   const { data: perfData, isLoading } = trpc.campaign.post.getPerformance.useQuery({ campaignId });
-
-  const METRICS = [
-    { key: "reach",             label: "Reach",        color: "text-violet-600" },
-    { key: "likes",             label: "Likes",        color: "text-pink-600"   },
-    { key: "comments",          label: "Comments",     color: "text-amber-600"  },
-    { key: "shares",            label: "Shares",       color: "text-emerald-600"},
-    { key: "saved",             label: "Saves",        color: "text-indigo-600" },
-    { key: "totalInteractions", label: "Interactions", color: "text-blue-600"   },
-  ];
 
   if (isLoading) return <div className="flex justify-center py-8"><span className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (!perfData?.rows.length) return null;
 
-  const maxVals = Object.fromEntries(
-    METRICS.map(m => [m.key, Math.max(1, ...perfData.rows.map(r => (r.insights[m.key as keyof typeof r.insights] as number | null) ?? 0))])
-  );
-  const withScores = perfData.rows.map(row => {
-    const avg = METRICS.reduce((s, m) => {
-      const val = (row.insights[m.key as keyof typeof row.insights] as number | null) ?? 0;
-      return s + val / maxVals[m.key];
-    }, 0) / METRICS.length;
+  const isFbView = perfPlatform === 'fb';
+
+  const METRICS = [
+    { key: "reach",             label: isFbView ? "Reach (imp)" : "Reach",     color: "text-violet-600" },
+    { key: "likes",             label: isFbView ? "Reactions"   : "Likes",     color: "text-pink-600"   },
+    { key: "comments",          label: "Comments",                               color: "text-amber-600"  },
+    { key: "shares",            label: "Shares",                                 color: "text-emerald-600"},
+    { key: "saved",             label: isFbView ? "—"           : "Saves",     color: "text-indigo-600" },
+    { key: "totalInteractions", label: "Interactions",                           color: "text-blue-600"   },
+  ];
+
+  const filteredRows = perfData.rows
+    .filter(row => {
+      if (perfPlatform === 'ig') return !!row.post.instagramPostId;
+      if (perfPlatform === 'fb') return !!row.post.facebookPostId;
+      return true;
+    })
+    .map(row => {
+      if (perfPlatform === 'fb') {
+        if (row.fbInsights) {
+          const fb = row.fbInsights;
+          return { ...row, insights: { reach: fb.reach, likes: fb.reactions, comments: fb.clicks, shares: fb.shares, saved: 0, totalInteractions: fb.reactions + fb.shares + fb.clicks } };
+        }
+        return { ...row, insights: { reach: 0, likes: 0, comments: 0, shares: 0, saved: 0, totalInteractions: 0 } };
+      }
+      return row;
+    });
+
+  if (!filteredRows.length) return null;
+
+  const maxVals = Object.fromEntries(METRICS.map(m => [m.key, Math.max(1, ...filteredRows.map(r => (r.insights[m.key as keyof typeof r.insights] as number | null) ?? 0))]));
+  const withScores = filteredRows.map(row => {
+    const avg = METRICS.reduce((s, m) => { const val = (row.insights[m.key as keyof typeof row.insights] as number | null) ?? 0; return s + val / maxVals[m.key]; }, 0) / METRICS.length;
     return { ...row, bestOverall: Math.round(avg * 1000) / 10 };
   });
   const sorted = [...withScores].sort((a, b) => {
@@ -601,19 +514,16 @@ function PerformanceSection({ token, password, campaignId }: { token: string; pa
     const bv = perfSort.key === "bestOverall" ? b.bestOverall : (b.insights[perfSort.key as keyof typeof b.insights] as number | null) ?? 0;
     return perfSort.dir === "desc" ? bv - av : av - bv;
   });
-
-  const totals = METRICS.map(m => ({ ...m, total: perfData.rows.reduce((s, r) => s + ((r.insights[m.key as keyof typeof r.insights] as number | null) ?? 0), 0) }));
-  const totalReach = perfData.rows.reduce((s, r) => s + r.insights.reach, 0);
-  const totalInteractions = perfData.rows.reduce((s, r) => s + r.insights.totalInteractions, 0);
+  const totals = METRICS.map(m => ({ ...m, total: filteredRows.reduce((s, r) => s + ((r.insights[m.key as keyof typeof r.insights] as number | null) ?? 0), 0) }));
+  const totalReach = filteredRows.reduce((s, r) => s + r.insights.reach, 0);
+  const totalInteractions = filteredRows.reduce((s, r) => s + r.insights.totalInteractions, 0);
   const avgEngRate = totalReach > 0 ? ((totalInteractions / totalReach) * 100).toFixed(1) : null;
 
   function SortHeader({ metricKey, label }: { metricKey: string; label: string }) {
     const active = perfSort.key === metricKey;
     return (
-      <th
-        className={`px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap ${active ? "text-foreground" : "text-muted-foreground"}`}
-        onClick={() => setPerfSort(s => s.key === metricKey ? { key: metricKey, dir: s.dir === "desc" ? "asc" : "desc" } : { key: metricKey, dir: "desc" })}
-      >
+      <th className={`px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap ${active ? "text-foreground" : "text-muted-foreground"}`}
+        onClick={() => setPerfSort(s => s.key === metricKey ? { key: metricKey, dir: s.dir === "desc" ? "asc" : "desc" } : { key: metricKey, dir: "desc" })}>
         <span className="inline-flex items-center justify-end gap-0.5">
           {label}
           {active ? (perfSort.dir === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />) : <ChevronDown className="w-3 h-3 opacity-20" />}
@@ -624,20 +534,42 @@ function PerformanceSection({ token, password, campaignId }: { token: string; pa
 
   return (
     <div className="space-y-4">
+      {/* Platform filter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {([
+          { key: "all", label: "All platforms" },
+          { key: "ig",  label: "Instagram", icon: <Instagram className="w-3 h-3" /> },
+          { key: "fb",  label: "Facebook",  icon: <Facebook  className="w-3 h-3" /> },
+        ] as const).map(opt => (
+          <button key={opt.key} onClick={() => setPerfPlatform(opt.key)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              perfPlatform === opt.key
+                ? opt.key === 'ig' ? 'bg-pink-500 text-white border-pink-500'
+                  : opt.key === 'fb' ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-slate-900 text-white border-slate-900'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+            }`}>
+            {'icon' in opt && opt.icon}
+            {opt.label}
+            {opt.key !== 'all' && (
+              <span className="opacity-70">
+                {opt.key === 'ig' ? perfData.rows.filter(r => r.post.instagramPostId).length : perfData.rows.filter(r => r.post.facebookPostId).length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Stat cards */}
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
         {totals.map(m => (
           <div key={m.key} className="bg-white rounded-2xl border border-slate-200 px-3 py-4 text-center shadow-sm">
             <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{m.label}</p>
-            <p className={`text-xl font-bold mt-1 ${m.color}`}>{m.total.toLocaleString()}</p>
+            <p className={`text-xl font-bold mt-1 ${m.color}`}>{m.label === '—' ? '—' : m.total.toLocaleString()}</p>
           </div>
         ))}
       </div>
-      {avgEngRate && (
-        <p className="text-xs text-slate-400 text-center">
-          Avg engagement rate: <span className="font-semibold text-slate-700">{avgEngRate}%</span>
-        </p>
-      )}
+      {avgEngRate && <p className="text-xs text-slate-400 text-center">Avg engagement rate: <span className="font-semibold text-slate-700">{avgEngRate}%</span></p>}
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden overflow-x-auto shadow-sm">
@@ -665,17 +597,18 @@ function PerformanceSection({ token, password, campaignId }: { token: string; pa
                       <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-100 shrink-0">
                         {post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-3 h-3 text-slate-300" /></div>}
                       </div>
-                      <p className="text-[11px] line-clamp-1 text-slate-700 max-w-[120px]">{post.caption ?? "—"}</p>
+                      <div className="min-w-0">
+                        <p className="text-[11px] line-clamp-1 text-slate-700 max-w-[120px]">{post.caption ?? "—"}</p>
+                        <PlatformBadges hasIg={!!post.instagramPostId} hasFb={!!post.facebookPostId} />
+                      </div>
                     </div>
                   </td>
-                  <td className={`px-3 py-3 text-right tabular-nums text-[12px] ${perfSort.key === "bestOverall" ? "font-bold text-violet-600" : "text-slate-400"}`}>
-                    {row.bestOverall.toFixed(1)}
-                  </td>
+                  <td className={`px-3 py-3 text-right tabular-nums text-[12px] ${perfSort.key === "bestOverall" ? "font-bold text-violet-600" : "text-slate-400"}`}>{row.bestOverall.toFixed(1)}</td>
                   {METRICS.map(m => {
                     const val = (ins[m.key as keyof typeof ins] as number | null) ?? 0;
                     return (
                       <td key={m.key} className={`px-3 py-3 text-right tabular-nums text-[12px] ${perfSort.key === m.key ? `font-bold ${m.color}` : "text-slate-700"}`}>
-                        {val.toLocaleString()}
+                        {m.label === '—' ? '—' : val.toLocaleString()}
                       </td>
                     );
                   })}
