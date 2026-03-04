@@ -111,6 +111,7 @@ export async function getFacebookPostBasicMetrics(postId: string, pageToken: str
 
 /**
  * Fetch insights for a Facebook Page post.
+ * Uses post_engaged_users for reactions (post_reactions_by_type_total is deprecated for photo posts).
  */
 export async function getFacebookPostInsights(postId: string, pageToken: string): Promise<{
   impressions: number;
@@ -120,7 +121,7 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   shares: number;
   videoViews: number;
 }> {
-  const metrics = 'post_impressions,post_impressions_unique,post_reactions_by_type_total,post_clicks,post_shares,post_video_views';
+  const metrics = 'post_impressions,post_impressions_unique,post_clicks,post_engaged_users,post_video_views';
   const res = await fetch(
     `${GRAPH_BASE}/${postId}/insights?metric=${metrics}&access_token=${encodeURIComponent(pageToken)}`
   );
@@ -142,9 +143,9 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   return {
     impressions: get('post_impressions'),
     reach:       get('post_impressions_unique'),
-    reactions:   get('post_reactions_by_type_total'),
+    reactions:   get('post_engaged_users'),
     clicks:      get('post_clicks'),
-    shares:      get('post_shares'),
+    shares:      0,
     videoViews:  get('post_video_views'),
   };
 }

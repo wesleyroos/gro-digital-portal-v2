@@ -846,7 +846,8 @@ export const appRouter = router({
             post: typeof postedPosts[0];
             insights: { reach: number; likes: number; comments: number; shares: number; saved: number; totalInteractions: number };
             fbInsights: FbInsights | null;
-            fbInsightsSource: 'full' | 'basic' | null; // so client can show a note
+            fbInsightsSource: 'full' | 'basic' | null;
+            fbError: 'permission_denied' | 'token_invalid' | null;
           };
           const results = await Promise.allSettled(
             postedPosts.map(async (post): Promise<Row> => {
@@ -856,9 +857,12 @@ export const appRouter = router({
 
               let fbInsights: FbInsights | null = null;
               let fbInsightsSource: Row['fbInsightsSource'] = null;
+              let fbError: Row['fbError'] = null;
               if (post.facebookPostId && fbTokens) {
+                let lastError = '';
                 const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
                   console.error(`[FB insights] post ${post.id} (${post.facebookPostId}) full insights failed:`, e?.message ?? e);
+                  lastError = e?.message ?? '';
                   return null;
                 });
                 if (full) {
@@ -867,9 +871,13 @@ export const appRouter = router({
                 } else {
                   const basic = await getFacebookPostBasicMetrics(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
                     console.error(`[FB insights] post ${post.id} (${post.facebookPostId}) basic metrics failed:`, e?.message ?? e);
+                    lastError = e?.message ?? '';
                     return null;
                   });
                   if (basic) { fbInsights = basic; fbInsightsSource = 'basic'; }
+                }
+                if (!fbInsights) {
+                  fbError = lastError.includes('(#10)') || lastError.includes('permission') ? 'permission_denied' : 'token_invalid';
                 }
               }
 
@@ -878,7 +886,7 @@ export const appRouter = router({
                 shares: fbInsights.shares, saved: 0,
                 totalInteractions: fbInsights.reactions + fbInsights.shares + fbInsights.clicks,
               } : { reach: 0, likes: 0, comments: 0, shares: 0, saved: 0, totalInteractions: 0 });
-              return { post, insights, fbInsights, fbInsightsSource };
+              return { post, insights, fbInsights, fbInsightsSource, fbError };
             })
           );
           const rows = results
