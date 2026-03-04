@@ -1101,6 +1101,7 @@ export async function getInstagramTokens(clientSlug: string) {
 export async function storeFacebookPage(clientSlug: string, pageId: string, pageAccessToken: string, pageName: string, userToken?: string) {
   const db = await getDb();
   if (!db) return;
+  console.log(`[storeFacebookPage] clientSlug=${clientSlug} userToken=${userToken ? userToken.substring(0, 20) + '...' : 'NOT PROVIDED'}`);
   const set: Record<string, unknown> = { facebookPageId: pageId, facebookPageAccessToken: pageAccessToken, facebookPageName: pageName };
   if (userToken) set.facebookUserToken = userToken;
   await db.insert(clientProfiles)

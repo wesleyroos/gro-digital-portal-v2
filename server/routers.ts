@@ -859,12 +859,12 @@ export const appRouter = router({
               let fbInsightsSource: Row['fbInsightsSource'] = null;
               let fbError: Row['fbError'] = null;
               if (post.facebookPostId && fbTokens) {
-                // Prefer the long-lived user token for analytics (has pages_read_engagement).
-                // Fall back to page token if user token not stored (older connections).
-                const analyticsToken = fbTokens.userToken ?? fbTokens.pageAccessToken;
+                // /{postId}/insights requires a page token.
+                // /{postId}?fields=reactions requires pages_read_engagement — use user token if available.
+                console.log(`[FB analytics] post ${post.id} userToken:`, fbTokens.userToken ? fbTokens.userToken.substring(0, 20) + '...' : 'NULL');
                 let lastError = '';
-                const full = await getFacebookPostInsights(post.facebookPostId, analyticsToken).catch((e) => {
-                  console.error(`[FB insights] post ${post.id} (${post.facebookPostId}) full insights failed:`, e?.message ?? e);
+                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
+                  console.error(`[FB insights] post ${post.id} full insights failed:`, e?.message ?? e);
                   lastError = e?.message ?? '';
                   return null;
                 });
@@ -872,8 +872,9 @@ export const appRouter = router({
                   fbInsights = full;
                   fbInsightsSource = 'full';
                 } else {
-                  const basic = await getFacebookPostBasicMetrics(post.facebookPostId, analyticsToken).catch((e) => {
-                    console.error(`[FB insights] post ${post.id} (${post.facebookPostId}) basic metrics failed:`, e?.message ?? e);
+                  const basicToken = fbTokens.userToken ?? fbTokens.pageAccessToken;
+                  const basic = await getFacebookPostBasicMetrics(post.facebookPostId, basicToken).catch((e) => {
+                    console.error(`[FB insights] post ${post.id} basic metrics failed (${fbTokens.userToken ? 'user' : 'page'} token):`, e?.message ?? e);
                     lastError = e?.message ?? '';
                     return null;
                   });
