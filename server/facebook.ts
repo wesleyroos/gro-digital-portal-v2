@@ -121,7 +121,7 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   shares: number;
   videoViews: number;
 }> {
-  const metrics = 'post_impressions,post_impressions_unique,post_clicks,post_engaged_users';
+  const metrics = 'post_impressions';
   const res = await fetch(
     `${GRAPH_BASE}/${postId}/insights?metric=${metrics}&access_token=${encodeURIComponent(pageToken)}`
   );
