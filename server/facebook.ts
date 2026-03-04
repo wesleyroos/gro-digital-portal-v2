@@ -121,20 +121,34 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   shares: number;
   videoViews: number;
 }> {
-  const metrics = 'post_impressions,post_impressions_unique,post_clicks,post_engaged_users';
-  const res = await fetch(
-    `${GRAPH_BASE}/${postId}/insights?metric=${metrics}&period=lifetime&access_token=${encodeURIComponent(pageToken)}`
+  // Try inline fields syntax first (works for NPE pages where /insights edge fails)
+  const inlineRes = await fetch(
+    `${GRAPH_BASE}/${postId}?fields=insights.metric(post_impressions,post_impressions_unique,post_clicks,post_engaged_users).period(lifetime)&access_token=${encodeURIComponent(pageToken)}`
   );
-  const data = await res.json() as {
-    data?: Array<{ name: string; values: Array<{ value: number | Record<string, number> }> }>;
+  const inlineData = await inlineRes.json() as {
+    insights?: { data: Array<{ name: string; values: Array<{ value: number | Record<string, number> }> }> };
     error?: { message: string };
   };
-  if (!res.ok || !data.data) {
-    throw new Error(`getFacebookPostInsights failed: ${data.error?.message ?? JSON.stringify(data)}`);
+  console.log(`[FB insights] inline response for ${postId}:`, JSON.stringify(inlineData).substring(0, 300));
+
+  let insightsData = inlineData.insights?.data ?? null;
+  if (!insightsData) {
+    // Fallback: try the /insights edge directly
+    const res = await fetch(
+      `${GRAPH_BASE}/${postId}/insights?metric=post_impressions,post_impressions_unique,post_clicks,post_engaged_users&period=lifetime&access_token=${encodeURIComponent(pageToken)}`
+    );
+    const data = await res.json() as {
+      data?: Array<{ name: string; values: Array<{ value: number | Record<string, number> }> }>;
+      error?: { message: string };
+    };
+    if (!res.ok || !data.data) {
+      throw new Error(`getFacebookPostInsights failed: ${data.error?.message ?? JSON.stringify(data)}`);
+    }
+    insightsData = data.data;
   }
 
   const get = (name: string): number => {
-    const item = data.data!.find(d => d.name === name);
+    const item = insightsData!.find(d => d.name === name);
     const val = item?.values?.[0]?.value ?? 0;
     if (typeof val === 'object') return Object.values(val).reduce((s, v) => s + (v as number), 0);
     return val as number;
