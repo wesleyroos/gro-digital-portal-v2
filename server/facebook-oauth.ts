@@ -13,6 +13,7 @@ const pageSelectionStore = new Map<string, {
   expiry: number;
   clientSlug: string;
   pages: Array<{ id: string; name: string; access_token: string }>;
+  userToken?: string;
 }>();
 
 /** Called from tRPC to get the pending pages list for UI selection. */
@@ -29,7 +30,7 @@ export async function confirmFacebookPage(state: string, pageId: string) {
   const page = entry.pages.find(p => p.id === pageId);
   if (!page) throw new Error('Page not found');
   pageSelectionStore.delete(state);
-  await storeFacebookPage(entry.clientSlug, page.id, page.access_token, page.name);
+  await storeFacebookPage(entry.clientSlug, page.id, page.access_token, page.name, entry.userToken);
 }
 
 export function registerFacebookOAuthRoutes(app: Express) {
@@ -114,7 +115,7 @@ export function registerFacebookOAuthRoutes(app: Express) {
 
       // Auto-select if only one page
       if (pages.length === 1) {
-        await storeFacebookPage(clientSlug, pages[0].id, pages[0].access_token, pages[0].name);
+        await storeFacebookPage(clientSlug, pages[0].id, pages[0].access_token, pages[0].name, longLivedToken);
         res.redirect(302, `/settings?facebook=connected&client=${encodeURIComponent(clientSlug)}`);
         return;
       }
@@ -125,6 +126,7 @@ export function registerFacebookOAuthRoutes(app: Express) {
         expiry: Date.now() + 15 * 60 * 1000,
         clientSlug,
         pages,
+        userToken: longLivedToken,
       });
       res.redirect(302, `/settings?facebook=select&state=${selectionState}&client=${encodeURIComponent(clientSlug)}`);
     } catch (error) {

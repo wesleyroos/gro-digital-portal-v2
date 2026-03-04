@@ -1098,19 +1098,21 @@ export async function getInstagramTokens(clientSlug: string) {
 
 // ── Facebook page tokens ───────────────────────────────────────────────────────
 
-export async function storeFacebookPage(clientSlug: string, pageId: string, pageAccessToken: string, pageName: string) {
+export async function storeFacebookPage(clientSlug: string, pageId: string, pageAccessToken: string, pageName: string, userToken?: string) {
   const db = await getDb();
   if (!db) return;
+  const set: Record<string, unknown> = { facebookPageId: pageId, facebookPageAccessToken: pageAccessToken, facebookPageName: pageName };
+  if (userToken) set.facebookUserToken = userToken;
   await db.insert(clientProfiles)
-    .values({ clientSlug, facebookPageId: pageId, facebookPageAccessToken: pageAccessToken, facebookPageName: pageName } as any)
-    .onDuplicateKeyUpdate({ set: { facebookPageId: pageId, facebookPageAccessToken: pageAccessToken, facebookPageName: pageName } });
+    .values({ clientSlug, ...set } as any)
+    .onDuplicateKeyUpdate({ set: set as any });
 }
 
 export async function clearFacebookTokens(clientSlug: string) {
   const db = await getDb();
   if (!db) return;
   await db.update(clientProfiles)
-    .set({ facebookPageId: null, facebookPageAccessToken: null, facebookPageName: null })
+    .set({ facebookPageId: null, facebookPageAccessToken: null, facebookPageName: null, facebookUserToken: null } as any)
     .where(eq(clientProfiles.clientSlug, clientSlug));
 }
 
@@ -1118,14 +1120,14 @@ export async function getFacebookTokens(clientSlug: string) {
   const db = await getDb();
   if (!db) return null;
   const result = await db
-    .select({ facebookPageId: clientProfiles.facebookPageId, facebookPageAccessToken: clientProfiles.facebookPageAccessToken, facebookPageName: clientProfiles.facebookPageName })
+    .select({ facebookPageId: clientProfiles.facebookPageId, facebookPageAccessToken: clientProfiles.facebookPageAccessToken, facebookPageName: clientProfiles.facebookPageName, facebookUserToken: (clientProfiles as any).facebookUserToken })
     .from(clientProfiles)
     .where(eq(clientProfiles.clientSlug, clientSlug))
     .limit(1);
   if (result.length === 0) return null;
-  const { facebookPageId, facebookPageAccessToken, facebookPageName } = result[0];
+  const { facebookPageId, facebookPageAccessToken, facebookPageName, facebookUserToken } = result[0];
   if (!facebookPageId || !facebookPageAccessToken) return null;
-  return { pageId: facebookPageId, pageAccessToken: facebookPageAccessToken, pageName: facebookPageName ?? '' };
+  return { pageId: facebookPageId, pageAccessToken: facebookPageAccessToken, pageName: facebookPageName ?? '', userToken: facebookUserToken ?? null };
 }
 
 export async function updatePostFacebookId(postId: number, facebookPostId: string) {

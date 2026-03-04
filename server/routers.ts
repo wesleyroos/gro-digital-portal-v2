@@ -859,8 +859,11 @@ export const appRouter = router({
               let fbInsightsSource: Row['fbInsightsSource'] = null;
               let fbError: Row['fbError'] = null;
               if (post.facebookPostId && fbTokens) {
+                // Prefer the long-lived user token for analytics (has pages_read_engagement).
+                // Fall back to page token if user token not stored (older connections).
+                const analyticsToken = fbTokens.userToken ?? fbTokens.pageAccessToken;
                 let lastError = '';
-                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
+                const full = await getFacebookPostInsights(post.facebookPostId, analyticsToken).catch((e) => {
                   console.error(`[FB insights] post ${post.id} (${post.facebookPostId}) full insights failed:`, e?.message ?? e);
                   lastError = e?.message ?? '';
                   return null;
@@ -869,7 +872,7 @@ export const appRouter = router({
                   fbInsights = full;
                   fbInsightsSource = 'full';
                 } else {
-                  const basic = await getFacebookPostBasicMetrics(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
+                  const basic = await getFacebookPostBasicMetrics(post.facebookPostId, analyticsToken).catch((e) => {
                     console.error(`[FB insights] post ${post.id} (${post.facebookPostId}) basic metrics failed:`, e?.message ?? e);
                     lastError = e?.message ?? '';
                     return null;

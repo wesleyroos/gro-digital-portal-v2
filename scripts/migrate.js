@@ -22,6 +22,7 @@ const SAFE_MIGRATIONS = [
   'drizzle/0028_post_video.sql',
   'drizzle/0029_facebook.sql',
   'drizzle/0030_posted_at.sql',
+  'drizzle/0031_facebook_user_token.sql',
 ];
 
 for (const relPath of SAFE_MIGRATIONS) {
