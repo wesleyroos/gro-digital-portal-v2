@@ -121,9 +121,9 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   shares: number;
   videoViews: number;
 }> {
-  // First verify the post object is accessible and log its type
-  const checkRes = await fetch(`${GRAPH_BASE}/${postId}?fields=id,object_type,story,type&access_token=${encodeURIComponent(pageToken)}`);
-  const checkData = await checkRes.json() as { id?: string; object_type?: string; type?: string; story?: string; error?: { message: string; code: number } };
+  // Verify the post object is accessible and find its actual feed post ID
+  const checkRes = await fetch(`${GRAPH_BASE}/${postId}?fields=id,message,created_time,from&access_token=${encodeURIComponent(pageToken)}`);
+  const checkData = await checkRes.json() as { id?: string; message?: string; created_time?: string; error?: { message: string; code: number } };
   console.log(`[FB insights] post object check for ${postId}:`, JSON.stringify(checkData));
 
   const metrics = 'post_impressions,post_impressions_unique,post_clicks,post_engaged_users';
