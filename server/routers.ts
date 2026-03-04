@@ -859,7 +859,10 @@ export const appRouter = router({
               let fbInsightsSource: Row['fbInsightsSource'] = null;
               let fbError: Row['fbError'] = null;
               if (post.facebookPostId && fbTokens) {
-                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null);
+                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
+                  console.error(`[FB insights] post ${post.id} facebookPostId=${post.facebookPostId} error:`, e?.message ?? e);
+                  return null;
+                });
                 if (full) {
                   fbInsights = full;
                   fbInsightsSource = 'full';
