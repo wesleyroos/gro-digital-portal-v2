@@ -131,7 +131,6 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
     data?: Array<{ name: string; values: Array<{ value: number | Record<string, number> }> }>;
     error?: { message: string };
   };
-  console.log(`[FB insights] ${postId} status=${res.status} raw:`, JSON.stringify(data).substring(0, 400));
   if (!res.ok || !data.data) {
     throw new Error(`getFacebookPostInsights failed: ${data.error?.message ?? JSON.stringify(data)}`);
   }
