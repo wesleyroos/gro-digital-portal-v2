@@ -121,45 +121,8 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   shares: number;
   videoViews: number;
 }> {
-  // Try inline fields syntax first (works for NPE pages where /insights edge fails)
-  const inlineRes = await fetch(
-    `${GRAPH_BASE}/${postId}?fields=insights.metric(post_impressions,post_impressions_unique,post_clicks,post_engaged_users).period(lifetime)&access_token=${encodeURIComponent(pageToken)}`
-  );
-  const inlineData = await inlineRes.json() as {
-    insights?: { data: Array<{ name: string; values: Array<{ value: number | Record<string, number> }> }> };
-    error?: { message: string };
-  };
-  console.log(`[FB insights] inline response for ${postId}:`, JSON.stringify(inlineData).substring(0, 300));
-
-  let insightsData = inlineData.insights?.data ?? null;
-  if (!insightsData) {
-    // Fallback: try the /insights edge directly
-    const res = await fetch(
-      `${GRAPH_BASE}/${postId}/insights?metric=post_impressions,post_impressions_unique,post_clicks,post_engaged_users&period=lifetime&access_token=${encodeURIComponent(pageToken)}`
-    );
-    const data = await res.json() as {
-      data?: Array<{ name: string; values: Array<{ value: number | Record<string, number> }> }>;
-      error?: { message: string };
-    };
-    if (!res.ok || !data.data) {
-      throw new Error(`getFacebookPostInsights failed: ${data.error?.message ?? JSON.stringify(data)}`);
-    }
-    insightsData = data.data;
-  }
-
-  const get = (name: string): number => {
-    const item = insightsData!.find(d => d.name === name);
-    const val = item?.values?.[0]?.value ?? 0;
-    if (typeof val === 'object') return Object.values(val).reduce((s, v) => s + (v as number), 0);
-    return val as number;
-  };
-
-  return {
-    impressions: get('post_impressions'),
-    reach:       get('post_impressions_unique'),
-    reactions:   get('post_engaged_users'),
-    clicks:      get('post_clicks'),
-    shares:      0,
-    videoViews:  0,
-  };
+  // Note: post-level insights are not accessible via Facebook Login for Business (FLOB) apps.
+  // The /{post-id}/insights endpoint returns #100 regardless of metrics or approach used.
+  // This function is kept for future use with a standard Facebook Login app.
+  throw new Error('Facebook post insights are not available for this app type');
 }

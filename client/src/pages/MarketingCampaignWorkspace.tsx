@@ -1128,13 +1128,9 @@ export default function MarketingCampaignWorkspace() {
                       )}
                     </button>
                   ))}
-                  {perfPlatform === 'fb' && (() => {
-                    const fbRows = perfData.rows.filter(r => r.post.facebookPostId);
-                    const noData = fbRows.filter(r => !r.fbInsights).length;
-                    if (noData > 0)
-                      return <span className="text-[10px] text-amber-600 ml-1">{noData} post{noData > 1 ? 's' : ''} missing FB data — reconnect Facebook to enable analytics</span>;
-                    return <span className="text-[10px] text-muted-foreground ml-1">Saves not available from Facebook API</span>;
-                  })()}
+                  {perfPlatform === 'fb' && (
+                    <span className="text-[10px] text-muted-foreground ml-1">Facebook post analytics not available for this app type</span>
+                  )}
                 </div>
 
                 {filteredRows.length === 0 ? (
