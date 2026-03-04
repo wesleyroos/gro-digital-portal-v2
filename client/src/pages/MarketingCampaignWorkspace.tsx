@@ -1131,14 +1131,8 @@ export default function MarketingCampaignWorkspace() {
                   {perfPlatform === 'fb' && (() => {
                     const fbRows = perfData.rows.filter(r => r.post.facebookPostId);
                     const noData = fbRows.filter(r => !r.fbInsights).length;
-                    const permissionDenied = fbRows.some(r => (r as any).fbError === 'permission_denied');
-                    const basicOnly = fbRows.filter(r => r.fbInsights && r.fbInsightsSource === 'basic').length;
-                    if (noData > 0 && permissionDenied)
-                      return <span className="text-[10px] text-amber-600 ml-1">{noData} post{noData > 1 ? 's' : ''} missing FB data — enable <strong>pages_read_engagement</strong> in Meta Developer Console then reconnect Facebook</span>;
                     if (noData > 0)
                       return <span className="text-[10px] text-amber-600 ml-1">{noData} post{noData > 1 ? 's' : ''} missing FB data — reconnect Facebook to enable analytics</span>;
-                    if (basicOnly > 0)
-                      return <span className="text-[10px] text-muted-foreground ml-1">Showing reactions, comments &amp; shares. Reconnect Facebook for full reach &amp; impressions.</span>;
                     return <span className="text-[10px] text-muted-foreground ml-1">Saves not available from Facebook API</span>;
                   })()}
                 </div>

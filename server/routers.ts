@@ -76,7 +76,7 @@ import { createHash } from "crypto";
 import { generateAndStorePostImage } from "./image-gen";
 import { storagePut } from "./storage";
 import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
-import { getFacebookPostInsights, getFacebookPostBasicMetrics, postImageToPage, postVideoToPage } from "./facebook";
+import { getFacebookPostInsights, postImageToPage, postVideoToPage } from "./facebook";
 import { getPendingFacebookPages, confirmFacebookPage } from "./facebook-oauth";
 import { getCalendarEvents } from "./calendar";
 
@@ -846,8 +846,8 @@ export const appRouter = router({
             post: typeof postedPosts[0];
             insights: { reach: number; likes: number; comments: number; shares: number; saved: number; totalInteractions: number };
             fbInsights: FbInsights | null;
-            fbInsightsSource: 'full' | 'basic' | null;
-            fbError: 'permission_denied' | 'token_invalid' | null;
+            fbInsightsSource: 'full' | null;
+            fbError: 'token_invalid' | null;
           };
           const results = await Promise.allSettled(
             postedPosts.map(async (post): Promise<Row> => {
@@ -859,29 +859,12 @@ export const appRouter = router({
               let fbInsightsSource: Row['fbInsightsSource'] = null;
               let fbError: Row['fbError'] = null;
               if (post.facebookPostId && fbTokens) {
-                // /{postId}/insights requires a page token.
-                // /{postId}?fields=reactions requires pages_read_engagement — use user token if available.
-                console.log(`[FB analytics] post ${post.id} userToken:`, fbTokens.userToken ? fbTokens.userToken.substring(0, 20) + '...' : 'NULL');
-                let lastError = '';
-                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch((e) => {
-                  console.error(`[FB insights] post ${post.id} full insights failed:`, e?.message ?? e);
-                  lastError = e?.message ?? '';
-                  return null;
-                });
+                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null);
                 if (full) {
                   fbInsights = full;
                   fbInsightsSource = 'full';
                 } else {
-                  const basicToken = fbTokens.userToken ?? fbTokens.pageAccessToken;
-                  const basic = await getFacebookPostBasicMetrics(post.facebookPostId, basicToken).catch((e) => {
-                    console.error(`[FB insights] post ${post.id} basic metrics failed (${fbTokens.userToken ? 'user' : 'page'} token):`, e?.message ?? e);
-                    lastError = e?.message ?? '';
-                    return null;
-                  });
-                  if (basic) { fbInsights = basic; fbInsightsSource = 'basic'; }
-                }
-                if (!fbInsights) {
-                  fbError = lastError.includes('(#10)') || lastError.includes('permission') ? 'permission_denied' : 'token_invalid';
+                  fbError = 'token_invalid';
                 }
               }
 

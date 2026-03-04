@@ -206,21 +206,19 @@ export default function CampaignPreview() {
                   const fb = row.fbInsights;
                   const total = fb.reactions + fb.shares + fb.clicks;
                   const engRate = fb.reach > 0 ? ((total / fb.reach) * 100).toFixed(1) : null;
-                  const isFull = row.fbInsightsSource === 'full';
                   return (
                     <div className="border-t pt-3 space-y-2">
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                         <Facebook className="w-3 h-3 text-blue-600" /> Facebook
-                        {!isFull && <span className="text-[9px] font-normal text-muted-foreground/70">(basic)</span>}
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         {[
-                          { label: isFull ? "Reach"     : "—",         value: fb.reach,     icon: Users        },
-                          { label: "Reactions",                          value: fb.reactions, icon: Heart        },
-                          { label: "Comments",                           value: fb.clicks,    icon: MessageCircle},
-                          { label: "Shares",                             value: fb.shares,    icon: Share2       },
-                          { label: isFull ? "Impressions" : "—",        value: fb.impressions, icon: BarChart2  },
-                          { label: "Total",                              value: total,        icon: TrendingUp   },
+                          { label: "Reach",       value: fb.reach,       icon: Users        },
+                          { label: "Engaged",     value: fb.reactions,   icon: Heart        },
+                          { label: "Clicks",      value: fb.clicks,      icon: MessageCircle},
+                          { label: "Impressions", value: fb.impressions, icon: BarChart2    },
+                          { label: "Video Views", value: fb.videoViews,  icon: Share2       },
+                          { label: "Total",       value: total,          icon: TrendingUp   },
                         ].map(({ label, value, icon: Icon }) => (
                           <div key={label} className="bg-blue-50 rounded-xl px-2 py-2.5 text-center">
                             <Icon className="w-3.5 h-3.5 mx-auto mb-0.5 text-blue-400" />
