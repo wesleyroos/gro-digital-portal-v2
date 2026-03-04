@@ -55,7 +55,7 @@ export function registerFacebookOAuthRoutes(app: Express) {
     authUrl.searchParams.set('client_id', ENV.facebookAppId);
     authUrl.searchParams.set('redirect_uri', ENV.facebookRedirectUri);
     authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', 'pages_show_list');
+    authUrl.searchParams.set('scope', 'pages_show_list,pages_manage_posts,pages_read_engagement');
     authUrl.searchParams.set('state', state);
 
     res.redirect(302, authUrl.toString());

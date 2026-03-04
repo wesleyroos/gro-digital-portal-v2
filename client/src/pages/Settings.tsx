@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import { RefreshCw, ExternalLink } from "lucide-react";
+import { RefreshCw, ExternalLink, Instagram, Facebook } from "lucide-react";
 
 // --- Railway Status types ---
 type PageStatus = "OPERATIONAL" | "HASISSUES" | "UNDERMAINTENANCE" | "MAJOROUTAGE" | string;
@@ -241,28 +241,9 @@ function RailwayStatus() {
   );
 }
 
-function InstagramSection() {
-  const { data: clients } = trpc.invoice.clients.useQuery();
+// --- Client connections matrix ---
 
-  return (
-    <div className="rounded-xl border bg-card p-6 mt-4">
-      <h2 className="text-base font-semibold mb-1">Instagram</h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        Connect each client's Instagram Business account to enable campaign auto-posting.
-      </p>
-      <div className="space-y-3">
-        {(clients ?? []).map(client => (
-          <InstagramClientRow key={client.clientSlug} clientSlug={client.clientSlug} clientName={client.clientName} />
-        ))}
-        {(clients ?? []).length === 0 && (
-          <p className="text-sm text-muted-foreground">No clients found.</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InstagramClientRow({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
+function IgCell({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
   const { data, refetch } = trpc.instagram.getStatus.useQuery({ clientSlug });
   const disconnect = trpc.instagram.disconnect.useMutation({
     onSuccess: () => { refetch(); toast.success(`Instagram disconnected for ${clientName}`); },
@@ -273,93 +254,131 @@ function InstagramClientRow({ clientSlug, clientName }: { clientSlug: string; cl
     onError: (e) => toast.error(`Refresh failed: ${e.message}`),
   });
 
-  return (
-    <div className="flex items-center justify-between gap-3 py-2">
-      <div>
-        <p className="text-sm font-medium">{clientName}</p>
-        {data?.connected && data.username && (
-          <p className="text-xs text-muted-foreground">@{data.username} · ID: {data.businessId}</p>
+  if (!data) return <div className="h-4 w-24 rounded bg-muted animate-pulse" />;
+
+  if (data.connected) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-xs font-medium text-emerald-700">Connected</span>
+        </div>
+        {data.username && (
+          <p className="text-[11px] text-muted-foreground">@{data.username}</p>
         )}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {data?.connected ? (
-          <>
-            <Badge variant="default" className="bg-green-500 hover:bg-green-500 text-white text-[10px]">Connected</Badge>
-            <Button variant="outline" size="sm" onClick={() => refreshUserId.mutate({ clientSlug })} disabled={refreshUserId.isPending}>
-              Fix ID
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => disconnect.mutate({ clientSlug })} disabled={disconnect.isPending}>
-              Disconnect
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => { window.location.href = `/api/auth/instagram/init/${encodeURIComponent(clientSlug)}`; }}
-          >
-            Connect Instagram
+        <div className="flex gap-1.5 mt-0.5">
+          <Button variant="outline" size="sm" className="h-6 text-[11px] px-2"
+            onClick={() => refreshUserId.mutate({ clientSlug })} disabled={refreshUserId.isPending}>
+            Fix ID
           </Button>
-        )}
+          <Button variant="outline" size="sm" className="h-6 text-[11px] px-2"
+            onClick={() => disconnect.mutate({ clientSlug })} disabled={disconnect.isPending}>
+            Disconnect
+          </Button>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function FacebookSection() {
-  const { data: clients } = trpc.invoice.clients.useQuery();
+    );
+  }
 
   return (
-    <div className="rounded-xl border bg-card p-6 mt-4">
-      <h2 className="text-base font-semibold mb-1">Facebook</h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        Connect each client's Facebook Page to enable automatic cross-posting.
-      </p>
-      <div className="space-y-3">
-        {(clients ?? []).map(client => (
-          <FacebookClientRow key={client.clientSlug} clientSlug={client.clientSlug} clientName={client.clientName} />
-        ))}
-        {(clients ?? []).length === 0 && (
-          <p className="text-sm text-muted-foreground">No clients found.</p>
-        )}
-      </div>
-    </div>
+    <Button size="sm" variant="outline" className="h-7 text-xs"
+      onClick={() => { window.location.href = `/api/auth/instagram/init/${encodeURIComponent(clientSlug)}`; }}>
+      Connect
+    </Button>
   );
 }
 
-function FacebookClientRow({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
+function FbCell({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
   const { data, refetch } = trpc.facebook.getStatus.useQuery({ clientSlug });
   const disconnect = trpc.facebook.disconnect.useMutation({
     onSuccess: () => { refetch(); toast.success(`Facebook disconnected for ${clientName}`); },
     onError: () => toast.error("Failed to disconnect"),
   });
 
-  return (
-    <div className="flex items-center justify-between gap-3 py-2">
-      <div>
-        <p className="text-sm font-medium">{clientName}</p>
-        {data?.connected && data.pageName && (
-          <p className="text-xs text-muted-foreground">{data.pageName} · ID: {data.pageId}</p>
+  if (!data) return <div className="h-4 w-24 rounded bg-muted animate-pulse" />;
+
+  if (data.connected) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-xs font-medium text-emerald-700">Connected</span>
+        </div>
+        {data.pageName && (
+          <p className="text-[11px] text-muted-foreground">{data.pageName}</p>
         )}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {data?.connected ? (
-          <>
-            <Badge variant="default" className="bg-green-500 hover:bg-green-500 text-white text-[10px]">Connected</Badge>
-            <Button variant="outline" size="sm" onClick={() => disconnect.mutate({ clientSlug })} disabled={disconnect.isPending}>
-              Disconnect
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => { window.location.href = `/api/auth/facebook/init/${encodeURIComponent(clientSlug)}`; }}
-          >
-            Connect Facebook
+        <div className="mt-0.5">
+          <Button variant="outline" size="sm" className="h-6 text-[11px] px-2"
+            onClick={() => disconnect.mutate({ clientSlug })} disabled={disconnect.isPending}>
+            Disconnect
           </Button>
-        )}
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <Button size="sm" variant="outline" className="h-7 text-xs"
+      onClick={() => { window.location.href = `/api/auth/facebook/init/${encodeURIComponent(clientSlug)}`; }}>
+      Connect
+    </Button>
+  );
+}
+
+function ClientConnectionsMatrix() {
+  const { data: clients } = trpc.invoice.clients.useQuery();
+
+  if (!clients) {
+    return (
+      <div className="space-y-2 p-4">
+        {[1, 2, 3].map(i => <div key={i} className="h-10 rounded bg-muted animate-pulse" />)}
+      </div>
+    );
+  }
+
+  if (clients.length === 0) {
+    return <p className="text-sm text-muted-foreground p-4">No clients found.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/3">
+              Client
+            </th>
+            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/3">
+              <div className="flex items-center gap-1.5">
+                <Instagram className="w-3.5 h-3.5 text-pink-500" />
+                Instagram
+              </div>
+            </th>
+            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/3">
+              <div className="flex items-center gap-1.5">
+                <Facebook className="w-3.5 h-3.5 text-blue-600" />
+                Facebook
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {clients.map(client => (
+            <tr key={client.clientSlug} className="hover:bg-muted/20 transition-colors">
+              <td className="px-5 py-4">
+                <p className="text-sm font-medium">{client.clientName}</p>
+                <p className="text-[11px] text-muted-foreground">{client.clientSlug}</p>
+              </td>
+              <td className="px-5 py-4">
+                <IgCell clientSlug={client.clientSlug} clientName={client.clientName} />
+              </td>
+              <td className="px-5 py-4">
+                <FbCell clientSlug={client.clientSlug} clientName={client.clientName} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -429,13 +448,13 @@ export default function Settings() {
         </TabsList>
 
         <TabsContent value="integrations">
-          <div className="max-w-lg">
+          <div className="space-y-6 max-w-3xl">
+            {/* Google Account — personal integration, kept separate */}
             <div className="rounded-xl border bg-card p-6">
               <h2 className="text-base font-semibold mb-1">Google Account</h2>
               <p className="text-sm text-muted-foreground mb-4">
                 Connect your Google account to enable Calendar and Gmail integrations.
               </p>
-
               {isLoading ? (
                 <div className="h-9 w-48 rounded-md bg-muted animate-pulse" />
               ) : googleStatus?.connected ? (
@@ -454,17 +473,22 @@ export default function Settings() {
                   </Button>
                 </div>
               ) : (
-                <Button
-                  onClick={() => {
-                    window.location.href = "/api/auth/google/init";
-                  }}
-                >
+                <Button onClick={() => { window.location.href = "/api/auth/google/init"; }}>
                   Connect Google Account
                 </Button>
               )}
             </div>
-            <InstagramSection />
-            <FacebookSection />
+
+            {/* Client social media connections matrix */}
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="px-6 py-4 border-b border-border">
+                <h2 className="text-base font-semibold mb-0.5">Social Media Connections</h2>
+                <p className="text-sm text-muted-foreground">
+                  Connect each client's social accounts to enable campaign auto-posting.
+                </p>
+              </div>
+              <ClientConnectionsMatrix />
+            </div>
           </div>
 
           {/* Facebook multi-page selection dialog */}
