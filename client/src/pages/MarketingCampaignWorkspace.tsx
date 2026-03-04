@@ -80,6 +80,7 @@ export default function MarketingCampaignWorkspace() {
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
+  const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb">("all");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
@@ -282,18 +283,27 @@ export default function MarketingCampaignWorkspace() {
 
   const calendarEvents = posts
     .filter(p => p.scheduledAt)
-    .map(p => {
-      const platforms: string[] = [];
-      if (p.instagramPostId) platforms.push('IG');
-      if (p.facebookPostId) platforms.push('FB');
-      const prefix = platforms.length ? `[${platforms.join('+')}] ` : '';
-      return {
-        title: prefix + (p.theme ?? p.caption?.slice(0, 30) ?? "Post"),
-        date: new Date(p.scheduledAt!).toISOString().slice(0, 10),
-        backgroundColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af",
-        borderColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af",
-        extendedProps: { postId: p.id, status: p.status },
-      };
+    .flatMap(p => {
+      const date = new Date(p.scheduledAt!).toISOString().slice(0, 10);
+      const title = p.theme ?? p.caption?.slice(0, 30) ?? "Post";
+      const base = { date, extendedProps: { postId: p.id, status: p.status } };
+
+      // Posted: one bar per platform in platform colour
+      if (p.status === 'posted' && (p.instagramPostId || p.facebookPostId)) {
+        const events = [];
+        if (p.instagramPostId) events.push({
+          ...base, title,
+          backgroundColor: '#ec4899', borderColor: '#ec4899',
+        });
+        if (p.facebookPostId) events.push({
+          ...base, title,
+          backgroundColor: '#1d4ed8', borderColor: '#1d4ed8',
+        });
+        return events;
+      }
+
+      // Not yet posted: single bar in status colour
+      return [{ ...base, title, backgroundColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af", borderColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af" }];
     });
 
   if (isLoading) {
@@ -1016,11 +1026,30 @@ export default function MarketingCampaignWorkspace() {
               { key: "totalInteractions", label: "Interactions", color: "text-blue-600"    },
             ];
 
+            // Platform filter
+            const filteredRows = perfData.rows
+              .filter(row => {
+                if (perfPlatform === 'ig') return !!row.post.instagramPostId;
+                if (perfPlatform === 'fb') return !!row.post.facebookPostId;
+                return true;
+              })
+              .map(row => {
+                if (perfPlatform === 'fb' && row.fbInsights) {
+                  const fb = row.fbInsights;
+                  return { ...row, insights: {
+                    reach: fb.reach, likes: fb.reactions, comments: 0,
+                    shares: fb.shares, saved: 0,
+                    totalInteractions: fb.reactions + fb.shares + fb.clicks,
+                  }};
+                }
+                return row;
+              });
+
             // Normalise each metric to 0–1 relative to best post, average → 0–100 composite
             const maxVals = Object.fromEntries(
-              METRICS.map(m => [m.key, Math.max(1, ...perfData.rows.map(r => (r.insights[m.key] as number | null) ?? 0))])
+              METRICS.map(m => [m.key, Math.max(1, ...filteredRows.map(r => (r.insights[m.key] as number | null) ?? 0))])
             );
-            const withScores = perfData.rows.map(row => {
+            const withScores = filteredRows.map(row => {
               const avg = METRICS.reduce((s, m) => {
                 const val = (row.insights[m.key] as number | null) ?? 0;
                 return s + val / maxVals[m.key];
@@ -1040,11 +1069,11 @@ export default function MarketingCampaignWorkspace() {
 
             const totals = METRICS.map(m => ({
               ...m,
-              total: perfData.rows.reduce((s, r) => s + ((r.insights[m.key] as number | null) ?? 0), 0),
+              total: filteredRows.reduce((s, r) => s + ((r.insights[m.key] as number | null) ?? 0), 0),
             }));
 
-            const totalReach = perfData.rows.reduce((s, r) => s + r.insights.reach, 0);
-            const totalInteractions = perfData.rows.reduce((s, r) => s + r.insights.totalInteractions, 0);
+            const totalReach = filteredRows.reduce((s, r) => s + r.insights.reach, 0);
+            const totalInteractions = filteredRows.reduce((s, r) => s + r.insights.totalInteractions, 0);
             const avgEngRate = totalReach > 0 ? ((totalInteractions / totalReach) * 100).toFixed(1) : null;
 
             function SortHeader({ metricKey, label }: { metricKey: string; label: string }) {
@@ -1066,6 +1095,45 @@ export default function MarketingCampaignWorkspace() {
 
             return (
               <div className="space-y-4">
+                {/* ── Platform filter ── */}
+                <div className="flex items-center gap-2">
+                  {([
+                    { key: "all", label: "All platforms" },
+                    { key: "ig",  label: "Instagram" },
+                    { key: "fb",  label: "Facebook" },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setPerfPlatform(opt.key)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        perfPlatform === opt.key
+                          ? opt.key === 'ig' ? 'bg-pink-500 text-white border-pink-500'
+                            : opt.key === 'fb' ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-foreground text-background border-foreground'
+                          : 'bg-card text-muted-foreground border-border hover:border-foreground'
+                      }`}
+                    >
+                      {opt.label}
+                      {opt.key !== 'all' && (
+                        <span className="ml-1.5 opacity-70">
+                          {opt.key === 'ig'
+                            ? perfData.rows.filter(r => r.post.instagramPostId).length
+                            : perfData.rows.filter(r => r.post.facebookPostId).length}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  {perfPlatform === 'fb' && (
+                    <span className="text-[10px] text-muted-foreground ml-1">Comments &amp; Saves not available from Facebook API</span>
+                  )}
+                </div>
+
+                {filteredRows.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+                    <p className="text-sm text-muted-foreground">No posts posted to {perfPlatform === 'ig' ? 'Instagram' : 'Facebook'} yet.</p>
+                  </div>
+                ) : (<>
+
                 {/* ── Summary stat cards ── */}
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                   {totals.map(m => (
@@ -1078,7 +1146,7 @@ export default function MarketingCampaignWorkspace() {
 
                 {avgEngRate && (
                   <p className="text-xs text-muted-foreground text-center">
-                    Avg engagement rate across {perfData.rows.length} post{perfData.rows.length !== 1 ? "s" : ""}: <span className="font-semibold text-foreground">{avgEngRate}%</span>
+                    Avg engagement rate across {filteredRows.length} post{filteredRows.length !== 1 ? "s" : ""}: <span className="font-semibold text-foreground">{avgEngRate}%</span>
                   </p>
                 )}
 
@@ -1188,6 +1256,7 @@ export default function MarketingCampaignWorkspace() {
                     </tfoot>
                   </table>
                 </div>
+                </>)}
               </div>
             );
           })()}
