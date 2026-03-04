@@ -146,7 +146,11 @@ export default function MarketingCampaignWorkspace() {
     onError: (_e, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.error("Image regeneration failed"); },
   });
   const publishNowMutation = trpc.campaign.post.publishNow.useMutation({
-    onSuccess: () => { toast.success("Posted to Instagram!"); refetch(); },
+    onSuccess: ({ postedTo }) => {
+      const label = postedTo.length === 0 ? 'No platforms posted' : `Posted to ${postedTo.join(' & ')}!`;
+      toast.success(label);
+      refetch();
+    },
     onError: (e) => toast.error(`Post failed: ${e.message}`),
   });
   const approveAllMutation = trpc.campaign.post.approveAll.useMutation({
@@ -936,7 +940,10 @@ export default function MarketingCampaignWorkspace() {
                             onClick={() => publishNowMutation.mutate({ postId: post.id })}
                             disabled={publishNowMutation.isPending}
                           >
-                            <RefreshCw className="w-3 h-3" />
+                            {publishNowMutation.isPending
+                              ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              : <RefreshCw className="w-3 h-3" />
+                            }
                             Re-post
                           </Button>
                         )}

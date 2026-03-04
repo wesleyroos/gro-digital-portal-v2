@@ -876,7 +876,7 @@ export const appRouter = router({
           const campaign = await getCampaignById(post.campaignId);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
           const caption = [post.caption ?? '', post.hashtags ?? ''].filter(Boolean).join('\n\n');
-          let instagramPostId: string | undefined;
+          const postedTo: string[] = [];
 
           // ── Instagram ──
           if (campaign.postToInstagram !== false) {
@@ -885,8 +885,9 @@ export const appRouter = router({
             const creationId = isVideo
               ? await createVideoMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption)
               : await createMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption);
-            instagramPostId = await publishMedia(tokens.businessId, tokens.accessToken, creationId);
+            const instagramPostId = await publishMedia(tokens.businessId, tokens.accessToken, creationId);
             await updatePostStatus(input.postId, 'posted', { instagramPostId });
+            postedTo.push('Instagram');
           }
 
           // ── Facebook ──
@@ -900,10 +901,11 @@ export const appRouter = router({
               if (campaign.postToInstagram === false) {
                 await updatePostStatus(input.postId, 'posted');
               }
+              postedTo.push('Facebook');
             }
           }
 
-          return { instagramPostId };
+          return { postedTo };
         }),
 
       // Public — approve a post via share token
