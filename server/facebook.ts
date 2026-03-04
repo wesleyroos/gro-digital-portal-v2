@@ -121,14 +121,20 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   shares: number;
   videoViews: number;
 }> {
-  const metrics = 'post_impressions';
+  // First verify the post object is accessible and log its type
+  const checkRes = await fetch(`${GRAPH_BASE}/${postId}?fields=id,object_type,story,type&access_token=${encodeURIComponent(pageToken)}`);
+  const checkData = await checkRes.json() as { id?: string; object_type?: string; type?: string; story?: string; error?: { message: string; code: number } };
+  console.log(`[FB insights] post object check for ${postId}:`, JSON.stringify(checkData));
+
+  const metrics = 'post_impressions,post_impressions_unique,post_clicks,post_engaged_users';
   const res = await fetch(
-    `${GRAPH_BASE}/${postId}/insights?metric=${metrics}&access_token=${encodeURIComponent(pageToken)}`
+    `${GRAPH_BASE}/${postId}/insights?metric=${metrics}&period=lifetime&access_token=${encodeURIComponent(pageToken)}`
   );
   const data = await res.json() as {
     data?: Array<{ name: string; values: Array<{ value: number | Record<string, number> }> }>;
-    error?: { message: string };
+    error?: { message: string; code: number; error_subcode?: number };
   };
+  console.log(`[FB insights] raw response for ${postId}:`, JSON.stringify(data).substring(0, 300));
   if (!res.ok || !data.data) {
     throw new Error(`getFacebookPostInsights failed: ${data.error?.message ?? JSON.stringify(data)}`);
   }
