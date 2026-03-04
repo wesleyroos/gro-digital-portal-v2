@@ -121,7 +121,7 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   shares: number;
   videoViews: number;
 }> {
-  const metrics = 'post_impressions,post_impressions_unique,post_clicks,post_engaged_users,post_video_views';
+  const metrics = 'post_impressions,post_impressions_unique,post_clicks,post_engaged_users';
   const res = await fetch(
     `${GRAPH_BASE}/${postId}/insights?metric=${metrics}&access_token=${encodeURIComponent(pageToken)}`
   );
@@ -146,6 +146,6 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
     reactions:   get('post_engaged_users'),
     clicks:      get('post_clicks'),
     shares:      0,
-    videoViews:  get('post_video_views'),
+    videoViews:  0,
   };
 }
