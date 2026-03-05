@@ -124,8 +124,11 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
   // post_impressions and post_engaged_users were deprecated in 2024-2025.
   // Current valid metrics: post_media_view (replaces impressions), post_clicks
   const metrics = 'post_media_view,post_clicks';
+  // Use a 28-day window to capture all data since posting; period=day gives daily breakdown
+  const since = Math.floor(Date.now() / 1000) - 28 * 24 * 3600;
+  const until = Math.floor(Date.now() / 1000);
   const res = await fetch(
-    `${GRAPH_BASE}/${postId}/insights?metric=${metrics}&period=lifetime&access_token=${encodeURIComponent(pageToken)}`
+    `${GRAPH_BASE}/${postId}/insights?metric=${metrics}&period=day&since=${since}&until=${until}&access_token=${encodeURIComponent(pageToken)}`
   );
   const data = await res.json() as {
     data?: Array<{ name: string; values: Array<{ value: number | Record<string, number> }> }>;
@@ -138,9 +141,13 @@ export async function getFacebookPostInsights(postId: string, pageToken: string)
 
   const get = (name: string): number => {
     const item = data.data!.find(d => d.name === name);
-    const val = item?.values?.[0]?.value ?? 0;
-    if (typeof val === 'object') return Object.values(val).reduce((s, v) => s + (v as number), 0);
-    return val as number;
+    if (!item) return 0;
+    // Sum all daily values to get total across the date range
+    return item.values.reduce((sum, v) => {
+      const val = v.value;
+      if (typeof val === 'object') return sum + Object.values(val).reduce((s, n) => s + (n as number), 0);
+      return sum + (val as number);
+    }, 0);
   };
 
   return {
