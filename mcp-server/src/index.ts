@@ -383,65 +383,34 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
   next();
 }
 
-// ── MCP Transport (fresh server per session) ────────────────────────────
-
-const transports = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer }>();
+// ── MCP Transport (stateless — fresh server per POST request) ───────────
 
 app.post("/mcp", requireAuth, async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-  if (sessionId && transports.has(sessionId)) {
-    const { transport } = transports.get(sessionId)!;
-    await transport.handleRequest(req, res);
-    return;
-  }
-
-  // New session — create a fresh MCP server + transport pair
   const mcpServer = createMcpServer();
   const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => crypto.randomUUID(),
-    onsessioninitialized: (id) => {
-      transports.set(id, { transport, server: mcpServer });
-    },
+    sessionIdGenerator: undefined, // stateless mode
   });
 
   transport.onclose = () => {
-    const id = [...transports.entries()].find(([, t]) => t.transport === transport)?.[0];
-    if (id) {
-      transports.get(id)?.server.close();
-      transports.delete(id);
-    }
+    mcpServer.close().catch(() => {});
   };
 
   try {
     await mcpServer.connect(transport);
     await transport.handleRequest(req, res);
   } catch (err) {
-    console.error("[MCP] Error handling new session request:", err);
+    console.error("[MCP] Error handling request:", err);
     if (!res.headersSent) res.status(500).json({ error: "internal_error" });
   }
 });
 
-app.get("/mcp", requireAuth, async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  if (!sessionId || !transports.has(sessionId)) {
-    res.status(400).json({ error: "Invalid or missing session ID" });
-    return;
-  }
-  const { transport } = transports.get(sessionId)!;
-  await transport.handleRequest(req, res);
+// Claude.ai may probe GET — return 405 gracefully
+app.get("/mcp", requireAuth, (_req, res) => {
+  res.status(405).json({ error: "Use POST for MCP requests" });
 });
 
-app.delete("/mcp", requireAuth, async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  if (sessionId && transports.has(sessionId)) {
-    const { transport, server: mcpServer } = transports.get(sessionId)!;
-    await transport.handleRequest(req, res);
-    mcpServer.close();
-    transports.delete(sessionId);
-  } else {
-    res.status(204).end();
-  }
+app.delete("/mcp", requireAuth, (_req, res) => {
+  res.status(204).end();
 });
 
 // Health check
