@@ -1,8 +1,36 @@
+import crypto from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express from "express";
 import { z } from "zod";
 import { trpcMutation, trpcQuery } from "./api-client.js";
+
+const MCP_API_KEY = process.env.MCP_API_KEY ?? "";
+const BASE_URL = process.env.PUBLIC_URL ?? "";
+
+// ── OAuth 2.0 in-memory store ───────────────────────────────────────────
+
+interface AuthCode {
+  code: string;
+  clientId: string;
+  redirectUri: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
+  expiresAt: number;
+}
+
+const authCodes = new Map<string, AuthCode>();
+const accessTokens = new Set<string>();
+
+// Clean up expired codes periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, data] of authCodes) {
+    if (data.expiresAt < now) authCodes.delete(code);
+  }
+}, 60_000);
+
+// ── MCP Server + Tools ──────────────────────────────────────────────────
 
 const server = new McpServer({
   name: "GRO Digital Portal",
@@ -283,25 +311,169 @@ server.tool(
   }
 );
 
-// ── Express + MCP Transport ─────────────────────────────────────────────
+// ── Express App ─────────────────────────────────────────────────────────
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Store transports by session ID for session management
+// ── OAuth 2.0 Endpoints (required by Claude.ai custom integrations) ─────
+
+// OAuth Authorization Server Metadata (RFC 8414)
+app.get("/.well-known/oauth-authorization-server", (_req, res) => {
+  const issuer = BASE_URL || `${_req.protocol}://${_req.get("host")}`;
+  res.json({
+    issuer,
+    authorization_endpoint: `${issuer}/authorize`,
+    token_endpoint: `${issuer}/token`,
+    registration_endpoint: `${issuer}/register`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code"],
+    token_endpoint_auth_methods_supported: ["none"],
+    code_challenge_methods_supported: ["S256"],
+  });
+});
+
+// Protected Resource Metadata
+app.get("/.well-known/oauth-protected-resource", (_req, res) => {
+  const issuer = BASE_URL || `${_req.protocol}://${_req.get("host")}`;
+  res.json({
+    resource: issuer,
+    authorization_servers: [issuer],
+  });
+});
+
+// Dynamic Client Registration (simplified — accepts any client)
+app.post("/register", (_req, res) => {
+  const clientId = crypto.randomUUID();
+  res.status(201).json({
+    client_id: clientId,
+    client_secret: "",
+    redirect_uris: _req.body.redirect_uris || [],
+    grant_types: ["authorization_code"],
+    response_types: ["code"],
+    token_endpoint_auth_method: "none",
+  });
+});
+
+// Authorization endpoint — auto-approves and redirects back with a code
+app.get("/authorize", (req, res) => {
+  const {
+    client_id,
+    redirect_uri,
+    state,
+    code_challenge,
+    code_challenge_method,
+    response_type,
+  } = req.query as Record<string, string>;
+
+  if (response_type !== "code" || !redirect_uri) {
+    res.status(400).json({ error: "invalid_request" });
+    return;
+  }
+
+  // Generate authorization code
+  const code = crypto.randomUUID();
+  authCodes.set(code, {
+    code,
+    clientId: client_id,
+    redirectUri: redirect_uri,
+    codeChallenge: code_challenge,
+    codeChallengeMethod: code_challenge_method,
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+  });
+
+  // Redirect back to Claude.ai with the code
+  const redirectUrl = new URL(redirect_uri);
+  redirectUrl.searchParams.set("code", code);
+  if (state) redirectUrl.searchParams.set("state", state);
+
+  res.redirect(302, redirectUrl.toString());
+});
+
+// Token endpoint — exchanges auth code for access token
+app.post("/token", (req, res) => {
+  const { grant_type, code, redirect_uri, code_verifier } = req.body;
+
+  if (grant_type !== "authorization_code") {
+    res.status(400).json({ error: "unsupported_grant_type" });
+    return;
+  }
+
+  const authCode = authCodes.get(code);
+  if (!authCode || authCode.expiresAt < Date.now()) {
+    authCodes.delete(code);
+    res.status(400).json({ error: "invalid_grant" });
+    return;
+  }
+
+  // Verify redirect URI matches
+  if (authCode.redirectUri !== redirect_uri) {
+    res.status(400).json({ error: "invalid_grant" });
+    return;
+  }
+
+  // Verify PKCE code_verifier if code_challenge was provided
+  if (authCode.codeChallenge) {
+    if (!code_verifier) {
+      res.status(400).json({ error: "invalid_grant" });
+      return;
+    }
+    const hash = crypto
+      .createHash("sha256")
+      .update(code_verifier)
+      .digest("base64url");
+    if (hash !== authCode.codeChallenge) {
+      res.status(400).json({ error: "invalid_grant" });
+      return;
+    }
+  }
+
+  // Consume the code
+  authCodes.delete(code);
+
+  // Issue access token
+  const accessToken = crypto.randomUUID();
+  accessTokens.add(accessToken);
+
+  res.json({
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: 86400,
+  });
+});
+
+// ── Auth middleware for MCP endpoints ────────────────────────────────────
+
+function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  if (!accessTokens.has(token)) {
+    res.status(401).json({ error: "invalid_token" });
+    return;
+  }
+
+  next();
+}
+
+// ── MCP Transport ───────────────────────────────────────────────────────
+
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
-app.post("/mcp", async (req, res) => {
+app.post("/mcp", requireAuth, async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
   if (sessionId && transports.has(sessionId)) {
-    // Existing session — reuse transport
     const transport = transports.get(sessionId)!;
     await transport.handleRequest(req, res);
     return;
   }
 
-  // New session — create transport
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => crypto.randomUUID(),
     onsessioninitialized: (id) => {
@@ -318,8 +490,7 @@ app.post("/mcp", async (req, res) => {
   await transport.handleRequest(req, res);
 });
 
-// Handle GET for SSE stream (long-polling for server→client notifications)
-app.get("/mcp", async (req, res) => {
+app.get("/mcp", requireAuth, async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (!sessionId || !transports.has(sessionId)) {
     res.status(400).json({ error: "Invalid or missing session ID" });
@@ -329,8 +500,7 @@ app.get("/mcp", async (req, res) => {
   await transport.handleRequest(req, res);
 });
 
-// Handle DELETE for session cleanup
-app.delete("/mcp", async (req, res) => {
+app.delete("/mcp", requireAuth, async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (sessionId && transports.has(sessionId)) {
     const transport = transports.get(sessionId)!;
@@ -341,7 +511,7 @@ app.delete("/mcp", async (req, res) => {
   }
 });
 
-// Health check
+// Health check (no auth required)
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "gro-digital-mcp-server" });
 });
