@@ -383,33 +383,106 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
   next();
 }
 
-// ── MCP Transport (stateless — fresh server per POST request) ───────────
+// ── MCP Sessions ────────────────────────────────────────────────────────
+
+interface Session {
+  transport: StreamableHTTPServerTransport;
+  server: McpServer;
+}
+
+const sessions = new Map<string, Session>();
+
+// ── MCP Transport (stateful — one server per session) ───────────────────
 
 app.post("/mcp", requireAuth, async (req, res) => {
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+  if (sessionId && sessions.has(sessionId)) {
+    // Existing session
+    console.log(`[MCP] Reusing session ${sessionId}`);
+    const { transport } = sessions.get(sessionId)!;
+    try {
+      await transport.handleRequest(req, res);
+    } catch (err) {
+      console.error("[MCP] Error in existing session:", err);
+      if (!res.headersSent) res.status(500).json({ error: "internal_error" });
+    }
+    return;
+  }
+
+  // New session — fresh McpServer + transport
+  console.log("[MCP] Creating new session");
   const mcpServer = createMcpServer();
   const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless mode
+    sessionIdGenerator: () => crypto.randomUUID(),
+    onsessioninitialized: (id) => {
+      console.log(`[MCP] Session initialized: ${id}`);
+      sessions.set(id, { transport, server: mcpServer });
+    },
   });
 
   transport.onclose = () => {
-    mcpServer.close().catch(() => {});
+    for (const [id, s] of sessions.entries()) {
+      if (s.transport === transport) {
+        console.log(`[MCP] Session closed: ${id}`);
+        sessions.delete(id);
+        s.server.close().catch(() => {});
+        break;
+      }
+    }
   };
 
   try {
     await mcpServer.connect(transport);
     await transport.handleRequest(req, res);
   } catch (err) {
-    console.error("[MCP] Error handling request:", err);
+    console.error("[MCP] Error creating session:", err);
     if (!res.headersSent) res.status(500).json({ error: "internal_error" });
   }
 });
 
-// Claude.ai may probe GET — return 405 gracefully
-app.get("/mcp", requireAuth, (_req, res) => {
-  res.status(405).json({ error: "Use POST for MCP requests" });
+// GET /mcp — Claude.ai opens an SSE stream immediately after init.
+// Keep it open so Claude.ai doesn't consider the connection broken.
+app.get("/mcp", requireAuth, async (req, res) => {
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+  if (sessionId && sessions.has(sessionId)) {
+    // Use existing transport for server-initiated messages
+    const { transport } = sessions.get(sessionId)!;
+    try {
+      await transport.handleRequest(req, res);
+    } catch (err) {
+      console.error("[MCP] Error in SSE stream:", err);
+    }
+    return;
+  }
+
+  // No session yet — open a bare SSE keep-alive stream
+  console.log("[MCP] Opening bare SSE stream (no session)");
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+  res.write(": connected\n\n");
+
+  const keepAlive = setInterval(() => {
+    if (!res.writableEnded) res.write(": ping\n\n");
+  }, 15_000);
+
+  req.on("close", () => {
+    console.log("[MCP] SSE stream closed");
+    clearInterval(keepAlive);
+  });
 });
 
 app.delete("/mcp", requireAuth, (_req, res) => {
+  const sessionId = _req.headers["mcp-session-id"] as string | undefined;
+  if (sessionId && sessions.has(sessionId)) {
+    const { server } = sessions.get(sessionId)!;
+    server.close().catch(() => {});
+    sessions.delete(sessionId);
+  }
   res.status(204).end();
 });
 
