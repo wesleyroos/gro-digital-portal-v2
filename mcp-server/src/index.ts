@@ -6,6 +6,13 @@ import { z } from "zod";
 import { trpcMutation, trpcQuery } from "./api-client.js";
 
 const BASE_URL = process.env.PUBLIC_URL ?? "";
+const MCP_API_KEY = process.env.MCP_API_KEY ?? "";
+
+// Derive a stable access token from MCP_API_KEY so it survives server restarts
+const STABLE_ACCESS_TOKEN = crypto
+  .createHash("sha256")
+  .update(`mcp-access:${MCP_API_KEY}`)
+  .digest("hex");
 
 // ── OAuth 2.0 in-memory store ───────────────────────────────────────────
 
@@ -19,7 +26,6 @@ interface AuthCode {
 }
 
 const authCodes = new Map<string, AuthCode>();
-const accessTokens = new Set<string>();
 
 setInterval(() => {
   const now = Date.now();
@@ -342,13 +348,11 @@ app.post("/token", (req, res) => {
 
   authCodes.delete(code);
 
-  const accessToken = crypto.randomUUID();
-  accessTokens.add(accessToken);
-
+  // Issue stable token derived from MCP_API_KEY — survives server restarts
   res.json({
-    access_token: accessToken,
+    access_token: STABLE_ACCESS_TOKEN,
     token_type: "Bearer",
-    expires_in: 86400,
+    expires_in: 31536000,
   });
 });
 
@@ -362,7 +366,7 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
   }
 
   const token = authHeader.slice(7);
-  if (!accessTokens.has(token)) {
+  if (token !== STABLE_ACCESS_TOKEN) {
     res.status(401).json({ error: "invalid_token" });
     return;
   }
