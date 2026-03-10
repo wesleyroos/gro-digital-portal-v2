@@ -26,4 +26,5 @@ export const ENV = {
   r2Endpoint: process.env.R2_ENDPOINT ?? "",
   r2Bucket: process.env.R2_BUCKET ?? "",
   r2PublicUrl: process.env.R2_PUBLIC_URL ?? "",
+  mcpApiKey: process.env.MCP_API_KEY ?? "",
 };
