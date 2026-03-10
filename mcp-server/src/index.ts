@@ -402,7 +402,7 @@ app.post("/mcp", requireAuth, async (req, res) => {
     console.log(`[MCP] Reusing session ${sessionId}`);
     const { transport } = sessions.get(sessionId)!;
     try {
-      await transport.handleRequest(req, res);
+      await transport.handleRequest(req, res, req.body);
     } catch (err) {
       console.error("[MCP] Error in existing session:", err);
       if (!res.headersSent) res.status(500).json({ error: "internal_error" });
@@ -434,7 +434,7 @@ app.post("/mcp", requireAuth, async (req, res) => {
 
   try {
     await mcpServer.connect(transport);
-    await transport.handleRequest(req, res);
+    await transport.handleRequest(req, res, req.body);
   } catch (err) {
     console.error("[MCP] Error creating session:", err);
     if (!res.headersSent) res.status(500).json({ error: "internal_error" });
@@ -450,7 +450,7 @@ app.get("/mcp", requireAuth, async (req, res) => {
     // Use existing transport for server-initiated messages
     const { transport } = sessions.get(sessionId)!;
     try {
-      await transport.handleRequest(req, res);
+      await transport.handleRequest(req, res, req.body);
     } catch (err) {
       console.error("[MCP] Error in SSE stream:", err);
     }
