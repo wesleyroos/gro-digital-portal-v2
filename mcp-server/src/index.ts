@@ -411,7 +411,7 @@ app.post("/mcp", requireAuth, async (req, res) => {
   }
 
   // New session — fresh McpServer + transport
-  console.log("[MCP] Creating new session");
+  console.log("[MCP] Creating new session, body:", JSON.stringify(req.body));
   const mcpServer = createMcpServer();
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => crypto.randomUUID(),
