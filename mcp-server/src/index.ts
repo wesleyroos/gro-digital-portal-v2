@@ -252,6 +252,15 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Request logging
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`, {
+    sessionId: req.headers["mcp-session-id"],
+    hasAuth: !!req.headers.authorization,
+  });
+  next();
+});
+
 // ── OAuth 2.0 Endpoints ─────────────────────────────────────────────────
 
 app.get("/.well-known/oauth-authorization-server", (_req, res) => {
@@ -404,8 +413,13 @@ app.post("/mcp", requireAuth, async (req, res) => {
     }
   };
 
-  await mcpServer.connect(transport);
-  await transport.handleRequest(req, res);
+  try {
+    await mcpServer.connect(transport);
+    await transport.handleRequest(req, res);
+  } catch (err) {
+    console.error("[MCP] Error handling new session request:", err);
+    if (!res.headersSent) res.status(500).json({ error: "internal_error" });
+  }
 });
 
 app.get("/mcp", requireAuth, async (req, res) => {
@@ -432,7 +446,7 @@ app.delete("/mcp", requireAuth, async (req, res) => {
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "gro-digital-mcp-server" });
+  res.json({ status: "ok", service: "gro-digital-mcp-server", version: "4", hasApiKey: !!MCP_API_KEY });
 });
 
 const port = parseInt(process.env.PORT || "8080");
