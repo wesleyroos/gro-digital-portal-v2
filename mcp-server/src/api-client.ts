@@ -1,6 +1,7 @@
 import SuperJSON from "superjson";
 
-const PORTAL_URL = process.env.PORTAL_URL ?? "http://localhost:3000";
+// Strip trailing slash to avoid double-slash in URLs
+const PORTAL_URL = (process.env.PORTAL_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 const MCP_API_KEY = process.env.MCP_API_KEY ?? "";
 
 const headers = {
