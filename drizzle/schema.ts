@@ -293,3 +293,17 @@ export const campaignMessages = mysqlTable("campaign_messages", {
 });
 
 export type CampaignMessage = typeof campaignMessages.$inferSelect;
+
+/**
+ * Campaign brand assets — uploaded reference images per campaign.
+ */
+export const campaignAssets = mysqlTable('campaignAssets', {
+  id: int('id').autoincrement().primaryKey(),
+  campaignId: int('campaignId').notNull(),
+  url: text('url').notNull(),
+  label: varchar('label', { length: 255 }),
+  aiDescription: text('aiDescription'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+});
+
+export type CampaignAsset = typeof campaignAssets.$inferSelect;

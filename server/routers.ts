@@ -70,7 +70,12 @@ import {
   clearFacebookTokens,
   getFacebookTokens,
   updatePostFacebookId,
+  getCampaignAssets,
+  insertCampaignAsset,
+  deleteCampaignAsset,
+  updateCampaignAssetDescription,
 } from "./db";
+import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
 import { createHash } from "crypto";
 import { generateAndStorePostImage } from "./image-gen";
@@ -720,11 +725,15 @@ export const appRouter = router({
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
-          const campaign = await getCampaignById(post.campaignId);
+          const [campaign, assets] = await Promise.all([
+            getCampaignById(post.campaignId),
+            getCampaignAssets(post.campaignId),
+          ]);
           const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
           const style = campaign?.imageStyle ?? '';
           const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
-          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio);
+          const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio, referenceImages);
           return { url };
         }),
 
@@ -734,11 +743,15 @@ export const appRouter = router({
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
-          const campaign = await getCampaignById(post.campaignId);
+          const [campaign, assets] = await Promise.all([
+            getCampaignById(post.campaignId),
+            getCampaignAssets(post.campaignId),
+          ]);
           const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
           const style = campaign?.imageStyle ?? '';
           const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
-          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio);
+          const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));
+          const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio, referenceImages);
           return { url };
         }),
 
@@ -965,6 +978,38 @@ export const appRouter = router({
         await updateCampaign(input.id, { postToInstagram: input.postToInstagram, postToFacebook: input.postToFacebook });
         return { success: true };
       }),
+
+    asset: router({
+      list: adminProcedure
+        .input(z.object({ campaignId: z.number().int() }))
+        .query(async ({ input }) => getCampaignAssets(input.campaignId)),
+
+      upload: adminProcedure
+        .input(z.object({
+          campaignId: z.number().int(),
+          base64: z.string(),
+          mimeType: z.string(),
+          label: z.string().optional(),
+        }))
+        .mutation(async ({ input }) => {
+          const buffer = Buffer.from(input.base64, 'base64');
+          const ext = input.mimeType.split('/')[1] ?? 'jpg';
+          const { url } = await storagePut(`campaign-assets/${input.campaignId}/${Date.now()}.${ext}`, buffer, input.mimeType);
+          const asset = await insertCampaignAsset(input.campaignId, url, input.label ?? null);
+          // Fire-and-forget vision description
+          describeImageForBrand(url).then(desc => {
+            if (desc) return updateCampaignAssetDescription(asset.id, desc);
+          }).catch(() => {});
+          return asset;
+        }),
+
+      delete: adminProcedure
+        .input(z.object({ assetId: z.number().int() }))
+        .mutation(async ({ input }) => {
+          await deleteCampaignAsset(input.assetId);
+          return { success: true };
+        }),
+    }),
   }),
 
   instagram: router({

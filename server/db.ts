@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, InsertMarketingPost } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, InsertMarketingPost } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1138,4 +1138,30 @@ export async function updatePostFacebookId(postId: number, facebookPostId: strin
   await db.update(marketingPosts)
     .set({ facebookPostId, postedAt: new Date() })
     .where(eq(marketingPosts.id, postId));
+}
+
+export async function getCampaignAssets(campaignId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(campaignAssets).where(eq(campaignAssets.campaignId, campaignId)).orderBy(asc(campaignAssets.createdAt));
+}
+
+export async function insertCampaignAsset(campaignId: number, url: string, label?: string | null, aiDescription?: string | null) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.insert(campaignAssets).values({ campaignId, url, label: label ?? null, aiDescription: aiDescription ?? null });
+  const rows = await db.select().from(campaignAssets).where(eq(campaignAssets.campaignId, campaignId)).orderBy(desc(campaignAssets.createdAt)).limit(1);
+  return rows[0];
+}
+
+export async function updateCampaignAssetDescription(id: number, aiDescription: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.update(campaignAssets).set({ aiDescription }).where(eq(campaignAssets.id, id));
+}
+
+export async function deleteCampaignAsset(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.delete(campaignAssets).where(eq(campaignAssets.id, id));
 }

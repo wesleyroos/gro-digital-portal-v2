@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -84,8 +84,11 @@ export default function MarketingCampaignWorkspace() {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
+  const [assetsExpanded, setAssetsExpanded] = useState(true);
+  const [uploadingAsset, setUploadingAsset] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const assetFileRef = useRef<HTMLInputElement>(null);
 
   const analyticsPost = posts.find(p => p.id === analyticsPostId);
   const { data: insights, isLoading: insightsLoading } = trpc.campaign.post.getInsights.useQuery(
@@ -214,6 +217,30 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: ({ prompt }) => setEditDraft(d => ({ ...d, imagePrompt: prompt })),
     onError: () => toast.error("Failed to suggest prompt"),
   });
+
+  const { data: campaignAssets = [], refetch: refetchAssets } = trpc.campaign.asset.list.useQuery(
+    { campaignId },
+    { enabled: !!campaignId }
+  );
+  const uploadAssetMutation = trpc.campaign.asset.upload.useMutation({
+    onSuccess: () => { toast.success("Asset uploaded — generating description…"); refetchAssets(); setUploadingAsset(false); },
+    onError: () => { toast.error("Upload failed"); setUploadingAsset(false); },
+  });
+  const deleteAssetMutation = trpc.campaign.asset.delete.useMutation({
+    onSuccess: () => { toast.success("Asset removed"); refetchAssets(); },
+    onError: () => toast.error("Failed to remove asset"),
+  });
+
+  function handleAssetUpload(file: File) {
+    setUploadingAsset(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1];
+      uploadAssetMutation.mutate({ campaignId, base64, mimeType: file.type });
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function downloadImage(url: string, postId: number) {
     try {
@@ -463,6 +490,75 @@ export default function MarketingCampaignWorkspace() {
               <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-4">{campaign.strategy}</p>
             </div>
           )}
+
+          {/* Brand Assets panel */}
+          <div className="shrink-0 mb-4 rounded-xl border border-border bg-card">
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-xl transition-colors"
+              onClick={() => setAssetsExpanded(e => !e)}
+            >
+              <span className="flex items-center gap-2">
+                <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
+                Brand Assets
+                {campaignAssets.length > 0 && (
+                  <span className="text-xs bg-muted rounded-full px-1.5 py-0.5 text-muted-foreground">{campaignAssets.length}</span>
+                )}
+              </span>
+              <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${assetsExpanded ? "rotate-90" : ""}`} />
+            </button>
+            {assetsExpanded && (
+              <div className="px-4 pb-4">
+                {campaignAssets.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {campaignAssets.map(asset => (
+                      <div key={asset.id} className="relative group rounded-lg overflow-hidden border border-border bg-muted aspect-square">
+                        <img src={asset.url} alt={asset.label ?? "Brand asset"} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end">
+                          <div className="w-full px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between gap-1">
+                            <span className="text-white text-[10px] leading-tight truncate flex-1" title={asset.aiDescription ?? undefined}>
+                              {asset.label ?? (asset.aiDescription ? asset.aiDescription.slice(0, 40) + "…" : "No description yet")}
+                            </span>
+                            <button
+                              className="shrink-0 text-white/80 hover:text-red-300 transition-colors"
+                              onClick={() => deleteAssetMutation.mutate({ assetId: asset.id })}
+                              title="Remove asset"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {uploadingAsset && (
+                      <div className="rounded-lg border border-border bg-muted aspect-square flex items-center justify-center">
+                        <span className="w-5 h-5 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!uploadingAsset && campaignAssets.length === 0 && (
+                  <p className="text-xs text-muted-foreground mb-3">Upload product photos, mood boards, or style references. The AI will use these when generating images.</p>
+                )}
+                <input
+                  ref={assetFileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleAssetUpload(f); e.target.value = ""; }}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs"
+                  onClick={() => assetFileRef.current?.click()}
+                  disabled={uploadingAsset}
+                >
+                  <Upload className="w-3 h-3" />
+                  Upload image
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* Chat area */}
           <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 pb-4">

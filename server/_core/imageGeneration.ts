@@ -23,6 +23,7 @@ export type GenerateImageOptions = {
   prompt: string;
   model?: ImageModel;
   aspectRatio?: AspectRatio;
+  referenceImages?: { url: string; description: string }[];
 };
 
 export type GenerateImageResponse = {
@@ -34,13 +35,19 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
   const ratio = options.aspectRatio ?? '1:1';
 
   if (model === 'nano-banana-2') {
-    return generateWithGemini(options.prompt, ratio);
+    return generateWithGemini(options.prompt, ratio, options.referenceImages);
   }
-  return generateWithDallE(options.prompt, ratio);
+  return generateWithDallE(options.prompt, ratio, options.referenceImages);
 }
 
-async function generateWithDallE(prompt: string, aspectRatio: AspectRatio): Promise<GenerateImageResponse> {
+async function generateWithDallE(prompt: string, aspectRatio: AspectRatio, referenceImages?: { url: string; description: string }[]): Promise<GenerateImageResponse> {
   if (!ENV.openAiApiKey) throw new Error('OPENAI_API_KEY is not configured');
+
+  let fullPrompt = prompt;
+  if (referenceImages && referenceImages.length > 0) {
+    const refText = referenceImages.map(r => r.description).join('. ');
+    fullPrompt = `${prompt} Visual style reference: ${refText}`;
+  }
 
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
@@ -50,7 +57,7 @@ async function generateWithDallE(prompt: string, aspectRatio: AspectRatio): Prom
     },
     body: JSON.stringify({
       model: 'dall-e-3',
-      prompt,
+      prompt: fullPrompt,
       n: 1,
       size: DALLE_SIZES[aspectRatio],
       response_format: 'b64_json',
@@ -71,17 +78,37 @@ async function generateWithDallE(prompt: string, aspectRatio: AspectRatio): Prom
   return { url };
 }
 
-async function generateWithGemini(prompt: string, aspectRatio: AspectRatio): Promise<GenerateImageResponse> {
+async function generateWithGemini(prompt: string, aspectRatio: AspectRatio, referenceImages?: { url: string; description: string }[]): Promise<GenerateImageResponse> {
   if (!ENV.geminiApiKey) throw new Error('GEMINI_API_KEY is not configured');
 
   const modelId = 'gemini-3.1-flash-image-preview';
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${ENV.geminiApiKey}`;
 
+  // Build request parts: reference images as inlineData + text prompt
+  type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+  const requestParts: GeminiPart[] = [];
+  if (referenceImages && referenceImages.length > 0) {
+    for (const ref of referenceImages) {
+      try {
+        const imgRes = await fetch(ref.url, { signal: AbortSignal.timeout(15_000) });
+        if (imgRes.ok) {
+          const arrayBuf = await imgRes.arrayBuffer();
+          const b64 = Buffer.from(arrayBuf).toString('base64');
+          const mimeType = imgRes.headers.get('content-type') ?? 'image/jpeg';
+          requestParts.push({ inlineData: { mimeType, data: b64 } });
+        }
+      } catch {
+        // skip unreachable reference images
+      }
+    }
+  }
+  requestParts.push({ text: `${GEMINI_RATIO_HINTS[aspectRatio]}. ${prompt}` });
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: `${GEMINI_RATIO_HINTS[aspectRatio]}. ${prompt}` }] }],
+      contents: [{ parts: requestParts }],
       generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
     }),
   });
@@ -106,4 +133,37 @@ async function generateWithGemini(prompt: string, aspectRatio: AspectRatio): Pro
   const buffer = Buffer.from(data, 'base64');
   const { url } = await storagePut(`generated/${Date.now()}.${ext}`, buffer, mimeType);
   return { url };
+}
+
+/**
+ * Uses GPT-4o vision to auto-describe a brand reference image.
+ */
+export async function describeImageForBrand(imageUrl: string): Promise<string> {
+  if (!ENV.openAiApiKey) return '';
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 150,
+        messages: [
+          {
+            role: 'system',
+            content: 'Describe this image concisely for use as a visual reference in social media content generation. Focus on: style, colors, mood, subject matter, and any brand elements. 2-3 sentences max.',
+          },
+          {
+            role: 'user',
+            content: [{ type: 'image_url', image_url: { url: imageUrl } }],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) return '';
+    const result = await response.json() as { choices: Array<{ message: { content: string } }> };
+    return result.choices[0]?.message?.content?.trim() ?? '';
+  } catch {
+    return '';
+  }
 }

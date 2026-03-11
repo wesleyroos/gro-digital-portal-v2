@@ -47,7 +47,10 @@ const CAMPAIGN_AGENT_TOOLS = [
 ];
 
 async function buildCampaignSystemMessage(campaignId: number): Promise<string> {
-  const campaign = await db.getCampaignById(campaignId);
+  const [campaign, assets] = await Promise.all([
+    db.getCampaignById(campaignId),
+    db.getCampaignAssets(campaignId),
+  ]);
   if (!campaign) throw new Error(`Campaign ${campaignId} not found`);
 
   const brandSection = campaign.brandVoice
@@ -57,6 +60,11 @@ async function buildCampaignSystemMessage(campaignId: number): Promise<string> {
   const strategySection = campaign.strategy
     ? `\nSTRATEGY:\n${campaign.strategy}`
     : '\nSTRATEGY: Not yet defined.';
+
+  const assetsWithDesc = assets.filter(a => a.aiDescription);
+  const assetsSection = assetsWithDesc.length > 0
+    ? `\nBRAND REFERENCE IMAGES:\n${assetsWithDesc.map((a, i) => `  - ${a.label || `Reference ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
+    : '';
 
   const nextAction = (() => {
     if (campaign.status === 'discovery') {
@@ -82,6 +90,7 @@ CAMPAIGN: ${campaign.name}
 CLIENT: ${campaign.clientSlug}
 STATUS: ${campaign.status}
 ${brandSection}
+${assetsSection}
 ${strategySection}
 
 YOUR NEXT ACTION: ${nextAction}
@@ -259,7 +268,10 @@ export function registerCampaignAgentRoutes(app: Express) {
     const gatewayToken = process.env.HENRY_GATEWAY_TOKEN?.trim();
     if (!gatewayUrl || !gatewayToken) { res.status(503).json({ error: 'Agent gateway not configured' }); return; }
 
-    const campaign = await db.getCampaignById(campaignId);
+    const [campaign, assets] = await Promise.all([
+      db.getCampaignById(campaignId),
+      db.getCampaignAssets(campaignId),
+    ]);
     if (!campaign) { res.status(404).json({ error: 'Campaign not found' }); return; }
 
     const postsPerWeek = campaign.postsPerWeek ?? 3;
@@ -287,6 +299,11 @@ export function registerCampaignAgentRoutes(app: Express) {
       weekOffset++;
     }
 
+    const assetsWithDesc = assets.filter(a => a.aiDescription);
+    const assetsPromptSection = assetsWithDesc.length > 0
+      ? `\nBRAND REFERENCE IMAGES:\n${assetsWithDesc.map((a, i) => `- ${a.label || `Reference ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
+      : '';
+
     const prompt = `You are generating an Instagram content calendar for a marketing campaign.
 
 CAMPAIGN: ${campaign.name}
@@ -295,7 +312,7 @@ TODAY: ${today}
 BRAND VOICE: ${campaign.brandVoice ?? 'Not specified'}
 TARGET AUDIENCE: ${campaign.targetAudience ?? 'Not specified'}
 CONTENT THEMES: ${campaign.contentThemes ?? 'Not specified'}
-POSTS PER WEEK: ${postsPerWeek}
+POSTS PER WEEK: ${postsPerWeek}${assetsPromptSection}
 STRATEGY:
 ${campaign.strategy ?? 'No strategy saved — use brand info above to guide content.'}
 
