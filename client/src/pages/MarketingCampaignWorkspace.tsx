@@ -85,7 +85,7 @@ export default function MarketingCampaignWorkspace() {
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
   const [assetsExpanded, setAssetsExpanded] = useState(true);
-  const [uploadingAsset, setUploadingAsset] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assetFileRef = useRef<HTMLInputElement>(null);
@@ -223,23 +223,24 @@ export default function MarketingCampaignWorkspace() {
     { enabled: !!campaignId }
   );
   const uploadAssetMutation = trpc.campaign.asset.upload.useMutation({
-    onSuccess: () => { toast.success("Asset uploaded — generating description…"); refetchAssets(); setUploadingAsset(false); },
-    onError: () => { toast.error("Upload failed"); setUploadingAsset(false); },
+    onSuccess: () => { refetchAssets(); setUploadingCount(n => Math.max(0, n - 1)); },
+    onError: () => { toast.error("Upload failed"); setUploadingCount(n => Math.max(0, n - 1)); },
   });
   const deleteAssetMutation = trpc.campaign.asset.delete.useMutation({
-    onSuccess: () => { toast.success("Asset removed"); refetchAssets(); },
+    onSuccess: () => { refetchAssets(); },
     onError: () => toast.error("Failed to remove asset"),
   });
 
-  function handleAssetUpload(file: File) {
-    setUploadingAsset(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(",")[1];
-      uploadAssetMutation.mutate({ campaignId, base64, mimeType: file.type });
-    };
-    reader.readAsDataURL(file);
+  function handleAssetFiles(files: FileList) {
+    for (const file of Array.from(files)) {
+      setUploadingCount(n => n + 1);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        uploadAssetMutation.mutate({ campaignId, base64, mimeType: file.type });
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   async function downloadImage(url: string, postId: number) {
@@ -507,55 +508,44 @@ export default function MarketingCampaignWorkspace() {
               <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${assetsExpanded ? "rotate-90" : ""}`} />
             </button>
             {assetsExpanded && (
-              <div className="px-4 pb-4">
-                {campaignAssets.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    {campaignAssets.map(asset => (
-                      <div key={asset.id} className="relative group rounded-lg overflow-hidden border border-border bg-muted aspect-square">
-                        <img src={asset.url} alt={asset.label ?? "Brand asset"} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end">
-                          <div className="w-full px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between gap-1">
-                            <span className="text-white text-[10px] leading-tight truncate flex-1" title={asset.aiDescription ?? undefined}>
-                              {asset.label ?? (asset.aiDescription ? asset.aiDescription.slice(0, 40) + "…" : "No description yet")}
-                            </span>
-                            <button
-                              className="shrink-0 text-white/80 hover:text-red-300 transition-colors"
-                              onClick={() => deleteAssetMutation.mutate({ assetId: asset.id })}
-                              title="Remove asset"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {uploadingAsset && (
-                      <div className="rounded-lg border border-border bg-muted aspect-square flex items-center justify-center">
-                        <span className="w-5 h-5 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    )}
-                  </div>
+              <div className="px-4 pb-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {campaignAssets.map(asset => (
+                    <div key={asset.id} className="relative group w-10 h-10 rounded-md overflow-hidden border border-border bg-muted shrink-0">
+                      <img src={asset.url} alt={asset.label ?? "Brand asset"} className="w-full h-full object-cover" title={asset.aiDescription ?? asset.label ?? undefined} />
+                      <button
+                        className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100"
+                        onClick={() => deleteAssetMutation.mutate({ assetId: asset.id })}
+                        title="Remove"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  {Array.from({ length: uploadingCount }).map((_, i) => (
+                    <div key={`uploading-${i}`} className="w-10 h-10 rounded-md border border-border bg-muted flex items-center justify-center shrink-0">
+                      <span className="w-3.5 h-3.5 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ))}
+                  <input
+                    ref={assetFileRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={e => { if (e.target.files?.length) handleAssetFiles(e.target.files); e.target.value = ""; }}
+                  />
+                  <button
+                    className="w-10 h-10 rounded-md border border-dashed border-border bg-muted hover:bg-muted/80 flex items-center justify-center shrink-0 transition-colors"
+                    onClick={() => assetFileRef.current?.click()}
+                    title="Upload reference images"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                </div>
+                {campaignAssets.length === 0 && uploadingCount === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">Upload product photos, mood boards, or style references for the AI to use.</p>
                 )}
-                {!uploadingAsset && campaignAssets.length === 0 && (
-                  <p className="text-xs text-muted-foreground mb-3">Upload product photos, mood boards, or style references. The AI will use these when generating images.</p>
-                )}
-                <input
-                  ref={assetFileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleAssetUpload(f); e.target.value = ""; }}
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs"
-                  onClick={() => assetFileRef.current?.click()}
-                  disabled={uploadingAsset}
-                >
-                  <Upload className="w-3 h-3" />
-                  Upload image
-                </Button>
               </div>
             )}
           </div>
