@@ -1,7 +1,7 @@
 import { storagePut } from 'server/storage';
 import { ENV } from './env';
 
-export type ImageModel = 'dall-e-3' | 'nano-banana-2';
+export type ImageModel = 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
 
 export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9';
 
@@ -10,6 +10,14 @@ const DALLE_SIZES: Record<AspectRatio, string> = {
   '4:5':  '1024x1792', // closest DALL-E portrait to 4:5
   '9:16': '1024x1792',
   '16:9': '1792x1024',
+};
+
+// gpt-image-1 supports auto, 1024x1024, 1536x1024, 1024x1536
+const GPT_IMAGE_SIZES: Record<AspectRatio, string> = {
+  '1:1':  '1024x1024',
+  '4:5':  '1024x1536',
+  '9:16': '1024x1536',
+  '16:9': '1536x1024',
 };
 
 const GEMINI_RATIO_HINTS: Record<AspectRatio, string> = {
@@ -36,6 +44,9 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
 
   if (model === 'nano-banana-2') {
     return generateWithGemini(options.prompt, ratio, options.referenceImages);
+  }
+  if (model === 'gpt-image-1') {
+    return generateWithGptImage1(options.prompt, ratio, options.referenceImages);
   }
   return generateWithDallE(options.prompt, ratio, options.referenceImages);
 }
@@ -140,6 +151,109 @@ async function generateWithGemini(prompt: string, aspectRatio: AspectRatio, refe
   const ext = mimeType.split('/')[1] ?? 'png';
   const buffer = Buffer.from(data, 'base64');
   const { url } = await storagePut(`generated/${Date.now()}.${ext}`, buffer, mimeType);
+  return { url };
+}
+
+/**
+ * Generates using gpt-image-1.
+ * - With reference images: uses the /edits endpoint (product photo → new scene).
+ *   Auto-writes the scene prompt via GPT-4o vision so no manual prompting needed.
+ * - Without reference images: uses /generations like DALL-E but with gpt-image-1.
+ */
+async function generateWithGptImage1(prompt: string, aspectRatio: AspectRatio, referenceImages?: { url: string; description: string }[]): Promise<GenerateImageResponse> {
+  if (!ENV.openAiApiKey) throw new Error('OPENAI_API_KEY is not configured');
+
+  const size = GPT_IMAGE_SIZES[aspectRatio];
+  const hasRefs = referenceImages && referenceImages.length > 0;
+
+  if (hasRefs) {
+    // Step 1: use GPT-4o vision to write a scene prompt from the product + post context
+    const descriptions = referenceImages!.map(r => r.description).filter(Boolean).join('; ');
+    const scenePromptRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 200,
+        messages: [
+          {
+            role: 'system',
+            content: 'You write image generation prompts for professional product photography. Given a product description and a scene/theme, write a single prompt (no preamble, no quotes) that describes placing the product in a beautiful, editorial-quality scene. Describe the environment, lighting, mood, and composition only — do not re-describe the product itself.',
+          },
+          {
+            role: 'user',
+            content: `Product: ${descriptions}\nScene/theme: ${prompt}\n\nWrite the image generation prompt:`,
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const sceneData = scenePromptRes.ok
+      ? await scenePromptRes.json() as { choices: Array<{ message: { content: string } }> }
+      : null;
+    const scenePrompt = sceneData?.choices[0]?.message?.content?.trim() ?? prompt;
+
+    // Step 2: fetch the first reference image
+    const ref = referenceImages![0];
+    const imgRes = await fetch(ref.url, { signal: AbortSignal.timeout(15_000) });
+    if (!imgRes.ok) throw new Error('Could not fetch reference image for editing');
+    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+    const mimeType = imgRes.headers.get('content-type') ?? 'image/jpeg';
+    const ext = mimeType.split('/')[1]?.split(';')[0] ?? 'jpg';
+
+    // Step 3: call /v1/images/edits with multipart form data
+    const form = new FormData();
+    form.append('model', 'gpt-image-1');
+    form.append('image[]', new Blob([imgBuffer], { type: mimeType }), `product.${ext}`);
+    form.append('prompt', `Professional product photography. ${scenePrompt}. Keep the product exactly as shown in the reference image but place it in a completely new, beautiful scene. Do not copy the original background.`);
+    form.append('size', size);
+    form.append('n', '1');
+
+    const editRes = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ENV.openAiApiKey}` },
+      body: form,
+      signal: AbortSignal.timeout(120_000),
+    });
+
+    if (!editRes.ok) {
+      const detail = await editRes.text().catch(() => '');
+      throw new Error(`gpt-image-1 edit failed (${editRes.status}): ${detail}`);
+    }
+
+    const editResult = await editRes.json() as { data: Array<{ b64_json?: string; url?: string }> };
+    const b64 = editResult.data[0]?.b64_json;
+    if (!b64) throw new Error('gpt-image-1 returned no image data');
+
+    const buffer = Buffer.from(b64, 'base64');
+    const { url } = await storagePut(`generated/${Date.now()}.png`, buffer, 'image/png');
+    return { url };
+  }
+
+  // No reference images — straight text-to-image with gpt-image-1
+  const genRes = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-image-1',
+      prompt,
+      n: 1,
+      size,
+    }),
+    signal: AbortSignal.timeout(120_000),
+  });
+
+  if (!genRes.ok) {
+    const detail = await genRes.text().catch(() => '');
+    throw new Error(`gpt-image-1 generation failed (${genRes.status}): ${detail}`);
+  }
+
+  const genResult = await genRes.json() as { data: Array<{ b64_json?: string }> };
+  const b64 = genResult.data[0]?.b64_json;
+  if (!b64) throw new Error('gpt-image-1 returned no image data');
+
+  const buffer = Buffer.from(b64, 'base64');
+  const { url } = await storagePut(`generated/${Date.now()}.png`, buffer, 'image/png');
   return { url };
 }
 

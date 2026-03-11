@@ -618,7 +618,7 @@ export const appRouter = router({
     setImageModel: adminProcedure
       .input(z.object({
         id: z.number().int(),
-        imageModel: z.enum(['dall-e-3', 'nano-banana-2']),
+        imageModel: z.enum(['dall-e-3', 'nano-banana-2', 'gpt-image-1']),
       }))
       .mutation(async ({ input }) => {
         await updateCampaign(input.id, { imageModel: input.imageModel });
@@ -729,7 +729,7 @@ export const appRouter = router({
             getCampaignById(post.campaignId),
             getCampaignAssets(post.campaignId),
           ]);
-          const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
+          const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
           const style = campaign?.imageStyle ?? '';
           const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
           const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));
@@ -747,7 +747,7 @@ export const appRouter = router({
             getCampaignById(post.campaignId),
             getCampaignAssets(post.campaignId),
           ]);
-          const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2';
+          const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
           const style = campaign?.imageStyle ?? '';
           const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
           const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));

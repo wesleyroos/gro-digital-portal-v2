@@ -740,12 +740,13 @@ export default function MarketingCampaignWorkspace() {
                     <span className="text-[11px] text-muted-foreground font-medium">Model:</span>
                     <select
                       value={campaign.imageModel ?? "dall-e-3"}
-                      onChange={e => setImageModelMutation.mutate({ id: campaignId, imageModel: e.target.value as "dall-e-3" | "nano-banana-2" })}
+                      onChange={e => setImageModelMutation.mutate({ id: campaignId, imageModel: e.target.value as "dall-e-3" | "nano-banana-2" | "gpt-image-1" })}
                       disabled={setImageModelMutation.isPending}
                       className="text-xs h-7 rounded-md border border-input bg-background px-2 pr-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-400 appearance-auto"
                     >
                       <option value="dall-e-3">DALL-E 3</option>
                       <option value="nano-banana-2">Nano Banana 2</option>
+                      <option value="gpt-image-1">GPT Image 1</option>
                     </select>
                   </div>
                 </div>
