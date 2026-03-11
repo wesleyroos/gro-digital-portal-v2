@@ -447,82 +447,30 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
   next();
 }
 
-// ── MCP Sessions ────────────────────────────────────────────────────────
-
-interface Session {
-  transport: StreamableHTTPServerTransport;
-  server: McpServer;
-}
-
-const sessions = new Map<string, Session>();
-
-// ── MCP Transport (stateful — one server per session) ───────────────────
+// ── MCP Transport (stateless — one server per request) ──────────────────
+// Each POST is fully self-contained: tool result goes in the HTTP response
+// body, so no SSE channel is needed to deliver responses.
 
 app.post("/mcp", requireAuth, async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-  if (sessionId && sessions.has(sessionId)) {
-    // Existing session
-    console.log(`[MCP] Reusing session ${sessionId}`);
-    const { transport } = sessions.get(sessionId)!;
-    try {
-      await transport.handleRequest(req, res, req.body);
-    } catch (err) {
-      console.error("[MCP] Error in existing session:", err);
-      if (!res.headersSent) res.status(500).json({ error: "internal_error" });
-    }
-    return;
-  }
-
-  // New session — fresh McpServer + transport
-  console.log("[MCP] Creating new session, body:", JSON.stringify(req.body));
+  console.log(`[MCP] POST body: ${JSON.stringify(req.body)}`);
   const mcpServer = createMcpServer();
   const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => crypto.randomUUID(),
-    onsessioninitialized: (id) => {
-      console.log(`[MCP] Session initialized: ${id}`);
-      sessions.set(id, { transport, server: mcpServer });
-    },
+    sessionIdGenerator: undefined, // stateless
   });
-
-  transport.onclose = () => {
-    for (const [id, s] of sessions.entries()) {
-      if (s.transport === transport) {
-        console.log(`[MCP] Session closed: ${id}`);
-        sessions.delete(id);
-        s.server.close().catch(() => {});
-        break;
-      }
-    }
-  };
-
   try {
     await mcpServer.connect(transport);
     await transport.handleRequest(req, res, req.body);
   } catch (err) {
-    console.error("[MCP] Error creating session:", err);
+    console.error("[MCP] Error handling request:", err);
     if (!res.headersSent) res.status(500).json({ error: "internal_error" });
+  } finally {
+    await mcpServer.close().catch(() => {});
   }
 });
 
-// GET /mcp — Claude.ai opens an SSE stream immediately after init.
-// Keep it open so Claude.ai doesn't consider the connection broken.
-app.get("/mcp", requireAuth, async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-  if (sessionId && sessions.has(sessionId)) {
-    // Use existing transport for server-initiated messages
-    const { transport } = sessions.get(sessionId)!;
-    try {
-      await transport.handleRequest(req, res, req.body);
-    } catch (err) {
-      console.error("[MCP] Error in SSE stream:", err);
-    }
-    return;
-  }
-
-  // No session yet — open a bare SSE keep-alive stream
-  console.log("[MCP] Opening bare SSE stream (no session)");
+// GET /mcp — keep-alive SSE so Claude.ai doesn't drop the connection.
+app.get("/mcp", requireAuth, (req, res) => {
+  console.log("[MCP] SSE keep-alive opened");
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -535,18 +483,12 @@ app.get("/mcp", requireAuth, async (req, res) => {
   }, 15_000);
 
   req.on("close", () => {
-    console.log("[MCP] SSE stream closed");
+    console.log("[MCP] SSE keep-alive closed");
     clearInterval(keepAlive);
   });
 });
 
 app.delete("/mcp", requireAuth, (_req, res) => {
-  const sessionId = _req.headers["mcp-session-id"] as string | undefined;
-  if (sessionId && sessions.has(sessionId)) {
-    const { server } = sessions.get(sessionId)!;
-    server.close().catch(() => {});
-    sessions.delete(sessionId);
-  }
   res.status(204).end();
 });
 
