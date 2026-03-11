@@ -75,7 +75,7 @@ export default function Tasks() {
 
   type Task = (typeof tasks)[0];
 
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("todo");
   const [clientFilter, setClientFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);

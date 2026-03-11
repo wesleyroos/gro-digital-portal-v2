@@ -359,8 +359,22 @@ export default function Home() {
                           ) : (
                             <p className="text-xs text-foreground leading-snug">{task.text}</p>
                           )}
-                          {task.clientName && editingTaskId !== task.id && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{task.clientName}</p>
+                          {editingTaskId !== task.id && (
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                              {task.clientName && (
+                                <span className="text-[10px] text-muted-foreground">{task.clientName}</span>
+                              )}
+                              {task.dueDate && (
+                                <span className={`text-[10px] font-medium ${new Date(task.dueDate) < new Date() ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                  Due {new Date(task.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                </span>
+                              )}
+                              {task.createdAt && (
+                                <span className="text-[10px] text-muted-foreground/60">
+                                  Added {new Date(task.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                         {editingTaskId !== task.id && (

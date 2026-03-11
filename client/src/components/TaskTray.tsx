@@ -130,12 +130,26 @@ export default function TaskTray() {
                 ) : (
                   <p className="text-xs text-foreground leading-snug">{task.text}</p>
                 )}
-                {task.clientName && task.clientSlug && editingId !== task.id && (
-                  <Link href={`/client/${task.clientSlug}`} onClick={() => setOpen(false)}>
-                    <span className="text-[10px] text-primary hover:underline cursor-pointer">
-                      {task.clientName}
-                    </span>
-                  </Link>
+                {editingId !== task.id && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                    {task.clientName && task.clientSlug && (
+                      <Link href={`/client/${task.clientSlug}`} onClick={() => setOpen(false)}>
+                        <span className="text-[10px] text-primary hover:underline cursor-pointer">
+                          {task.clientName}
+                        </span>
+                      </Link>
+                    )}
+                    {task.dueDate && (
+                      <span className={`text-[10px] font-medium ${new Date(task.dueDate) < new Date() ? 'text-red-500' : 'text-muted-foreground'}`}>
+                        Due {new Date(task.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </span>
+                    )}
+                    {task.createdAt && (
+                      <span className="text-[10px] text-muted-foreground/60">
+                        Added {new Date(task.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
               {editingId !== task.id && (
