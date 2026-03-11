@@ -300,8 +300,9 @@ export function registerCampaignAgentRoutes(app: Express) {
     }
 
     const assetsWithDesc = assets.filter(a => a.aiDescription);
-    const assetsPromptSection = assetsWithDesc.length > 0
-      ? `\nBRAND REFERENCE IMAGES:\n${assetsWithDesc.map((a, i) => `- ${a.label || `Reference ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
+    const hasProductRefs = assetsWithDesc.length > 0;
+    const assetsPromptSection = hasProductRefs
+      ? `\nBRAND REFERENCE IMAGES (actual product photos uploaded by the client):\n${assetsWithDesc.map((a, i) => `- ${a.label || `Reference ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
       : '';
 
     const prompt = `You are generating an Instagram content calendar for a marketing campaign.
@@ -325,7 +326,7 @@ Return ONLY a valid JSON array — no explanation, no preamble, no markdown code
     "scheduledAt": "YYYY-MM-DDTHH:MM:SS",
     "caption": "engaging on-brand caption, 1-3 sentences",
     "hashtags": "#tag1 #tag2 #tag3 (10-20 hashtags, mix broad and niche)",
-    "imagePrompt": "cinematic visual description: subject, lighting, mood, colour palette, style",
+    "imagePrompt": "${hasProductRefs ? 'describe ONLY the scene/environment/lighting/mood — the product from the brand reference images will be placed into this scene automatically, so do NOT describe the product itself' : 'cinematic visual description: subject, lighting, mood, colour palette, style'}",
     "theme": "which content pillar this belongs to"
   }
 ]`;

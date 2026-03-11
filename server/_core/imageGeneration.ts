@@ -46,7 +46,7 @@ async function generateWithDallE(prompt: string, aspectRatio: AspectRatio, refer
   let fullPrompt = prompt;
   if (referenceImages && referenceImages.length > 0) {
     const refText = referenceImages.map(r => r.description).join('. ');
-    fullPrompt = `${prompt} Visual style reference: ${refText}`;
+    fullPrompt = `${prompt} The product to feature is described as follows — keep it accurate to this description but place it in a completely new professional scene: ${refText}`;
   }
 
   const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -87,8 +87,12 @@ async function generateWithGemini(prompt: string, aspectRatio: AspectRatio, refe
   // Build request parts: reference images as inlineData + text prompt
   type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
   const requestParts: GeminiPart[] = [];
-  if (referenceImages && referenceImages.length > 0) {
-    for (const ref of referenceImages) {
+  const hasRefs = referenceImages && referenceImages.length > 0;
+  if (hasRefs) {
+    requestParts.push({
+      text: 'The following image(s) are brand reference photos showing the actual product(s). Study the product carefully — its shape, colours, materials, and details. You will place this exact product into a completely new, professional scene. Do NOT copy the background, setting, or environment from the reference. Generate an entirely new environment around the product.',
+    });
+    for (const ref of referenceImages!) {
       try {
         const imgRes = await fetch(ref.url, { signal: AbortSignal.timeout(15_000) });
         if (imgRes.ok) {
@@ -101,8 +105,12 @@ async function generateWithGemini(prompt: string, aspectRatio: AspectRatio, refe
         // skip unreachable reference images
       }
     }
+    requestParts.push({
+      text: `Now generate a professional product photograph. Place the product from the reference image(s) into this scene: ${prompt}. ${GEMINI_RATIO_HINTS[aspectRatio]}. The product must look real and three-dimensional — same object, completely new environment.`,
+    });
+  } else {
+    requestParts.push({ text: `${GEMINI_RATIO_HINTS[aspectRatio]}. ${prompt}` });
   }
-  requestParts.push({ text: `${GEMINI_RATIO_HINTS[aspectRatio]}. ${prompt}` });
 
   const response = await fetch(endpoint, {
     method: 'POST',
