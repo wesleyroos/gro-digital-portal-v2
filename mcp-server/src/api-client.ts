@@ -4,6 +4,9 @@ import SuperJSON from "superjson";
 const PORTAL_URL = (process.env.PORTAL_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 const MCP_API_KEY = process.env.MCP_API_KEY ?? "";
 
+console.log(`[api-client] PORTAL_URL: ${PORTAL_URL}`);
+console.log(`[api-client] MCP_API_KEY set: ${!!MCP_API_KEY}`);
+
 const headers = {
   "Content-Type": "application/json",
   Authorization: `Bearer ${MCP_API_KEY}`,
@@ -24,7 +27,7 @@ export async function trpcQuery<T = unknown>(
     url += `?input=${encodeURIComponent(JSON.stringify(serialized))}`;
   }
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(30_000) });
 
   if (!res.ok) {
     const text = await res.text();
@@ -54,6 +57,7 @@ export async function trpcMutation<T = unknown>(
     method: "POST",
     headers,
     body: JSON.stringify(serialized),
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!res.ok) {
