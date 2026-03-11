@@ -752,6 +752,10 @@ export const appRouter = router({
           const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
           const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));
           const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio, referenceImages);
+          // If the post was rejected, reset to draft so the client can review the new image
+          if (post.status === 'rejected') {
+            await updatePostStatus(input.postId, 'draft');
+          }
           return { url };
         }),
 
@@ -787,11 +791,16 @@ export const appRouter = router({
           imagePrompt: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
+          const post = await getPostById(input.postId);
           await updatePostContent(input.postId, {
             caption: input.caption,
             hashtags: input.hashtags,
             imagePrompt: input.imagePrompt,
           });
+          // If the post was rejected, reset to draft so the client can review the changes
+          if (post?.status === 'rejected') {
+            await updatePostStatus(input.postId, 'draft');
+          }
           return { success: true };
         }),
 
