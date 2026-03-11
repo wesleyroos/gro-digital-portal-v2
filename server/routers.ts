@@ -712,6 +712,13 @@ export const appRouter = router({
           return { success: true };
         }),
 
+      setStatus: adminProcedure
+        .input(z.object({ postId: z.number().int(), status: z.enum(['draft', 'approved', 'rejected', 'scheduled']) }))
+        .mutation(async ({ input }) => {
+          await updatePostStatus(input.postId, input.status);
+          return { success: true };
+        }),
+
       reject: adminProcedure
         .input(z.object({ postId: z.number().int(), notes: z.string().optional() }))
         .mutation(async ({ input }) => {

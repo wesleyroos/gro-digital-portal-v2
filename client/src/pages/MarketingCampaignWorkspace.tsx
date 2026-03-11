@@ -139,6 +139,10 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => refetch(),
     onError: () => toast.error("Failed to reject post"),
   });
+  const updateStatusDirectMutation = trpc.campaign.post.setStatus.useMutation({
+    onSuccess: () => refetch(),
+    onError: () => toast.error("Failed to update status"),
+  });
   const generateImageMutation = trpc.campaign.post.generateImage.useMutation({
     onMutate: ({ postId }) => setGeneratingPostIds(s => new Set(s).add(postId)),
     onSuccess: (_data, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.success("Image generated"); refetch(); },
@@ -876,9 +880,26 @@ export default function MarketingCampaignWorkspace() {
                         </div>
                       )}
                       <div className="absolute top-2 right-2">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${POST_STATUS_COLORS[post.status] ?? ""}`}>
-                          {post.status}
-                        </span>
+                        {(post.status === "draft" || post.status === "approved" || post.status === "rejected") ? (
+                          <select
+                            value={post.status}
+                            onChange={e => {
+                              const s = e.target.value as "draft" | "approved" | "rejected";
+                              if (s === "approved") approveMutation.mutate({ postId: post.id });
+                              else if (s === "rejected") rejectMutation.mutate({ postId: post.id });
+                              else updateStatusDirectMutation.mutate({ postId: post.id, status: s });
+                            }}
+                            className={`text-[10px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-400 ${POST_STATUS_COLORS[post.status] ?? ""}`}
+                          >
+                            <option value="draft">draft</option>
+                            <option value="approved">approved</option>
+                            <option value="rejected">rejected</option>
+                          </select>
+                        ) : (
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${POST_STATUS_COLORS[post.status] ?? ""}`}>
+                            {post.status}
+                          </span>
+                        )}
                       </div>
                     </div>
 
