@@ -75,7 +75,7 @@ export default function Tasks() {
 
   type Task = (typeof tasks)[0];
 
-  const [statusFilter, setStatusFilter] = useState<string>("todo");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const [clientFilter, setClientFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -162,7 +162,9 @@ export default function Tasks() {
   const today = new Date().toISOString().split("T")[0];
 
   const filtered = tasks.filter(t => {
-    if (statusFilter !== "all" && t.status !== statusFilter) return false;
+    if (statusFilter === "active") {
+      if (t.status !== "todo" && t.status !== "in_progress") return false;
+    } else if (statusFilter !== "all" && t.status !== statusFilter) return false;
     if (clientFilter && t.clientSlug !== clientFilter) return false;
     return true;
   });
@@ -189,7 +191,7 @@ export default function Tasks() {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-          {[{ key: "all", label: "All" }, ...STATUS_OPTIONS.map(s => ({ key: s.key, label: s.label }))].map(s => (
+          {[{ key: "all", label: "All" }, { key: "active", label: "Active" }, ...STATUS_OPTIONS.map(s => ({ key: s.key, label: s.label }))].map(s => (
             <button
               key={s.key}
               onClick={() => setStatusFilter(s.key)}
