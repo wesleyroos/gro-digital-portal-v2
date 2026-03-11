@@ -407,7 +407,7 @@ export const appRouter = router({
         contactPhone: z.string().nullish(),
         monthlyValue: z.number().nullish(),
         onceOffValue: z.number().nullish(),
-        stage: z.enum(['prospect', 'proposal', 'negotiation']).default('prospect'),
+        stage: z.enum(['prospect', 'proposal', 'negotiation', 'cold']).default('prospect'),
         notes: z.string().nullish(),
       }))
       .mutation(async ({ input }) => {
@@ -424,7 +424,7 @@ export const appRouter = router({
         contactPhone: z.string().nullish(),
         monthlyValue: z.number().nullish(),
         onceOffValue: z.number().nullish(),
-        stage: z.enum(['prospect', 'proposal', 'negotiation']).optional(),
+        stage: z.enum(['prospect', 'proposal', 'negotiation', 'cold']).optional(),
         notes: z.string().nullish(),
       }))
       .mutation(async ({ input }) => {

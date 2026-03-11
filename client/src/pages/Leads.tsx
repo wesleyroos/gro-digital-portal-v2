@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, User, Phone, Mail, ChevronRight, Repeat, Wrench, ScrollText } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Phone, Mail, ChevronRight, Repeat, Wrench, ScrollText, Snowflake, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
-type Stage = "prospect" | "proposal" | "negotiation";
+type Stage = "prospect" | "proposal" | "negotiation" | "cold";
 
 const STAGES: { key: Stage; label: string; color: string; bg: string }[] = [
   { key: "prospect", label: "Prospect", color: "text-sky-600", bg: "bg-sky-50 border-sky-200/60" },
@@ -49,6 +49,7 @@ export default function Leads() {
   const { data: allProposals = [] } = trpc.proposal.list.useQuery();
   type Lead = (typeof leads)[0];
 
+  const [coldOpen, setColdOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [form, setForm] = useState<LeadFormData>(emptyForm());
@@ -130,18 +131,29 @@ export default function Leads() {
 
   function advanceStage(lead: Lead) {
     const stageOrder: Stage[] = ["prospect", "proposal", "negotiation"];
-    const idx = stageOrder.indexOf(lead.stage);
-    if (idx < stageOrder.length - 1) {
+    const idx = stageOrder.indexOf(lead.stage as Stage);
+    if (idx >= 0 && idx < stageOrder.length - 1) {
       stageMutation.mutate({ id: lead.id, stage: stageOrder[idx + 1] });
     }
   }
 
+  function markCold(lead: Lead) {
+    stageMutation.mutate({ id: lead.id, stage: "cold" });
+  }
+
+  function reactivateLead(lead: Lead) {
+    stageMutation.mutate({ id: lead.id, stage: "prospect" });
+  }
+
+  const activeLeads = leads.filter(l => l.stage !== "cold");
+  const coldLeads = leads.filter(l => l.stage === "cold");
+
   const stageMap = Object.fromEntries(
-    STAGES.map(s => [s.key, leads.filter(l => l.stage === s.key)])
+    STAGES.map(s => [s.key, activeLeads.filter(l => l.stage === s.key)])
   ) as Record<Stage, Lead[]>;
 
-  const totalMonthly = leads.reduce((sum, l) => sum + (l.monthlyValue ? parseFloat(l.monthlyValue) : 0), 0);
-  const totalOnceOff = leads.reduce((sum, l) => sum + (l.onceOffValue ? parseFloat(l.onceOffValue) : 0), 0);
+  const totalMonthly = activeLeads.reduce((sum, l) => sum + (l.monthlyValue ? parseFloat(l.monthlyValue) : 0), 0);
+  const totalOnceOff = activeLeads.reduce((sum, l) => sum + (l.onceOffValue ? parseFloat(l.onceOffValue) : 0), 0);
 
   return (
     <div>
@@ -150,7 +162,8 @@ export default function Leads() {
         <div>
           <h1 className="text-xl font-bold tracking-tight">Leads</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {leads.length} lead{leads.length !== 1 ? "s" : ""}
+            {activeLeads.length} active lead{activeLeads.length !== 1 ? "s" : ""}
+            {coldLeads.length > 0 && <> · {coldLeads.length} cold</>}
             {totalMonthly > 0 && <> · <span className="font-mono">{fmtShort(totalMonthly)}/mo</span> recurring pipeline</>}
             {totalOnceOff > 0 && <> · <span className="font-mono">{fmtShort(totalOnceOff)}</span> once-off pipeline</>}
           </p>
@@ -312,15 +325,25 @@ export default function Leads() {
                           );
                         })()}
 
-                        {stage.key !== "negotiation" && (
+                        <div className="flex items-center justify-between mt-3">
+                          {stage.key !== "negotiation" ? (
+                            <button
+                              onClick={() => advanceStage(lead)}
+                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <ChevronRight className="w-3 h-3" />
+                              <span>Move to {STAGES[STAGES.findIndex(s => s.key === stage.key) + 1]?.label}</span>
+                            </button>
+                          ) : <span />}
                           <button
-                            onClick={() => advanceStage(lead)}
-                            className="flex items-center gap-1 mt-3 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={() => markCold(lead)}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-sky-500 transition-colors"
+                            title="Mark as cold"
                           >
-                            <ChevronRight className="w-3 h-3" />
-                            <span>Move to {STAGES[STAGES.findIndex(s => s.key === stage.key) + 1]?.label}</span>
+                            <Snowflake className="w-3 h-3" />
+                            <span>Gone cold</span>
                           </button>
-                        )}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -328,6 +351,71 @@ export default function Leads() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Gone Cold section */}
+      {coldLeads.length > 0 && (
+        <div className="mt-8">
+          <button
+            onClick={() => setColdOpen(o => !o)}
+            className="flex items-center gap-2 mb-3 group"
+          >
+            <Snowflake className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 group-hover:text-slate-600 transition-colors">
+              Gone Cold
+            </span>
+            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+              {coldLeads.length}
+            </span>
+            <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${coldOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {coldOpen && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {coldLeads.map((lead) => (
+                <Card key={lead.id} className="shadow-none border border-slate-100 bg-slate-50/50 group opacity-60 hover:opacity-100 transition-opacity">
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-sm font-medium text-muted-foreground leading-tight">{lead.name}</p>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          onClick={() => openEdit(lead)}
+                          className="h-6 w-6 flex items-center justify-center hover:bg-background rounded transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(lead.id)}
+                          className="h-6 w-6 flex items-center justify-center hover:bg-background rounded transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      </div>
+                    </div>
+                    {lead.contactName && (
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <User className="w-3 h-3 text-muted-foreground/60" />
+                        <span className="text-[11px] text-muted-foreground/70">{lead.contactName}</span>
+                      </div>
+                    )}
+                    {lead.notes && (
+                      <p className="text-[11px] text-muted-foreground/60 mt-1 line-clamp-1 italic">{lead.notes}</p>
+                    )}
+                    <button
+                      onClick={() => reactivateLead(lead)}
+                      className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ChevronRight className="w-3 h-3" />
+                      <span>Reactivate</span>
+                    </button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -367,6 +455,7 @@ export default function Leads() {
                     {STAGES.map(s => (
                       <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
                     ))}
+                    <SelectItem value="cold">Cold</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -134,7 +134,7 @@ export const leads = mysqlTable("leads", {
   contactPhone: varchar("contactPhone", { length: 64 }),
   monthlyValue: decimal("monthlyValue", { precision: 12, scale: 2 }),
   onceOffValue: decimal("onceOffValue", { precision: 12, scale: 2 }),
-  stage: mysqlEnum("stage", ["prospect", "proposal", "negotiation"]).default("prospect").notNull(),
+  stage: mysqlEnum("stage", ["prospect", "proposal", "negotiation", "cold"]).default("prospect").notNull(),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
