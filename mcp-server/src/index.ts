@@ -128,8 +128,12 @@ function createMcpServer(): McpServer {
       stage: z.enum(["prospect", "proposal", "negotiation"]).describe("New pipeline stage"),
     },
     async ({ lead_id, stage }) => {
-      await trpcMutation("lead.update", { id: lead_id, stage });
-      return { content: [{ type: "text", text: `Lead ${lead_id} moved to "${stage}" stage.` }] };
+      try {
+        await trpcMutation("lead.update", { id: lead_id, stage });
+        return { content: [{ type: "text", text: `Lead ${lead_id} moved to "${stage}" stage.` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
@@ -152,24 +156,28 @@ function createMcpServer(): McpServer {
       notes: z.string().optional().describe("Additional notes"),
     },
     async ({ client_slug, client_name, client_email, project_name, invoice_type, items, due_date, notes }) => {
-      const result = await trpcMutation("invoice.create", {
-        clientSlug: client_slug,
-        clientName: client_name,
-        clientEmail: client_email,
-        clientContact: client_name,
-        projectName: project_name,
-        invoiceType: invoice_type,
-        items: items.map((item, i) => ({
-          ...item,
-          lineTotal: item.unitPrice * item.quantity,
-          sortOrder: i,
-          frequency: "once-off" as const,
-          vat: item.vat ?? false,
-        })),
-        dueDate: due_date ? new Date(due_date).toISOString() : undefined,
-        notes,
-      });
-      return { content: [{ type: "text", text: `Invoice created: ${JSON.stringify(result, null, 2)}` }] };
+      try {
+        const result = await trpcMutation("invoice.create", {
+          clientSlug: client_slug,
+          clientName: client_name,
+          clientEmail: client_email,
+          clientContact: client_name,
+          projectName: project_name,
+          invoiceType: invoice_type,
+          items: items.map((item, i) => ({
+            ...item,
+            lineTotal: item.unitPrice * item.quantity,
+            sortOrder: i,
+            frequency: "once-off" as const,
+            vat: item.vat ?? false,
+          })),
+          dueDate: due_date ? new Date(due_date).toISOString() : undefined,
+          notes,
+        });
+        return { content: [{ type: "text", text: `Invoice created: ${JSON.stringify(result, null, 2)}` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
@@ -184,8 +192,12 @@ function createMcpServer(): McpServer {
       notes: z.string().optional().describe("Additional notes"),
     },
     async ({ text, client_slug, due_date, priority, notes }) => {
-      await trpcMutation("task.create", { text, clientSlug: client_slug, dueDate: due_date, priority, notes });
-      return { content: [{ type: "text", text: `Task created: "${text}"` }] };
+      try {
+        await trpcMutation("task.create", { text, clientSlug: client_slug, dueDate: due_date, priority, notes });
+        return { content: [{ type: "text", text: `Task created: "${text}"` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
@@ -197,8 +209,12 @@ function createMcpServer(): McpServer {
       status: z.enum(["draft", "sent", "paid", "overdue"]).describe("New status"),
     },
     async ({ invoice_id, status }) => {
-      await trpcMutation("invoice.updateStatus", { invoiceId: invoice_id, status });
-      return { content: [{ type: "text", text: `Invoice ${invoice_id} status updated to "${status}".` }] };
+      try {
+        await trpcMutation("invoice.updateStatus", { invoiceId: invoice_id, status });
+        return { content: [{ type: "text", text: `Invoice ${invoice_id} status updated to "${status}".` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
@@ -207,7 +223,7 @@ function createMcpServer(): McpServer {
     "Create a new lead in the pipeline",
     {
       name: z.string().describe("Lead/company name"),
-      contact_name: z.string().describe("Contact person's name"),
+      contact_name: z.string().optional().describe("Contact person's name"),
       contact_email: z.string().optional().describe("Contact email"),
       contact_phone: z.string().optional().describe("Contact phone"),
       monthly_value: z.number().optional().describe("Estimated monthly value"),
@@ -216,17 +232,21 @@ function createMcpServer(): McpServer {
       notes: z.string().optional().describe("Notes about the lead"),
     },
     async ({ name, contact_name, contact_email, contact_phone, monthly_value, once_off_value, stage, notes }) => {
-      await trpcMutation("lead.create", {
-        name,
-        contactName: contact_name,
-        contactEmail: contact_email ?? "",
-        contactPhone: contact_phone ?? "",
-        monthlyValue: monthly_value ?? 0,
-        onceOffValue: once_off_value ?? 0,
-        stage,
-        notes: notes ?? "",
-      });
-      return { content: [{ type: "text", text: `Lead "${name}" created in "${stage}" stage.` }] };
+      try {
+        await trpcMutation("lead.create", {
+          name,
+          contactName: contact_name ?? null,
+          contactEmail: contact_email ?? null,
+          contactPhone: contact_phone ?? null,
+          monthlyValue: monthly_value ?? null,
+          onceOffValue: once_off_value ?? null,
+          stage,
+          notes: notes ?? null,
+        });
+        return { content: [{ type: "text", text: `Lead "${name}" created in "${stage}" stage.` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
@@ -238,8 +258,12 @@ function createMcpServer(): McpServer {
       done: z.boolean().describe("true to mark done, false to mark not done"),
     },
     async ({ task_id, done }) => {
-      await trpcMutation("task.setDone", { id: task_id, done });
-      return { content: [{ type: "text", text: `Task ${task_id} marked as ${done ? "done" : "not done"}.` }] };
+      try {
+        await trpcMutation("task.setDone", { id: task_id, done });
+        return { content: [{ type: "text", text: `Task ${task_id} marked as ${done ? "done" : "not done"}.` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
