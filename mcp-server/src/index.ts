@@ -45,8 +45,12 @@ function createMcpServer(): McpServer {
   // ── Read Tools ────────────────────────────────────────────────────────
 
   server.tool("get_clients", "List all clients with name, contact info, and linked profiles", {}, async () => {
-    const clients = await trpcQuery<any[]>("invoice.clients");
-    return { content: [{ type: "text", text: JSON.stringify(clients, null, 2) }] };
+    try {
+      const clients = await trpcQuery<any[]>("invoice.clients");
+      return { content: [{ type: "text", text: JSON.stringify(clients, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
   });
 
   server.tool(
@@ -54,14 +58,22 @@ function createMcpServer(): McpServer {
     "Get detailed profile for a specific client including contact info and social connections",
     { client_slug: z.string().describe("The client's slug identifier (e.g. 'acme-corp')") },
     async ({ client_slug }) => {
-      const profile = await trpcQuery("client.getProfile", { clientSlug: client_slug });
-      return { content: [{ type: "text", text: JSON.stringify(profile, null, 2) }] };
+      try {
+        const profile = await trpcQuery("client.getProfile", { clientSlug: client_slug });
+        return { content: [{ type: "text", text: JSON.stringify(profile, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
   server.tool("get_leads", "List all leads in the pipeline with stage, source, value, and contact info", {}, async () => {
-    const leads = await trpcQuery<any[]>("lead.list");
-    return { content: [{ type: "text", text: JSON.stringify(leads, null, 2) }] };
+    try {
+      const leads = await trpcQuery<any[]>("lead.list");
+      return { content: [{ type: "text", text: JSON.stringify(leads, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
   });
 
   server.tool(
@@ -69,10 +81,14 @@ function createMcpServer(): McpServer {
     "List all invoices. Optionally filter by client slug",
     { client_slug: z.string().optional().describe("Filter by client slug (optional)") },
     async ({ client_slug }) => {
-      const invoices = client_slug
-        ? await trpcQuery("invoice.listByClient", { clientSlug: client_slug })
-        : await trpcQuery("invoice.list");
-      return { content: [{ type: "text", text: JSON.stringify(invoices, null, 2) }] };
+      try {
+        const invoices = client_slug
+          ? await trpcQuery("invoice.listByClient", { clientSlug: client_slug })
+          : await trpcQuery("invoice.list");
+        return { content: [{ type: "text", text: JSON.stringify(invoices, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
@@ -81,8 +97,12 @@ function createMcpServer(): McpServer {
     "Get a specific invoice with line items by invoice number",
     { invoice_number: z.string().describe("The invoice number (e.g. 'INV-001')") },
     async ({ invoice_number }) => {
-      const result = await trpcQuery("invoice.getByNumber", { invoiceNumber: invoice_number });
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      try {
+        const result = await trpcQuery("invoice.getByNumber", { invoiceNumber: invoice_number });
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
@@ -91,31 +111,51 @@ function createMcpServer(): McpServer {
     "List all proposals. Optionally filter by client slug",
     { client_slug: z.string().optional().describe("Filter by client slug (optional)") },
     async ({ client_slug }) => {
-      const proposals = client_slug
-        ? await trpcQuery("proposal.listByClient", { clientSlug: client_slug })
-        : await trpcQuery("proposal.list");
-      return { content: [{ type: "text", text: JSON.stringify(proposals, null, 2) }] };
+      try {
+        const proposals = client_slug
+          ? await trpcQuery("proposal.listByClient", { clientSlug: client_slug })
+          : await trpcQuery("proposal.list");
+        return { content: [{ type: "text", text: JSON.stringify(proposals, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
     }
   );
 
   server.tool("get_tasks", "List all tasks with status, due dates, priority, and assigned client", {}, async () => {
-    const tasks = await trpcQuery<any[]>("task.list");
-    return { content: [{ type: "text", text: JSON.stringify(tasks, null, 2) }] };
+    try {
+      const tasks = await trpcQuery<any[]>("task.list");
+      return { content: [{ type: "text", text: JSON.stringify(tasks, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
   });
 
   server.tool("get_subscriptions", "List all recurring subscriptions (MRR/ARR tracking) with amount, type, and status", {}, async () => {
-    const subs = await trpcQuery<any[]>("subscription.list");
-    return { content: [{ type: "text", text: JSON.stringify(subs, null, 2) }] };
+    try {
+      const subs = await trpcQuery<any[]>("subscription.list");
+      return { content: [{ type: "text", text: JSON.stringify(subs, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
   });
 
   server.tool("get_revenue_summary", "Get comprehensive revenue metrics: MRR, ARR, monthly breakdown, outstanding invoices, project fees", {}, async () => {
-    const metrics = await trpcQuery("invoice.metrics");
-    return { content: [{ type: "text", text: JSON.stringify(metrics, null, 2) }] };
+    try {
+      const metrics = await trpcQuery("invoice.metrics");
+      return { content: [{ type: "text", text: JSON.stringify(metrics, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
   });
 
   server.tool("get_campaigns", "List all marketing campaigns with status, client, and date range", {}, async () => {
-    const campaigns = await trpcQuery<any[]>("campaign.list");
-    return { content: [{ type: "text", text: JSON.stringify(campaigns, null, 2) }] };
+    try {
+      const campaigns = await trpcQuery<any[]>("campaign.list");
+      return { content: [{ type: "text", text: JSON.stringify(campaigns, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+    }
   });
 
   // ── Write Tools ───────────────────────────────────────────────────────
