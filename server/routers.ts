@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import sharp from 'sharp';
 import { COOKIE_NAME } from "@shared/const";
 import { ENV } from "./_core/env";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -90,6 +91,46 @@ import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUse
 import { getFacebookPostInsights, postImageToPage, postVideoToPage } from "./facebook";
 import { getPendingFacebookPages, confirmFacebookPage } from "./facebook-oauth";
 import { getCalendarEvents } from "./calendar";
+
+/**
+ * Finds <img src="..."> URLs in HTML, fetches each image, compresses to max
+ * 1200px wide JPEG at 80% quality using Sharp, re-uploads to R2 under
+ * email-compressed/, and replaces the original URL in the HTML.
+ * Skips images that are already small (<100KB) or unreachable.
+ */
+async function compressMailerImages(html: string): Promise<string> {
+  const urlRegex = /<img[^>]+src="(https?:\/\/[^"]+)"/gi;
+  const matches: { original: string; url: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = urlRegex.exec(html)) !== null) {
+    matches.push({ original: m[0], url: m[1] });
+  }
+  if (matches.length === 0) return html;
+
+  let result = html;
+  await Promise.allSettled(
+    matches.map(async ({ url }) => {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+        if (!res.ok) return;
+        const arrayBuf = await res.arrayBuffer();
+        const original = Buffer.from(arrayBuf);
+        if (original.byteLength < 100_000) return; // already small, skip
+
+        const compressed = await sharp(original)
+          .resize({ width: 1200, withoutEnlargement: true })
+          .jpeg({ quality: 80, mozjpeg: true })
+          .toBuffer();
+
+        const { url: newUrl } = await storagePut(`email-compressed/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`, compressed, 'image/jpeg');
+        result = result.replaceAll(url, newUrl);
+      } catch {
+        // keep original URL on any error
+      }
+    })
+  );
+  return result;
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -1205,6 +1246,9 @@ DESIGN REQUIREMENTS:
           if (!mailer) throw new TRPCError({ code: 'NOT_FOUND', message: 'Mailer not found' });
           if (!mailer.htmlContent) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Mailer has no HTML content yet' });
 
+          // Compress any large images referenced in the HTML before sending
+          const html = await compressMailerImages(mailer.htmlContent);
+
           const resend = new Resend(ENV.resendApiKey);
           const results = await Promise.allSettled(
             input.emails.map(email =>
@@ -1212,7 +1256,7 @@ DESIGN REQUIREMENTS:
                 from: ENV.resendFromEmail,
                 to: email,
                 subject: `[TEST] ${mailer.subject || 'Email preview'}`,
-                html: mailer.htmlContent!,
+                html,
               })
             )
           );
