@@ -1071,6 +1071,86 @@ export const appRouter = router({
           await deleteCampaignMailer(input.id);
           return { success: true };
         }),
+
+      generate: adminProcedure
+        .input(z.object({
+          campaignId: z.number().int(),
+          heroImageUrl: z.string().nullable().optional(),
+          purpose: z.string().optional(),
+        }))
+        .mutation(async ({ input }) => {
+          if (!ENV.openAiApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'OpenAI not configured' });
+          const [campaign, assets] = await Promise.all([
+            getCampaignById(input.campaignId),
+            getCampaignAssets(input.campaignId),
+          ]);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+
+          const assetsSection = assets.filter(a => a.aiDescription).length > 0
+            ? `\nBRAND REFERENCE IMAGES (use these for colour palette, style, and visual tone):\n${assets.filter(a => a.aiDescription).map((a, i) => `- ${a.label || `Reference ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
+            : '';
+
+          const heroSection = input.heroImageUrl
+            ? `Use this image as the hero image: ${input.heroImageUrl}`
+            : 'No hero image — use a solid brand-coloured header instead.';
+          const purposeSection = input.purpose ? `\nMAILER PURPOSE: ${input.purpose}` : '';
+
+          const prompt = `You are an expert HTML email developer. Generate a complete, professional, mobile-responsive HTML email for this marketing campaign.
+
+CAMPAIGN: ${campaign.name}
+CLIENT: ${campaign.clientSlug}
+BRAND VOICE: ${campaign.brandVoice ?? 'Not specified'}
+TARGET AUDIENCE: ${campaign.targetAudience ?? 'Not specified'}
+CONTENT THEMES: ${campaign.contentThemes ?? 'Not specified'}
+STRATEGY SUMMARY: ${campaign.strategy ? campaign.strategy.slice(0, 800) : 'Not specified'}${purposeSection}${assetsSection}
+
+HERO IMAGE: ${heroSection}
+LOGO: No logo URL is available — leave a placeholder text "[LOGO]" in the header where the logo would go, styled as the brand name in a large, bold font. The client will replace it with their actual logo.
+
+REQUIREMENTS:
+- Complete HTML document with all CSS inlined (email-client compatible)
+- Max width 600px, centered
+- Mobile responsive using media queries in a <style> block
+- Structure: header with brand name → hero image (if provided) → headline → body copy → CTA button → footer
+- Body copy should be compelling and match the brand voice, referencing content themes
+- CTA button should be a solid colour, rounded, clearly clickable
+- Footer must include: "© ${new Date().getFullYear()} ${campaign.clientSlug}" and an unsubscribe placeholder link
+- Use web-safe fonts or system font stack
+- Colours: derive a tasteful palette from the brand voice (bold = dark + accent; playful = bright; professional = navy/grey)
+- Return ONLY the raw HTML — no explanation, no markdown, no code fences`;
+
+          const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              max_tokens: 4096,
+              messages: [
+                { role: 'system', content: 'You are an expert HTML email developer. Output only raw HTML with no markdown, no code fences, no explanations.' },
+                { role: 'user', content: prompt },
+              ],
+            }),
+            signal: AbortSignal.timeout(60_000),
+          });
+
+          if (!res.ok) {
+            const detail = await res.text().catch(() => '');
+            throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `OpenAI error: ${detail.slice(0, 200)}` });
+          }
+
+          const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+          let html = data.choices[0]?.message?.content?.trim() ?? '';
+          // Strip markdown code fences if the model included them anyway
+          html = html.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
+
+          const subject = input.purpose
+            ? input.purpose.slice(0, 100)
+            : `${campaign.name} — ${new Date().toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}`;
+
+          const mailer = await createCampaignMailer(input.campaignId);
+          await updateCampaignMailer(mailer.id, { subject, htmlContent: html });
+          return { ...mailer, subject, htmlContent: html };
+        }),
     }),
   }),
 

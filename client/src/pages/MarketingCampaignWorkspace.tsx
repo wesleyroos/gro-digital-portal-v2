@@ -90,6 +90,9 @@ export default function MarketingCampaignWorkspace() {
   const [mailerTab, setMailerTab] = useState<'edit' | 'preview'>('edit');
   const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
   const [mailerDirty, setMailerDirty] = useState(false);
+  const [showGenerateMailer, setShowGenerateMailer] = useState(false);
+  const [generateHeroUrl, setGenerateHeroUrl] = useState<string | null>(null);
+  const [generatePurpose, setGeneratePurpose] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assetFileRef = useRef<HTMLInputElement>(null);
@@ -125,6 +128,20 @@ export default function MarketingCampaignWorkspace() {
   const deleteMailerMutation = trpc.campaign.mailer.delete.useMutation({
     onSuccess: () => { refetchMailers(); setSelectedMailerId(null); },
     onError: () => toast.error('Failed to delete mailer'),
+  });
+  const generateMailerMutation = trpc.campaign.mailer.generate.useMutation({
+    onSuccess: (mailer) => {
+      refetchMailers();
+      setSelectedMailerId(mailer.id);
+      setMailerDraft({ subject: mailer.subject ?? '', previewText: '', htmlContent: mailer.htmlContent ?? '', scheduledAt: '', notes: '' });
+      setMailerDirty(false);
+      setMailerTab('preview');
+      setShowGenerateMailer(false);
+      setGenerateHeroUrl(null);
+      setGeneratePurpose('');
+      toast.success('Mailer generated — check the Preview tab');
+    },
+    onError: (e) => toast.error(`Generation failed: ${e.message}`),
   });
 
   async function generateCalendar() {
@@ -1171,14 +1188,23 @@ export default function MarketingCampaignWorkspace() {
             <Button
               size="sm"
               className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5 w-full"
+              onClick={() => setShowGenerateMailer(true)}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Generate Mailer
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 w-full"
               onClick={() => createMailerMutation.mutate({ campaignId })}
               disabled={createMailerMutation.isPending}
             >
               <Mail className="w-3.5 h-3.5" />
-              New Mailer
+              Blank Mailer
             </Button>
             {mailers.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center pt-4">No mailers yet. Create one to get started.</p>
+              <p className="text-xs text-muted-foreground text-center pt-4">No mailers yet.</p>
             )}
             {mailers.map(mailer => (
               <button
@@ -1312,6 +1338,71 @@ export default function MarketingCampaignWorkspace() {
             </div>
           )}
         </TabsContent>
+
+        {/* ── Generate Mailer Dialog ───────────────────────────────────── */}
+        <Dialog open={showGenerateMailer} onOpenChange={setShowGenerateMailer}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-violet-600" />
+                Generate Mailer
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Purpose / notes for the AI <span className="font-normal normal-case">(optional)</span></label>
+                <input
+                  type="text"
+                  value={generatePurpose}
+                  onChange={e => setGeneratePurpose(e.target.value)}
+                  placeholder="e.g. Monthly newsletter, product launch announcement, seasonal promotion…"
+                  className="w-full mt-1.5 text-sm rounded-lg border bg-background px-3 py-2 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hero image <span className="font-normal normal-case">(pick a generated post image, or skip)</span></label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <button
+                    onClick={() => setGenerateHeroUrl(null)}
+                    className={`w-14 h-14 rounded-lg border-2 flex items-center justify-center text-[10px] text-muted-foreground transition-colors ${generateHeroUrl === null ? 'border-violet-500 bg-violet-50' : 'border-border bg-muted hover:bg-muted/80'}`}
+                  >
+                    None
+                  </button>
+                  {posts.filter(p => p.imageUrl).map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => setGenerateHeroUrl(p.imageUrl!)}
+                      className={`w-14 h-14 rounded-lg border-2 overflow-hidden transition-colors ${generateHeroUrl === p.imageUrl ? 'border-violet-500' : 'border-border hover:border-violet-300'}`}
+                      title={p.caption?.slice(0, 60)}
+                    >
+                      <img src={p.imageUrl!} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {posts.filter(p => p.imageUrl).length === 0 && (
+                    <p className="text-xs text-muted-foreground self-center">No post images generated yet — generate some in the Content tab first.</p>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                The AI will use your campaign strategy, brand voice, target audience, and any uploaded brand assets to write the copy and design the email. A <strong>[LOGO]</strong> placeholder will be included — replace it with your actual logo URL after generating.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowGenerateMailer(false)}>Cancel</Button>
+              <Button
+                className="bg-violet-600 hover:bg-violet-700 text-white gap-2"
+                onClick={() => generateMailerMutation.mutate({ campaignId, heroImageUrl: generateHeroUrl, purpose: generatePurpose || undefined })}
+                disabled={generateMailerMutation.isPending}
+              >
+                {generateMailerMutation.isPending ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
+                ) : (
+                  <><Sparkles className="w-3.5 h-3.5" />Generate</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* ── Calendar Tab ─────────────────────────────────────────────── */}
         <TabsContent value="calendar" className="flex-1 overflow-y-auto mt-0">
