@@ -1289,11 +1289,8 @@ DESIGN REQUIREMENTS:
           if (!segmentId) return { segmentId: null, subscriberCount: 0 };
           try {
             const resend = new Resend(ENV.resendApiKey);
-            const res = await (resend.contacts as any).list({ segmentId, limit: 1 });
-            const count = res?.data?.length ?? 0;
-            // Fetch total count via a larger page
-            const allRes = await (resend.contacts as any).list({ segmentId, limit: 100 });
-            return { segmentId, subscriberCount: allRes?.data?.length ?? count };
+            const allRes = await resend.contacts.list({ segmentId, limit: 100 });
+            return { segmentId, subscriberCount: allRes?.data?.data?.length ?? 0 };
           } catch {
             return { segmentId, subscriberCount: 0 };
           }
@@ -1306,8 +1303,8 @@ DESIGN REQUIREMENTS:
           const existing = await getResendSegmentId(input.clientSlug);
           if (existing) return { segmentId: existing };
           const resend = new Resend(ENV.resendApiKey);
-          const res = await (resend.audiences as any).create({ name: input.clientName });
-          const segmentId: string = res?.data?.id ?? res?.id;
+          const res = await resend.segments.create({ name: input.clientName });
+          const segmentId: string = res?.data?.id ?? (res as any)?.id;
           if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
           await setResendSegmentId(input.clientSlug, segmentId);
           return { segmentId };
@@ -1321,8 +1318,8 @@ DESIGN REQUIREMENTS:
           if (!segmentId) return [];
           try {
             const resend = new Resend(ENV.resendApiKey);
-            const res = await (resend.contacts as any).list({ segmentId, limit: 100 });
-            return (res?.data ?? []) as { id: string; email: string; first_name: string; last_name: string; unsubscribed: boolean; created_at: string }[];
+            const res = await resend.contacts.list({ segmentId, limit: 100 });
+            return (res?.data?.data ?? []) as { id: string; email: string; first_name: string; last_name: string; unsubscribed: boolean; created_at: string }[];
           } catch {
             return [];
           }
@@ -1341,8 +1338,8 @@ DESIGN REQUIREMENTS:
           let segmentId = await getResendSegmentId(input.clientSlug);
           if (!segmentId) {
             const resend = new Resend(ENV.resendApiKey);
-            const res = await (resend.audiences as any).create({ name: input.clientName });
-            segmentId = res?.data?.id ?? res?.id;
+            const res = await resend.segments.create({ name: input.clientName });
+            segmentId = res?.data?.id ?? (res as any)?.id;
             if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
             await setResendSegmentId(input.clientSlug, segmentId);
           }
@@ -1352,7 +1349,7 @@ DESIGN REQUIREMENTS:
             firstName: input.firstName,
             lastName: input.lastName,
             unsubscribed: false,
-            audienceId: segmentId,
+            segments: [{ id: segmentId }],
           });
           return { ok: true };
         }),
@@ -1372,8 +1369,8 @@ DESIGN REQUIREMENTS:
           let segmentId = await getResendSegmentId(input.clientSlug);
           if (!segmentId) {
             const resend = new Resend(ENV.resendApiKey);
-            const res = await (resend.audiences as any).create({ name: input.clientName });
-            segmentId = res?.data?.id ?? res?.id;
+            const res = await resend.segments.create({ name: input.clientName });
+            segmentId = res?.data?.id ?? (res as any)?.id;
             if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
             await setResendSegmentId(input.clientSlug, segmentId);
           }
@@ -1382,7 +1379,7 @@ DESIGN REQUIREMENTS:
           let failed = 0;
           for (const contact of input.contacts) {
             try {
-              await resend.contacts.create({ email: contact.email, firstName: contact.firstName, lastName: contact.lastName, unsubscribed: false, audienceId: segmentId });
+              await resend.contacts.create({ email: contact.email, firstName: contact.firstName, lastName: contact.lastName, unsubscribed: false, segments: [{ id: segmentId }] });
               added++;
             } catch {
               failed++;
@@ -1400,7 +1397,7 @@ DESIGN REQUIREMENTS:
           const segmentId = await getResendSegmentId(input.clientSlug);
           if (!segmentId) throw new TRPCError({ code: 'NOT_FOUND', message: 'No subscriber list for this client' });
           const resend = new Resend(ENV.resendApiKey);
-          await resend.contacts.remove({ audienceId: segmentId, email: input.email });
+          await resend.contacts.segments.remove({ email: input.email, segmentId });
           return { ok: true };
         }),
 
@@ -1424,7 +1421,7 @@ DESIGN REQUIREMENTS:
 
           const resend = new Resend(ENV.resendApiKey);
           const res = await (resend.broadcasts as any).create({
-            audienceId: segmentId,
+            segmentId,
             from: ENV.resendFromEmail,
             subject: mailer.subject,
             html: mailer.htmlContent,
