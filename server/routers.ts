@@ -1250,16 +1250,20 @@ DESIGN REQUIREMENTS:
           const html = await compressMailerImages(mailer.htmlContent);
 
           const resend = new Resend(ENV.resendApiKey);
-          const results = await Promise.allSettled(
-            input.emails.map(email =>
+          const results: PromiseSettledResult<unknown>[] = [];
+          for (const email of input.emails) {
+            results.push(await Promise.resolve(
               resend.emails.send({
                 from: ENV.resendFromEmail,
                 to: email,
                 subject: `[TEST] ${mailer.subject || 'Email preview'}`,
                 html,
               })
-            )
-          );
+            ).then(r => ({ status: 'fulfilled' as const, value: r })).catch(e => ({ status: 'rejected' as const, reason: e })));
+            if (input.emails.indexOf(email) < input.emails.length - 1) {
+              await new Promise(r => setTimeout(r, 600));
+            }
+          }
 
           const failed = results.filter(r => r.status === 'rejected').length;
           if (failed === input.emails.length) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'All sends failed — check Resend config' });
