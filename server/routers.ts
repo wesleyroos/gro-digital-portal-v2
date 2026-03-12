@@ -1,3 +1,4 @@
+import { Resend } from 'resend';
 import { COOKIE_NAME } from "@shared/const";
 import { ENV } from "./_core/env";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -78,6 +79,7 @@ import {
   createCampaignMailer,
   updateCampaignMailer,
   deleteCampaignMailer,
+  getCampaignMailerById,
 } from "./db";
 import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
@@ -1188,6 +1190,37 @@ DESIGN REQUIREMENTS:
           const mailer = await createCampaignMailer(input.campaignId);
           await updateCampaignMailer(mailer.id, { subject, previewText: previewText ?? null, htmlContent: html });
           return { ...mailer, subject, previewText: previewText ?? null, htmlContent: html };
+        }),
+
+      sendTest: adminProcedure
+        .input(z.object({
+          mailerId: z.number().int(),
+          emails: z.array(z.string().email()).min(1).max(10),
+        }))
+        .mutation(async ({ input }) => {
+          if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
+          if (!ENV.resendFromEmail) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_FROM_EMAIL is not configured' });
+
+          const mailer = await getCampaignMailerById(input.mailerId);
+          if (!mailer) throw new TRPCError({ code: 'NOT_FOUND', message: 'Mailer not found' });
+          if (!mailer.htmlContent) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Mailer has no HTML content yet' });
+
+          const resend = new Resend(ENV.resendApiKey);
+          const results = await Promise.allSettled(
+            input.emails.map(email =>
+              resend.emails.send({
+                from: ENV.resendFromEmail,
+                to: email,
+                subject: `[TEST] ${mailer.subject || 'Email preview'}`,
+                html: mailer.htmlContent!,
+              })
+            )
+          );
+
+          const failed = results.filter(r => r.status === 'rejected').length;
+          if (failed === input.emails.length) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'All sends failed — check Resend config' });
+
+          return { sent: results.filter(r => r.status === 'fulfilled').length, failed };
         }),
     }),
   }),

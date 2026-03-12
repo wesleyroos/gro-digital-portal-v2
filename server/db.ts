@@ -1208,3 +1208,10 @@ export async function deleteCampaignMailer(id: number) {
   if (!db) throw new Error('Database not available');
   await db.delete(campaignMailers).where(eq(campaignMailers.id, id));
 }
+
+export async function getCampaignMailerById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const rows = await db.select().from(campaignMailers).where(eq(campaignMailers.id, id)).limit(1);
+  return rows[0] ?? null;
+}

@@ -91,6 +91,9 @@ export default function MarketingCampaignWorkspace() {
   const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
   const [mailerDirty, setMailerDirty] = useState(false);
   const [showGenerateMailer, setShowGenerateMailer] = useState(false);
+  const [showSendTest, setShowSendTest] = useState(false);
+  const [testEmailInput, setTestEmailInput] = useState('');
+  const [testEmails, setTestEmails] = useState<string[]>([]);
   const [generateHeroUrl, setGenerateHeroUrl] = useState<string | null>(null);
   const [generatePurpose, setGeneratePurpose] = useState('');
   const [generateLogoUrl, setGenerateLogoUrl] = useState('');
@@ -130,11 +133,21 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { refetchMailers(); setSelectedMailerId(null); },
     onError: () => toast.error('Failed to delete mailer'),
   });
+  const sendTestMutation = trpc.campaign.mailer.sendTest.useMutation({
+    onSuccess: ({ sent, failed }) => {
+      toast.success(`Test sent to ${sent} recipient${sent !== 1 ? 's' : ''}${failed > 0 ? ` (${failed} failed)` : ''}`);
+      setShowSendTest(false);
+      setTestEmails([]);
+      setTestEmailInput('');
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const generateMailerMutation = trpc.campaign.mailer.generate.useMutation({
     onSuccess: (mailer) => {
       refetchMailers();
       setSelectedMailerId(mailer.id);
-      setMailerDraft({ subject: mailer.subject ?? '', previewText: '', htmlContent: mailer.htmlContent ?? '', scheduledAt: '', notes: '' });
+      setMailerDraft({ subject: mailer.subject ?? '', previewText: mailer.previewText ?? '', htmlContent: mailer.htmlContent ?? '', scheduledAt: '', notes: '' });
       setMailerDirty(false);
       setMailerTab('preview');
       setShowGenerateMailer(false);
@@ -1261,6 +1274,10 @@ export default function MarketingCampaignWorkspace() {
                     <Download className="w-3 h-3" />
                     Export HTML
                   </Button>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={() => setShowSendTest(true)} disabled={!mailerDraft.htmlContent}>
+                    <Send className="w-3 h-3" />
+                    Send Test
+                  </Button>
                   <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white text-xs h-7 gap-1.5 ml-auto" onClick={saveMailer} disabled={updateMailerMutation.isPending || !mailerDirty}>
                     {updateMailerMutation.isPending ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-3 h-3" />}
                     Save
@@ -1410,6 +1427,74 @@ export default function MarketingCampaignWorkspace() {
                   <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
                 ) : (
                   <><Sparkles className="w-3.5 h-3.5" />Generate</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Send Test Dialog ─────────────────────────────────────────── */}
+        <Dialog open={showSendTest} onOpenChange={setShowSendTest}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Send className="w-4 h-4 text-violet-600" />
+                Send Test Email
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recipients</label>
+                <div className="mt-1.5 min-h-[42px] flex flex-wrap gap-1.5 rounded-lg border bg-background px-2.5 py-2 focus-within:ring-1 focus-within:ring-violet-400">
+                  {testEmails.map(email => (
+                    <span key={email} className="inline-flex items-center gap-1 bg-violet-100 text-violet-800 text-xs rounded-full px-2.5 py-1">
+                      {email}
+                      <button onClick={() => setTestEmails(prev => prev.filter(e => e !== email))} className="hover:text-violet-600">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="email"
+                    value={testEmailInput}
+                    onChange={e => setTestEmailInput(e.target.value)}
+                    onKeyDown={e => {
+                      if ((e.key === 'Enter' || e.key === ',') && testEmailInput.trim()) {
+                        e.preventDefault();
+                        const email = testEmailInput.trim().replace(/,$/, '');
+                        if (email && !testEmails.includes(email)) setTestEmails(prev => [...prev, email]);
+                        setTestEmailInput('');
+                      }
+                      if (e.key === 'Backspace' && !testEmailInput && testEmails.length) {
+                        setTestEmails(prev => prev.slice(0, -1));
+                      }
+                    }}
+                    onBlur={() => {
+                      const email = testEmailInput.trim();
+                      if (email && !testEmails.includes(email)) setTestEmails(prev => [...prev, email]);
+                      setTestEmailInput('');
+                    }}
+                    placeholder={testEmails.length === 0 ? 'Type an email and press Enter…' : ''}
+                    className="flex-1 min-w-[160px] text-sm bg-transparent outline-none"
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">Press Enter or comma to add each address. Up to 10 recipients.</p>
+              </div>
+              <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                The subject will be prefixed with <strong>[TEST]</strong> so recipients know it's a preview.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowSendTest(false)}>Cancel</Button>
+              <Button
+                className="bg-violet-600 hover:bg-violet-700 text-white gap-2"
+                onClick={() => selectedMailerId && sendTestMutation.mutate({ mailerId: selectedMailerId, emails: testEmails })}
+                disabled={testEmails.length === 0 || sendTestMutation.isPending}
+              >
+                {sendTestMutation.isPending ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Sending…</>
+                ) : (
+                  <><Send className="w-3.5 h-3.5" />Send to {testEmails.length || ''} {testEmails.length === 1 ? 'recipient' : 'recipients'}</>
                 )}
               </Button>
             </DialogFooter>
