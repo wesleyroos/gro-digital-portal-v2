@@ -365,6 +365,12 @@ export async function createStandaloneClient(data: { clientSlug: string; name: s
   });
 }
 
+export async function deleteClientProfile(clientSlug: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.delete(clientProfiles).where(eq(clientProfiles.clientSlug, clientSlug));
+}
+
 // ── Task queries ──
 
 export async function getTasks() {

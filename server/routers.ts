@@ -27,6 +27,7 @@ import {
   getClientProfile,
   upsertClientProfile,
   createStandaloneClient,
+  deleteClientProfile,
   sendInvoiceEmail,
   updateInvoice,
   getLeads,
@@ -388,6 +389,13 @@ export const appRouter = router({
       .input(z.object({ token: z.string() }))
       .query(async ({ input }) => {
         return getClientByAnalyticsToken(input.token);
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ input }) => {
+        await deleteClientProfile(input.clientSlug);
+        return { success: true };
       }),
   }),
 
