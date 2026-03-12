@@ -97,6 +97,9 @@ export default function MarketingCampaignWorkspace() {
   const [subscriberInput, setSubscriberInput] = useState('');
   const [subscriberFirstName, setSubscriberFirstName] = useState('');
   const [subscriberLastName, setSubscriberLastName] = useState('');
+  const [csvPreview, setCsvPreview] = useState<{ email: string; firstName?: string; lastName?: string }[] | null>(null);
+  const [csvFileName, setCsvFileName] = useState('');
+  const csvFileRef = useRef<HTMLInputElement>(null);
   const [broadcastScheduledAt, setBroadcastScheduledAt] = useState('');
   const [testEmailInput, setTestEmailInput] = useState('');
   const [testEmails, setTestEmails] = useState<string[]>(() => {
@@ -187,6 +190,42 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: () => { refetchSubscribers(); refetchSegment(); toast.success('Subscriber removed'); },
     onError: (e) => toast.error(e.message),
   });
+  const importSubscribersMutation = trpc.campaign.mailer.importSubscribers.useMutation({
+    onSuccess: ({ added, failed }) => {
+      refetchSubscribers();
+      refetchSegment();
+      setCsvPreview(null);
+      setCsvFileName('');
+      toast.success(`Imported ${added} subscriber${added !== 1 ? 's' : ''}${failed > 0 ? ` (${failed} failed)` : ''}`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function handleCsvFile(file: File) {
+    setCsvFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { toast.error('CSV must have a header row and at least one contact'); return; }
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+      const emailIdx = headers.findIndex(h => h === 'email');
+      const firstIdx = headers.findIndex(h => h.includes('first'));
+      const lastIdx = headers.findIndex(h => h.includes('last'));
+      if (emailIdx === -1) { toast.error('CSV must have an "email" column'); return; }
+      const contacts: { email: string; firstName?: string; lastName?: string }[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
+        const email = cols[emailIdx];
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
+        contacts.push({ email, firstName: firstIdx >= 0 ? cols[firstIdx] || undefined : undefined, lastName: lastIdx >= 0 ? cols[lastIdx] || undefined : undefined });
+      }
+      if (contacts.length === 0) { toast.error('No valid email addresses found in CSV'); return; }
+      setCsvPreview(contacts);
+    };
+    reader.readAsText(file);
+  }
+
   const broadcastMutation = trpc.campaign.mailer.broadcast.useMutation({
     onSuccess: () => {
       refetchMailers();
@@ -1564,6 +1603,43 @@ export default function MarketingCampaignWorkspace() {
               <DialogTitle>Subscriber List</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {/* CSV import */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Import CSV</p>
+                  <button
+                    type="button"
+                    onClick={() => csvFileRef.current?.click()}
+                    className="text-[11px] text-violet-600 hover:underline"
+                  >
+                    Choose file
+                  </button>
+                  <input ref={csvFileRef} type="file" accept=".csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleCsvFile(f); e.target.value = ''; }} />
+                </div>
+                {csvPreview ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">{csvFileName} — <strong>{csvPreview.length} contact{csvPreview.length !== 1 ? 's' : ''}</strong> found</p>
+                    <div className="max-h-28 overflow-y-auto rounded border divide-y text-xs">
+                      {csvPreview.slice(0, 5).map((c, i) => (
+                        <div key={i} className="px-2 py-1 flex gap-2">
+                          <span className="font-medium truncate">{c.firstName || c.lastName ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() : c.email}</span>
+                          {(c.firstName || c.lastName) && <span className="text-muted-foreground truncate">{c.email}</span>}
+                        </div>
+                      ))}
+                      {csvPreview.length > 5 && <div className="px-2 py-1 text-muted-foreground">+{csvPreview.length - 5} more…</div>}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="text-xs h-7 bg-violet-600 hover:bg-violet-700 text-white flex-1" onClick={() => importSubscribersMutation.mutate({ clientSlug, clientName: campaign?.name ?? clientSlug, contacts: csvPreview })} disabled={importSubscribersMutation.isPending}>
+                        {importSubscribersMutation.isPending ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Importing…</> : `Import ${csvPreview.length} contacts`}
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { setCsvPreview(null); setCsvFileName(''); }}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">CSV must have an <code>email</code> column. Optional: <code>first_name</code>, <code>last_name</code>.</p>
+                )}
+              </div>
+
               {/* Add subscriber form */}
               <div className="rounded-lg border p-3 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Add Subscriber</p>

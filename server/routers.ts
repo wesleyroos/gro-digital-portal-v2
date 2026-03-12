@@ -1349,6 +1349,42 @@ DESIGN REQUIREMENTS:
           return { ok: true };
         }),
 
+      importSubscribers: adminProcedure
+        .input(z.object({
+          clientSlug: z.string(),
+          clientName: z.string(),
+          contacts: z.array(z.object({
+            email: z.string().email(),
+            firstName: z.string().optional(),
+            lastName: z.string().optional(),
+          })).min(1).max(500),
+        }))
+        .mutation(async ({ input }) => {
+          if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
+          let segmentId = await getResendSegmentId(input.clientSlug);
+          if (!segmentId) {
+            const resend = new Resend(ENV.resendApiKey);
+            const res = await (resend.audiences as any).create({ name: input.clientName });
+            segmentId = res?.data?.id ?? res?.id;
+            if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
+            await setResendSegmentId(input.clientSlug, segmentId);
+          }
+          const resend = new Resend(ENV.resendApiKey);
+          let added = 0;
+          let failed = 0;
+          for (const contact of input.contacts) {
+            try {
+              await resend.contacts.create({ email: contact.email, firstName: contact.firstName, lastName: contact.lastName, unsubscribed: false, audienceId: segmentId });
+              added++;
+            } catch {
+              failed++;
+            }
+            // Respect Resend rate limit
+            await new Promise(r => setTimeout(r, 250));
+          }
+          return { added, failed };
+        }),
+
       removeSubscriber: adminProcedure
         .input(z.object({ clientSlug: z.string(), email: z.string().email() }))
         .mutation(async ({ input }) => {
