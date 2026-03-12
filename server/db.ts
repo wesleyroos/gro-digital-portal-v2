@@ -1215,3 +1215,16 @@ export async function getCampaignMailerById(id: number) {
   const rows = await db.select().from(campaignMailers).where(eq(campaignMailers.id, id)).limit(1);
   return rows[0] ?? null;
 }
+
+export async function getResendSegmentId(clientSlug: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select({ resendSegmentId: clientProfiles.resendSegmentId }).from(clientProfiles).where(eq(clientProfiles.clientSlug, clientSlug)).limit(1);
+  return rows[0]?.resendSegmentId ?? null;
+}
+
+export async function setResendSegmentId(clientSlug: string, segmentId: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.insert(clientProfiles).values({ clientSlug, resendSegmentId: segmentId }).onDuplicateKeyUpdate({ set: { resendSegmentId: segmentId } });
+}

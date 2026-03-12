@@ -81,6 +81,8 @@ import {
   updateCampaignMailer,
   deleteCampaignMailer,
   getCampaignMailerById,
+  getResendSegmentId,
+  setResendSegmentId,
 } from "./db";
 import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
@@ -1269,6 +1271,132 @@ DESIGN REQUIREMENTS:
           if (failed === input.emails.length) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'All sends failed — check Resend config' });
 
           return { sent: results.filter(r => r.status === 'fulfilled').length, failed };
+        }),
+
+      getSegmentStatus: adminProcedure
+        .input(z.object({ clientSlug: z.string() }))
+        .query(async ({ input }) => {
+          if (!ENV.resendApiKey) return { segmentId: null, subscriberCount: 0 };
+          const segmentId = await getResendSegmentId(input.clientSlug);
+          if (!segmentId) return { segmentId: null, subscriberCount: 0 };
+          try {
+            const resend = new Resend(ENV.resendApiKey);
+            const res = await (resend.contacts as any).list({ segmentId, limit: 1 });
+            const count = res?.data?.length ?? 0;
+            // Fetch total count via a larger page
+            const allRes = await (resend.contacts as any).list({ segmentId, limit: 100 });
+            return { segmentId, subscriberCount: allRes?.data?.length ?? count };
+          } catch {
+            return { segmentId, subscriberCount: 0 };
+          }
+        }),
+
+      ensureSegment: adminProcedure
+        .input(z.object({ clientSlug: z.string(), clientName: z.string() }))
+        .mutation(async ({ input }) => {
+          if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
+          const existing = await getResendSegmentId(input.clientSlug);
+          if (existing) return { segmentId: existing };
+          const resend = new Resend(ENV.resendApiKey);
+          const res = await (resend.audiences as any).create({ name: input.clientName });
+          const segmentId: string = res?.data?.id ?? res?.id;
+          if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
+          await setResendSegmentId(input.clientSlug, segmentId);
+          return { segmentId };
+        }),
+
+      listSubscribers: adminProcedure
+        .input(z.object({ clientSlug: z.string() }))
+        .query(async ({ input }) => {
+          if (!ENV.resendApiKey) return [];
+          const segmentId = await getResendSegmentId(input.clientSlug);
+          if (!segmentId) return [];
+          try {
+            const resend = new Resend(ENV.resendApiKey);
+            const res = await (resend.contacts as any).list({ segmentId, limit: 100 });
+            return (res?.data ?? []) as { id: string; email: string; first_name: string; last_name: string; unsubscribed: boolean; created_at: string }[];
+          } catch {
+            return [];
+          }
+        }),
+
+      addSubscriber: adminProcedure
+        .input(z.object({
+          clientSlug: z.string(),
+          clientName: z.string(),
+          email: z.string().email(),
+          firstName: z.string().optional(),
+          lastName: z.string().optional(),
+        }))
+        .mutation(async ({ input }) => {
+          if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
+          let segmentId = await getResendSegmentId(input.clientSlug);
+          if (!segmentId) {
+            const resend = new Resend(ENV.resendApiKey);
+            const res = await (resend.audiences as any).create({ name: input.clientName });
+            segmentId = res?.data?.id ?? res?.id;
+            if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
+            await setResendSegmentId(input.clientSlug, segmentId);
+          }
+          const resend = new Resend(ENV.resendApiKey);
+          await resend.contacts.create({
+            email: input.email,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            unsubscribed: false,
+            audienceId: segmentId,
+          });
+          return { ok: true };
+        }),
+
+      removeSubscriber: adminProcedure
+        .input(z.object({ clientSlug: z.string(), email: z.string().email() }))
+        .mutation(async ({ input }) => {
+          if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
+          const segmentId = await getResendSegmentId(input.clientSlug);
+          if (!segmentId) throw new TRPCError({ code: 'NOT_FOUND', message: 'No subscriber list for this client' });
+          const resend = new Resend(ENV.resendApiKey);
+          await resend.contacts.remove({ audienceId: segmentId, email: input.email });
+          return { ok: true };
+        }),
+
+      broadcast: adminProcedure
+        .input(z.object({
+          mailerId: z.number().int(),
+          clientSlug: z.string(),
+          scheduledAt: z.string().optional(),
+        }))
+        .mutation(async ({ input }) => {
+          if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
+          if (!ENV.resendFromEmail) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_FROM_EMAIL is not configured' });
+
+          const segmentId = await getResendSegmentId(input.clientSlug);
+          if (!segmentId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No subscriber list set up for this client. Add subscribers first.' });
+
+          const mailer = await getCampaignMailerById(input.mailerId);
+          if (!mailer) throw new TRPCError({ code: 'NOT_FOUND', message: 'Mailer not found' });
+          if (!mailer.htmlContent) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Mailer has no HTML content yet' });
+          if (!mailer.subject) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Mailer must have a subject before sending' });
+
+          const resend = new Resend(ENV.resendApiKey);
+          const res = await (resend.broadcasts as any).create({
+            audienceId: segmentId,
+            from: ENV.resendFromEmail,
+            subject: mailer.subject,
+            html: mailer.htmlContent,
+            send: true,
+            ...(input.scheduledAt ? { scheduledAt: input.scheduledAt } : {}),
+          });
+
+          const broadcastId: string = res?.data?.id ?? res?.id;
+          if (!broadcastId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Broadcast creation failed' });
+
+          await updateCampaignMailer(input.mailerId, {
+            status: input.scheduledAt ? 'scheduled' : 'sent',
+            sentAt: input.scheduledAt ? null : new Date(),
+          });
+
+          return { broadcastId };
         }),
     }),
   }),

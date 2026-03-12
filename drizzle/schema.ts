@@ -118,6 +118,7 @@ export const clientProfiles = mysqlTable("clientProfiles", {
   facebookPageAccessToken: text("facebookPageAccessToken"),
   facebookPageName: varchar("facebookPageName", { length: 255 }),
   facebookUserToken: text("facebookUserToken"),
+  resendSegmentId: varchar("resendSegmentId", { length: 255 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 

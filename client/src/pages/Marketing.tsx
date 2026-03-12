@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { Megaphone, Plus, ArrowRight, Trash2 } from "lucide-react";
+import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,6 +15,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+
+function ReadinessItem({ label, ok, note, warn }: { label: string; ok: boolean; note?: string; warn?: boolean }) {
+  const Icon = ok ? CheckCircle2 : warn ? AlertCircle : XCircle;
+  const color = ok ? "text-emerald-600" : warn ? "text-amber-500" : "text-red-500";
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
+      <span className="text-xs text-foreground">{label}</span>
+      {note && <span className="text-xs text-muted-foreground ml-auto">{note}</span>}
+    </div>
+  );
+}
 
 const STATUS_LABELS: Record<string, string> = {
   discovery: "Discovery",
@@ -44,6 +56,19 @@ export default function Marketing() {
 
   const { data: campaigns, refetch } = trpc.campaign.list.useQuery();
   const { data: clients } = trpc.invoice.clients.useQuery();
+
+  const { data: igStatus } = trpc.instagram.getStatus.useQuery(
+    { clientSlug: newClientSlug },
+    { enabled: !!newClientSlug }
+  );
+  const { data: fbStatus } = trpc.facebook.getStatus.useQuery(
+    { clientSlug: newClientSlug },
+    { enabled: !!newClientSlug }
+  );
+  const { data: segmentStatus } = trpc.campaign.mailer.getSegmentStatus.useQuery(
+    { clientSlug: newClientSlug },
+    { enabled: !!newClientSlug }
+  );
   const createMutation = trpc.campaign.create.useMutation({
     onSuccess: (data) => {
       refetch();
@@ -208,6 +233,32 @@ export default function Marketing() {
               />
             </div>
           </div>
+
+          {newClientSlug && (
+            <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Client Readiness</p>
+              <ReadinessItem
+                label="Instagram connected"
+                ok={!!igStatus?.connected}
+                note={igStatus?.connected ? igStatus.username ?? undefined : "Connect in Settings"}
+              />
+              <ReadinessItem
+                label="Facebook connected"
+                ok={!!fbStatus?.connected}
+                note={fbStatus?.connected ? fbStatus.pageName ?? undefined : "Connect in Settings"}
+              />
+              <ReadinessItem
+                label="Subscriber list"
+                ok={!!segmentStatus?.segmentId}
+                note={
+                  segmentStatus?.segmentId
+                    ? `${segmentStatus.subscriberCount} subscriber${segmentStatus.subscriberCount === 1 ? "" : "s"}`
+                    : "Set up in campaign mailer"
+                }
+                warn={!segmentStatus?.segmentId}
+              />
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNew(false)}>Cancel</Button>
             <Button
