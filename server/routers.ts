@@ -1098,18 +1098,46 @@ export const appRouter = router({
 
           const heroSection = input.heroImageUrl
             ? `Include a full-width hero image using this URL: ${input.heroImageUrl} — display it edge-to-edge within the 600px container with no padding, aspect ratio preserved.`
-            : 'No hero image — use a richly styled header section with a gradient or solid brand colour instead. Make it visually striking.';
+            : 'No hero image — use a clean white header with the logo, followed by a bold headline section.';
 
           const purposeSection = input.purpose ? `\nMAILER PURPOSE: ${input.purpose}` : '';
 
-          const prompt = `You are a world-class HTML email designer. Create a beautiful, highly polished, mobile-responsive HTML email that looks like it came from a premium brand. This must be significantly better than a basic template — think award-winning email design.
-
-CAMPAIGN: ${campaign.name}
+          const campaignContext = `CAMPAIGN: ${campaign.name}
 CLIENT: ${campaign.clientSlug}
 BRAND VOICE: ${campaign.brandVoice ?? 'Not specified'}
 TARGET AUDIENCE: ${campaign.targetAudience ?? 'Not specified'}
 CONTENT THEMES: ${campaign.contentThemes ?? 'Not specified'}
-STRATEGY: ${campaign.strategy ? campaign.strategy.slice(0, 600) : 'Not specified'}${purposeSection}${assetsSection}
+STRATEGY: ${campaign.strategy ? campaign.strategy.slice(0, 800) : 'Not specified'}${purposeSection}${assetsSection}`;
+
+          // Step 1: generate subject + previewText from campaign context
+          const metaRes = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              max_tokens: 200,
+              messages: [
+                { role: 'system', content: 'You write compelling email subject lines and preview text for marketing campaigns. Return ONLY valid JSON with keys "subject" (max 80 chars) and "previewText" (max 140 chars, the inbox snippet shown after the subject). No explanation.' },
+                { role: 'user', content: `${campaignContext}\n\nWrite the subject line and preview text for this email campaign mailer.` },
+              ],
+            }),
+            signal: AbortSignal.timeout(30_000),
+          });
+          let subject = `${campaign.name} — ${new Date().toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}`;
+          let previewText: string | undefined;
+          if (metaRes.ok) {
+            const metaData = await metaRes.json() as { choices: Array<{ message: { content: string } }> };
+            try {
+              const parsed = JSON.parse(metaData.choices[0]?.message?.content?.trim() ?? '{}') as { subject?: string; previewText?: string };
+              if (parsed.subject) subject = parsed.subject;
+              if (parsed.previewText) previewText = parsed.previewText;
+            } catch { /* keep defaults */ }
+          }
+
+          // Step 2: generate HTML
+          const prompt = `You are a world-class HTML email designer. Create a beautiful, clean, mobile-responsive HTML email.
+
+${campaignContext}
 
 LOGO HTML TO USE IN HEADER (use exactly as-is):
 ${logoHtml}
@@ -1118,20 +1146,20 @@ HERO: ${heroSection}
 
 DESIGN REQUIREMENTS:
 - Complete HTML document, all CSS inlined PLUS a <style> block for media queries
-- Max width 600px, centred, white background content area
-- Outer wrapper: light grey or off-white background (#f4f4f4 or similar)
-- HEADER: dark background (brand colour), logo on left OR centred, clean and minimal — at least 70px tall
-- HERO: full-width image OR striking gradient banner with large display headline overlaid
-- CONTENT SECTIONS: at least 2-3 distinct sections with clear visual hierarchy:
-    • Opening hook paragraph (large, bold, brand voice)
-    • 2-3 feature/benefit callouts with icons (use Unicode symbols like ✦ ◆ → ✓) or simple bordered boxes
-    • One more narrative paragraph
-- CTA BUTTON: large, minimum 200px wide, bold text, strong brand colour, 8px border-radius, centred, surrounded by generous whitespace
-- TYPOGRAPHY: use -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif. Headline 28-32px bold. Body 16px, line-height 1.6. Muted text 13px.
-- COLOUR PALETTE: derive from brand voice — if bold/dynamic: deep dark + vibrant accent; if professional: navy/charcoal + gold or teal; if playful: bright with contrasting pops. Use consistently across header, CTA, accents.
-- SPACING: generous padding (40px top/bottom sections, 30px sides). White space is your friend.
-- FOOTER: dark or mid-grey background, centred text, copyright "© ${new Date().getFullYear()} ${campaign.clientSlug}", unsubscribe link styled as small muted text, social icons as Unicode (📷 f t in) or just text links
-- Mobile: @media max-width 600px — padding reduces to 20px sides, font sizes adjust, images 100% width
+- Max width 600px, centred, clean white (#ffffff) content area throughout
+- Outer wrapper: very light grey background (#f8f8f8)
+- HEADER: white background, logo centred or left-aligned, clean minimal padding (30px), no dark colours
+- HERO: full-width image (if provided) OR bold headline section on white/very light background
+- CONTENT SECTIONS: 2-3 distinct sections with clear visual hierarchy:
+    • Strong opening headline (24-32px bold)
+    • Body copy in brand voice (16px, line-height 1.6)
+    • 2-3 feature/benefit callouts — use a light grey (#f4f4f4) or thin-bordered card style with Unicode icons (✦ ◆ ✓ →)
+- CTA BUTTON: large, minimum 200px wide, bold text, brand accent colour (derive from brand voice/assets), 6px border-radius, centred, generous whitespace around it
+- TYPOGRAPHY: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif. Body 16px line-height 1.6. Muted text #777, 13px.
+- COLOUR PALETTE: white base with one accent colour derived from the brand/assets. Keep it restrained and clean.
+- SPACING: generous padding (40px sections, 30px sides). Lots of white space.
+- FOOTER: white or very light grey (#f8f8f8), small muted text, copyright "© ${new Date().getFullYear()} ${campaign.clientSlug}", unsubscribe link, clean and minimal
+- Mobile: @media max-width 600px — padding 20px sides, font sizes adjust, images 100% width
 - Return ONLY the raw HTML document. No explanation. No markdown. No code fences. Start with <!DOCTYPE html>.`;
 
           const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1155,16 +1183,11 @@ DESIGN REQUIREMENTS:
 
           const data = await res.json() as { choices: Array<{ message: { content: string } }> };
           let html = data.choices[0]?.message?.content?.trim() ?? '';
-          // Strip markdown code fences if the model included them anyway
           html = html.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
 
-          const subject = input.purpose
-            ? input.purpose.slice(0, 100)
-            : `${campaign.name} — ${new Date().toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}`;
-
           const mailer = await createCampaignMailer(input.campaignId);
-          await updateCampaignMailer(mailer.id, { subject, htmlContent: html });
-          return { ...mailer, subject, htmlContent: html };
+          await updateCampaignMailer(mailer.id, { subject, previewText: previewText ?? null, htmlContent: html });
+          return { ...mailer, subject, previewText: previewText ?? null, htmlContent: html };
         }),
     }),
   }),
