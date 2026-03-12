@@ -93,7 +93,13 @@ export default function MarketingCampaignWorkspace() {
   const [showGenerateMailer, setShowGenerateMailer] = useState(false);
   const [showSendTest, setShowSendTest] = useState(false);
   const [testEmailInput, setTestEmailInput] = useState('');
-  const [testEmails, setTestEmails] = useState<string[]>([]);
+  const [testEmails, setTestEmails] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('mailerTestEmails') ?? '[]') as string[]; } catch { return []; }
+  });
+  const updateTestEmails = (emails: string[]) => {
+    setTestEmails(emails);
+    localStorage.setItem('mailerTestEmails', JSON.stringify(emails));
+  };
   const [generateHeroUrl, setGenerateHeroUrl] = useState<string | null>(null);
   const [generatePurpose, setGeneratePurpose] = useState('');
   const [generateLogoUrl, setGenerateLogoUrl] = useState('');
@@ -137,7 +143,6 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: ({ sent, failed }) => {
       toast.success(`Test sent to ${sent} recipient${sent !== 1 ? 's' : ''}${failed > 0 ? ` (${failed} failed)` : ''}`);
       setShowSendTest(false);
-      setTestEmails([]);
       setTestEmailInput('');
     },
     onError: (e) => toast.error(e.message),
@@ -1449,7 +1454,7 @@ export default function MarketingCampaignWorkspace() {
                   {testEmails.map(email => (
                     <span key={email} className="inline-flex items-center gap-1 bg-violet-100 text-violet-800 text-xs rounded-full px-2.5 py-1">
                       {email}
-                      <button onClick={() => setTestEmails(prev => prev.filter(e => e !== email))} className="hover:text-violet-600">
+                      <button onClick={() => updateTestEmails(testEmails.filter(e => e !== email))} className="hover:text-violet-600">
                         <X className="w-3 h-3" />
                       </button>
                     </span>
@@ -1462,16 +1467,16 @@ export default function MarketingCampaignWorkspace() {
                       if ((e.key === 'Enter' || e.key === ',') && testEmailInput.trim()) {
                         e.preventDefault();
                         const email = testEmailInput.trim().replace(/,$/, '');
-                        if (email && !testEmails.includes(email)) setTestEmails(prev => [...prev, email]);
+                        if (email && !testEmails.includes(email)) updateTestEmails([...testEmails, email]);
                         setTestEmailInput('');
                       }
                       if (e.key === 'Backspace' && !testEmailInput && testEmails.length) {
-                        setTestEmails(prev => prev.slice(0, -1));
+                        updateTestEmails(testEmails.slice(0, -1));
                       }
                     }}
                     onBlur={() => {
                       const email = testEmailInput.trim();
-                      if (email && !testEmails.includes(email)) setTestEmails(prev => [...prev, email]);
+                      if (email && !testEmails.includes(email)) updateTestEmails([...testEmails, email]);
                       setTestEmailInput('');
                     }}
                     placeholder={testEmails.length === 0 ? 'Type an email and press Enter…' : ''}
