@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronRight } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronRight, Mail } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -86,6 +86,10 @@ export default function MarketingCampaignWorkspace() {
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
   const [assetsExpanded, setAssetsExpanded] = useState(true);
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [selectedMailerId, setSelectedMailerId] = useState<number | null>(null);
+  const [mailerTab, setMailerTab] = useState<'edit' | 'preview'>('edit');
+  const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
+  const [mailerDirty, setMailerDirty] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assetFileRef = useRef<HTMLInputElement>(null);
@@ -100,6 +104,28 @@ export default function MarketingCampaignWorkspace() {
     { campaignId },
     { enabled: !!campaignId }
   );
+
+  const { data: mailers = [], refetch: refetchMailers } = trpc.campaign.mailer.list.useQuery(
+    { campaignId },
+    { enabled: !!campaignId }
+  );
+  const createMailerMutation = trpc.campaign.mailer.create.useMutation({
+    onSuccess: (mailer) => {
+      refetchMailers();
+      setSelectedMailerId(mailer.id);
+      setMailerDraft({ subject: mailer.subject ?? '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
+      setMailerDirty(false);
+    },
+    onError: () => toast.error('Failed to create mailer'),
+  });
+  const updateMailerMutation = trpc.campaign.mailer.update.useMutation({
+    onSuccess: () => { refetchMailers(); setMailerDirty(false); toast.success('Saved'); },
+    onError: () => toast.error('Failed to save mailer'),
+  });
+  const deleteMailerMutation = trpc.campaign.mailer.delete.useMutation({
+    onSuccess: () => { refetchMailers(); setSelectedMailerId(null); },
+    onError: () => toast.error('Failed to delete mailer'),
+  });
 
   async function generateCalendar() {
     if (calendarGenerating) return;
@@ -310,6 +336,40 @@ export default function MarketingCampaignWorkspace() {
     sendMessage("Hi! Let's get started on this campaign.");
   }
 
+  function selectMailer(mailer: typeof mailers[0]) {
+    setSelectedMailerId(mailer.id);
+    setMailerDraft({
+      subject: mailer.subject ?? '',
+      previewText: mailer.previewText ?? '',
+      htmlContent: mailer.htmlContent ?? '',
+      scheduledAt: mailer.scheduledAt ? new Date(mailer.scheduledAt).toISOString().slice(0, 16) : '',
+      notes: mailer.notes ?? '',
+    });
+    setMailerDirty(false);
+    setMailerTab('edit');
+  }
+
+  function saveMailer() {
+    if (!selectedMailerId) return;
+    updateMailerMutation.mutate({
+      id: selectedMailerId,
+      subject: mailerDraft.subject,
+      previewText: mailerDraft.previewText || null,
+      htmlContent: mailerDraft.htmlContent,
+      scheduledAt: mailerDraft.scheduledAt || null,
+      notes: mailerDraft.notes || null,
+    });
+  }
+
+  function downloadMailerHtml() {
+    const blob = new Blob([mailerDraft.htmlContent], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${mailerDraft.subject || 'mailer'}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   const allPostsApproved = posts.length > 0 && posts.every(p => p.status === "approved" || p.status === "posted" || p.status === "scheduled");
   const hasDraftPosts = posts.some(p => p.status === "draft");
 
@@ -336,7 +396,17 @@ export default function MarketingCampaignWorkspace() {
 
       // Not yet posted: single bar in status colour
       return [{ ...base, title, backgroundColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af", borderColor: POST_CALENDAR_COLORS[p.status] ?? "#9ca3af" }];
-    });
+    }).concat(
+      mailers
+        .filter(m => m.scheduledAt)
+        .map(m => ({
+          title: `✉ ${m.subject || 'Mailer'}`,
+          date: new Date(m.scheduledAt!).toISOString().slice(0, 10),
+          backgroundColor: m.status === 'sent' ? '#10b981' : '#f59e0b',
+          borderColor: m.status === 'sent' ? '#10b981' : '#f59e0b',
+          extendedProps: { postId: 0, status: 'scheduled' as const },
+        }))
+    );
 
   if (isLoading) {
     return (
@@ -422,6 +492,11 @@ export default function MarketingCampaignWorkspace() {
             <LayoutGrid className="w-3.5 h-3.5" />
             Content
             {posts.length > 0 && <span className="ml-1 text-[10px] bg-muted rounded-full px-1.5">{posts.length}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="mails" className="gap-1.5">
+            <Mail className="w-3.5 h-3.5" />
+            Mails
+            {mailers.length > 0 && <span className="ml-1 text-[10px] bg-muted rounded-full px-1.5">{mailers.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="calendar" className="gap-1.5">
             <CalendarDays className="w-3.5 h-3.5" />
@@ -1086,6 +1161,155 @@ export default function MarketingCampaignWorkspace() {
                 ))}
               </div>
             </>
+          )}
+        </TabsContent>
+
+        {/* ── Mails Tab ─────────────────────────────────────────────────── */}
+        <TabsContent value="mails" className="flex-1 flex min-h-0 gap-4 mt-0">
+          {/* Left: mailer list */}
+          <div className="w-64 shrink-0 flex flex-col gap-2 overflow-y-auto pr-1">
+            <Button
+              size="sm"
+              className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5 w-full"
+              onClick={() => createMailerMutation.mutate({ campaignId })}
+              disabled={createMailerMutation.isPending}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              New Mailer
+            </Button>
+            {mailers.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center pt-4">No mailers yet. Create one to get started.</p>
+            )}
+            {mailers.map(mailer => (
+              <button
+                key={mailer.id}
+                onClick={() => selectMailer(mailer)}
+                className={`w-full text-left rounded-xl border p-3 transition-colors ${selectedMailerId === mailer.id ? 'border-violet-400 bg-violet-50' : 'border-border bg-card hover:bg-muted/50'}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-medium text-foreground truncate">{mailer.subject || 'Untitled'}</p>
+                  <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                    mailer.status === 'sent' ? 'bg-emerald-100 text-emerald-700' :
+                    mailer.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>{mailer.status}</span>
+                </div>
+                {mailer.scheduledAt && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {new Date(mailer.scheduledAt).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Right: editor */}
+          {selectedMailerId ? (() => {
+            const mailer = mailers.find(m => m.id === selectedMailerId);
+            return (
+              <div className="flex-1 min-w-0 flex flex-col gap-3 min-h-0">
+                {/* Toolbar */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+                    <button
+                      onClick={() => setMailerTab('edit')}
+                      className={`px-3 py-1.5 transition-colors ${mailerTab === 'edit' ? 'bg-violet-600 text-white' : 'bg-background text-foreground hover:bg-muted'}`}
+                    >Edit HTML</button>
+                    <button
+                      onClick={() => setMailerTab('preview')}
+                      className={`px-3 py-1.5 transition-colors ${mailerTab === 'preview' ? 'bg-violet-600 text-white' : 'bg-background text-foreground hover:bg-muted'}`}
+                    >Preview</button>
+                  </div>
+                  <select
+                    value={mailer?.status ?? 'draft'}
+                    onChange={e => updateMailerMutation.mutate({ id: selectedMailerId, status: e.target.value as 'draft' | 'scheduled' | 'sent' })}
+                    className="text-xs h-7 rounded-md border border-input bg-background px-2 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-400"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="sent">Sent</option>
+                  </select>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={downloadMailerHtml}>
+                    <Download className="w-3 h-3" />
+                    Export HTML
+                  </Button>
+                  <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white text-xs h-7 gap-1.5 ml-auto" onClick={saveMailer} disabled={updateMailerMutation.isPending || !mailerDirty}>
+                    {updateMailerMutation.isPending ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-3 h-3" />}
+                    Save
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs h-7 text-red-600 hover:bg-red-50 border-red-200" onClick={() => { if (confirm('Delete this mailer?')) deleteMailerMutation.mutate({ id: selectedMailerId }); }}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+
+                {/* Meta fields */}
+                <div className="grid grid-cols-2 gap-2 shrink-0">
+                  <div>
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Subject</label>
+                    <input
+                      type="text"
+                      value={mailerDraft.subject}
+                      onChange={e => { setMailerDraft(d => ({ ...d, subject: e.target.value })); setMailerDirty(true); }}
+                      placeholder="Email subject line"
+                      className="w-full mt-1 text-xs rounded-lg border bg-background px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Preview text</label>
+                    <input
+                      type="text"
+                      value={mailerDraft.previewText}
+                      onChange={e => { setMailerDraft(d => ({ ...d, previewText: e.target.value })); setMailerDirty(true); }}
+                      placeholder="Preview text shown in inbox"
+                      className="w-full mt-1 text-xs rounded-lg border bg-background px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Scheduled date</label>
+                    <input
+                      type="datetime-local"
+                      value={mailerDraft.scheduledAt}
+                      onChange={e => { setMailerDraft(d => ({ ...d, scheduledAt: e.target.value })); setMailerDirty(true); }}
+                      className="w-full mt-1 text-xs rounded-lg border bg-background px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Notes</label>
+                    <input
+                      type="text"
+                      value={mailerDraft.notes}
+                      onChange={e => { setMailerDraft(d => ({ ...d, notes: e.target.value })); setMailerDirty(true); }}
+                      placeholder="Internal notes"
+                      className="w-full mt-1 text-xs rounded-lg border bg-background px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                  </div>
+                </div>
+
+                {/* HTML editor / preview */}
+                <div className="flex-1 min-h-0 rounded-xl border border-border overflow-hidden">
+                  {mailerTab === 'edit' ? (
+                    <textarea
+                      value={mailerDraft.htmlContent}
+                      onChange={e => { setMailerDraft(d => ({ ...d, htmlContent: e.target.value })); setMailerDirty(true); }}
+                      placeholder="Paste your HTML email code here…"
+                      className="w-full h-full resize-none font-mono text-xs p-3 focus:outline-none bg-muted/30"
+                      spellCheck={false}
+                    />
+                  ) : (
+                    <iframe
+                      srcDoc={mailerDraft.htmlContent || '<p style="font-family:sans-serif;color:#999;padding:2rem">No HTML content yet</p>'}
+                      className="w-full h-full border-0"
+                      sandbox="allow-same-origin"
+                      title="Mailer preview"
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })() : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+              Select a mailer or create a new one
+            </div>
           )}
         </TabsContent>
 

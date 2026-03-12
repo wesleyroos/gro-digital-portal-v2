@@ -307,3 +307,23 @@ export const campaignAssets = mysqlTable('campaignAssets', {
 });
 
 export type CampaignAsset = typeof campaignAssets.$inferSelect;
+
+/**
+ * Campaign mailers — HTML email drafts attached to a campaign.
+ */
+export const campaignMailers = mysqlTable('campaignMailers', {
+  id: int('id').autoincrement().primaryKey(),
+  campaignId: int('campaignId').notNull(),
+  subject: varchar('subject', { length: 255 }).notNull().default(''),
+  previewText: varchar('previewText', { length: 255 }),
+  htmlContent: text('htmlContent').notNull().default(''),
+  status: mysqlEnum('status', ['draft', 'scheduled', 'sent']).default('draft').notNull(),
+  scheduledAt: timestamp('scheduledAt'),
+  sentAt: timestamp('sentAt'),
+  notes: text('notes'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt').defaultNow().onUpdateNow().notNull(),
+});
+
+export type CampaignMailer = typeof campaignMailers.$inferSelect;
+export type InsertCampaignMailer = typeof campaignMailers.$inferInsert;

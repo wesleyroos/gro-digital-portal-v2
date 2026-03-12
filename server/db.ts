@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, InsertMarketingPost } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1164,4 +1164,47 @@ export async function deleteCampaignAsset(id: number) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
   await db.delete(campaignAssets).where(eq(campaignAssets.id, id));
+}
+
+export async function getCampaignMailers(campaignId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(campaignMailers).where(eq(campaignMailers.campaignId, campaignId)).orderBy(asc(campaignMailers.createdAt));
+}
+
+export async function createCampaignMailer(campaignId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.insert(campaignMailers).values({ campaignId, subject: 'Untitled mailer', htmlContent: '' });
+  const rows = await db.select().from(campaignMailers).where(eq(campaignMailers.campaignId, campaignId)).orderBy(desc(campaignMailers.createdAt)).limit(1);
+  return rows[0];
+}
+
+export async function updateCampaignMailer(id: number, data: {
+  subject?: string;
+  previewText?: string | null;
+  htmlContent?: string;
+  status?: 'draft' | 'scheduled' | 'sent';
+  scheduledAt?: Date | null;
+  sentAt?: Date | null;
+  notes?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const set: Record<string, unknown> = {};
+  if (data.subject !== undefined) set.subject = data.subject;
+  if (data.previewText !== undefined) set.previewText = data.previewText;
+  if (data.htmlContent !== undefined) set.htmlContent = data.htmlContent;
+  if (data.status !== undefined) set.status = data.status;
+  if (data.scheduledAt !== undefined) set.scheduledAt = data.scheduledAt;
+  if (data.sentAt !== undefined) set.sentAt = data.sentAt;
+  if (data.notes !== undefined) set.notes = data.notes;
+  if (Object.keys(set).length === 0) return;
+  await db.update(campaignMailers).set(set).where(eq(campaignMailers.id, id));
+}
+
+export async function deleteCampaignMailer(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.delete(campaignMailers).where(eq(campaignMailers.id, id));
 }

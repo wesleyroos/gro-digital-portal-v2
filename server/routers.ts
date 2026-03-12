@@ -74,6 +74,10 @@ import {
   insertCampaignAsset,
   deleteCampaignAsset,
   updateCampaignAssetDescription,
+  getCampaignMailers,
+  createCampaignMailer,
+  updateCampaignMailer,
+  deleteCampaignMailer,
 } from "./db";
 import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
@@ -1023,6 +1027,48 @@ export const appRouter = router({
         .input(z.object({ assetId: z.number().int() }))
         .mutation(async ({ input }) => {
           await deleteCampaignAsset(input.assetId);
+          return { success: true };
+        }),
+    }),
+
+    mailer: router({
+      list: adminProcedure
+        .input(z.object({ campaignId: z.number().int() }))
+        .query(async ({ input }) => getCampaignMailers(input.campaignId)),
+
+      create: adminProcedure
+        .input(z.object({ campaignId: z.number().int() }))
+        .mutation(async ({ input }) => {
+          const mailer = await createCampaignMailer(input.campaignId);
+          return mailer;
+        }),
+
+      update: adminProcedure
+        .input(z.object({
+          id: z.number().int(),
+          subject: z.string().optional(),
+          previewText: z.string().nullable().optional(),
+          htmlContent: z.string().optional(),
+          status: z.enum(['draft', 'scheduled', 'sent']).optional(),
+          scheduledAt: z.string().nullable().optional(), // ISO string or null
+          notes: z.string().nullable().optional(),
+        }))
+        .mutation(async ({ input }) => {
+          await updateCampaignMailer(input.id, {
+            subject: input.subject,
+            previewText: input.previewText,
+            htmlContent: input.htmlContent,
+            status: input.status,
+            scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : input.scheduledAt === null ? null : undefined,
+            notes: input.notes,
+          });
+          return { success: true };
+        }),
+
+      delete: adminProcedure
+        .input(z.object({ id: z.number().int() }))
+        .mutation(async ({ input }) => {
+          await deleteCampaignMailer(input.id);
           return { success: true };
         }),
     }),
