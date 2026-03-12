@@ -93,6 +93,7 @@ export default function MarketingCampaignWorkspace() {
   const [showGenerateMailer, setShowGenerateMailer] = useState(false);
   const [generateHeroUrl, setGenerateHeroUrl] = useState<string | null>(null);
   const [generatePurpose, setGeneratePurpose] = useState('');
+  const [generateLogoUrl, setGenerateLogoUrl] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assetFileRef = useRef<HTMLInputElement>(null);
@@ -139,6 +140,7 @@ export default function MarketingCampaignWorkspace() {
       setShowGenerateMailer(false);
       setGenerateHeroUrl(null);
       setGeneratePurpose('');
+      setGenerateLogoUrl('');
       toast.success('Mailer generated — check the Preview tab');
     },
     onError: (e) => toast.error(`Generation failed: ${e.message}`),
@@ -1360,6 +1362,16 @@ export default function MarketingCampaignWorkspace() {
                 />
               </div>
               <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Logo URL <span className="font-normal normal-case">(paste a direct image link, or leave blank)</span></label>
+                <input
+                  type="url"
+                  value={generateLogoUrl}
+                  onChange={e => setGenerateLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  className="w-full mt-1.5 text-sm rounded-lg border bg-background px-3 py-2 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                />
+              </div>
+              <div>
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hero image <span className="font-normal normal-case">(pick a generated post image, or skip)</span></label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   <button
@@ -1384,14 +1396,14 @@ export default function MarketingCampaignWorkspace() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-                The AI will use your campaign strategy, brand voice, target audience, and any uploaded brand assets to write the copy and design the email. A <strong>[LOGO]</strong> placeholder will be included — replace it with your actual logo URL after generating.
+                The AI will use your campaign strategy, brand voice, audience, and brand assets to write copy and design the email. If no logo URL is provided, a <strong>text logo placeholder</strong> is used — you can paste the URL into the HTML afterwards.
               </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowGenerateMailer(false)}>Cancel</Button>
               <Button
                 className="bg-violet-600 hover:bg-violet-700 text-white gap-2"
-                onClick={() => generateMailerMutation.mutate({ campaignId, heroImageUrl: generateHeroUrl, purpose: generatePurpose || undefined })}
+                onClick={() => generateMailerMutation.mutate({ campaignId, heroImageUrl: generateHeroUrl, purpose: generatePurpose || undefined, logoUrl: generateLogoUrl || undefined })}
                 disabled={generateMailerMutation.isPending}
               >
                 {generateMailerMutation.isPending ? (

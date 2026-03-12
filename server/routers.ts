@@ -1076,6 +1076,7 @@ export const appRouter = router({
         .input(z.object({
           campaignId: z.number().int(),
           heroImageUrl: z.string().nullable().optional(),
+          logoUrl: z.string().nullable().optional(),
           purpose: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
@@ -1086,45 +1087,59 @@ export const appRouter = router({
           ]);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
 
-          const assetsSection = assets.filter(a => a.aiDescription).length > 0
-            ? `\nBRAND REFERENCE IMAGES (use these for colour palette, style, and visual tone):\n${assets.filter(a => a.aiDescription).map((a, i) => `- ${a.label || `Reference ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
+          const assetsWithDesc = assets.filter(a => a.aiDescription);
+          const assetsSection = assetsWithDesc.length > 0
+            ? `\nBRAND VISUAL REFERENCES (inform colour palette, mood, style):\n${assetsWithDesc.map((a, i) => `- ${a.label || `Reference ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
             : '';
 
+          const logoHtml = input.logoUrl
+            ? `<img src="${input.logoUrl}" alt="${campaign.clientSlug}" style="max-height:50px;width:auto;display:block;">`
+            : `<span style="font-size:22px;font-weight:800;letter-spacing:-0.5px;color:inherit;">${campaign.clientSlug}</span><!-- REPLACE WITH LOGO: <img src="YOUR_LOGO_URL" alt="${campaign.clientSlug}" style="max-height:50px;width:auto;"> -->`;
+
           const heroSection = input.heroImageUrl
-            ? `Use this image as the hero image: ${input.heroImageUrl}`
-            : 'No hero image — use a solid brand-coloured header instead.';
+            ? `Include a full-width hero image using this URL: ${input.heroImageUrl} — display it edge-to-edge within the 600px container with no padding, aspect ratio preserved.`
+            : 'No hero image — use a richly styled header section with a gradient or solid brand colour instead. Make it visually striking.';
+
           const purposeSection = input.purpose ? `\nMAILER PURPOSE: ${input.purpose}` : '';
 
-          const prompt = `You are an expert HTML email developer. Generate a complete, professional, mobile-responsive HTML email for this marketing campaign.
+          const prompt = `You are a world-class HTML email designer. Create a beautiful, highly polished, mobile-responsive HTML email that looks like it came from a premium brand. This must be significantly better than a basic template — think award-winning email design.
 
 CAMPAIGN: ${campaign.name}
 CLIENT: ${campaign.clientSlug}
 BRAND VOICE: ${campaign.brandVoice ?? 'Not specified'}
 TARGET AUDIENCE: ${campaign.targetAudience ?? 'Not specified'}
 CONTENT THEMES: ${campaign.contentThemes ?? 'Not specified'}
-STRATEGY SUMMARY: ${campaign.strategy ? campaign.strategy.slice(0, 800) : 'Not specified'}${purposeSection}${assetsSection}
+STRATEGY: ${campaign.strategy ? campaign.strategy.slice(0, 600) : 'Not specified'}${purposeSection}${assetsSection}
 
-HERO IMAGE: ${heroSection}
-LOGO: No logo URL is available — leave a placeholder text "[LOGO]" in the header where the logo would go, styled as the brand name in a large, bold font. The client will replace it with their actual logo.
+LOGO HTML TO USE IN HEADER (use exactly as-is):
+${logoHtml}
 
-REQUIREMENTS:
-- Complete HTML document with all CSS inlined (email-client compatible)
-- Max width 600px, centered
-- Mobile responsive using media queries in a <style> block
-- Structure: header with brand name → hero image (if provided) → headline → body copy → CTA button → footer
-- Body copy should be compelling and match the brand voice, referencing content themes
-- CTA button should be a solid colour, rounded, clearly clickable
-- Footer must include: "© ${new Date().getFullYear()} ${campaign.clientSlug}" and an unsubscribe placeholder link
-- Use web-safe fonts or system font stack
-- Colours: derive a tasteful palette from the brand voice (bold = dark + accent; playful = bright; professional = navy/grey)
-- Return ONLY the raw HTML — no explanation, no markdown, no code fences`;
+HERO: ${heroSection}
+
+DESIGN REQUIREMENTS:
+- Complete HTML document, all CSS inlined PLUS a <style> block for media queries
+- Max width 600px, centred, white background content area
+- Outer wrapper: light grey or off-white background (#f4f4f4 or similar)
+- HEADER: dark background (brand colour), logo on left OR centred, clean and minimal — at least 70px tall
+- HERO: full-width image OR striking gradient banner with large display headline overlaid
+- CONTENT SECTIONS: at least 2-3 distinct sections with clear visual hierarchy:
+    • Opening hook paragraph (large, bold, brand voice)
+    • 2-3 feature/benefit callouts with icons (use Unicode symbols like ✦ ◆ → ✓) or simple bordered boxes
+    • One more narrative paragraph
+- CTA BUTTON: large, minimum 200px wide, bold text, strong brand colour, 8px border-radius, centred, surrounded by generous whitespace
+- TYPOGRAPHY: use -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif. Headline 28-32px bold. Body 16px, line-height 1.6. Muted text 13px.
+- COLOUR PALETTE: derive from brand voice — if bold/dynamic: deep dark + vibrant accent; if professional: navy/charcoal + gold or teal; if playful: bright with contrasting pops. Use consistently across header, CTA, accents.
+- SPACING: generous padding (40px top/bottom sections, 30px sides). White space is your friend.
+- FOOTER: dark or mid-grey background, centred text, copyright "© ${new Date().getFullYear()} ${campaign.clientSlug}", unsubscribe link styled as small muted text, social icons as Unicode (📷 f t in) or just text links
+- Mobile: @media max-width 600px — padding reduces to 20px sides, font sizes adjust, images 100% width
+- Return ONLY the raw HTML document. No explanation. No markdown. No code fences. Start with <!DOCTYPE html>.`;
 
           const res = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: 'gpt-4o',
-              max_tokens: 4096,
+              max_tokens: 8192,
               messages: [
                 { role: 'system', content: 'You are an expert HTML email developer. Output only raw HTML with no markdown, no code fences, no explanations.' },
                 { role: 'user', content: prompt },
