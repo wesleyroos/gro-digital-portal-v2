@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,11 +46,16 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-gray-50 text-gray-500 border-gray-200",
 };
 
+type SortKey = "name" | "clientSlug" | "status" | "createdAt";
+type SortDir = "asc" | "desc";
+
 export default function Marketing() {
   const [, setLocation] = useLocation();
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState("");
   const [newClientSlug, setNewClientSlug] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
@@ -122,6 +127,27 @@ export default function Marketing() {
     createMutation.mutate({ clientSlug: newClientSlug, name: newName.trim() });
   }
 
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const sorted = useMemo(() => {
+    if (!campaigns) return [];
+    return [...campaigns].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
+      else if (sortKey === "clientSlug") cmp = a.clientSlug.localeCompare(b.clientSlug);
+      else if (sortKey === "status") cmp = a.status.localeCompare(b.status);
+      else if (sortKey === "createdAt") cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [campaigns, sortKey, sortDir]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -155,40 +181,75 @@ export default function Marketing() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {campaigns.map(c => (
-            <button
-              key={c.id}
-              onClick={() => setLocation(`/marketing/${c.id}`)}
-              className="text-left rounded-xl border bg-card p-5 hover:border-violet-300 hover:shadow-sm transition-all group"
-            >
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{c.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{c.clientSlug}</p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <span
-                    role="button"
-                    onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
-                    className="p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-violet-600 transition-colors mt-0.5" />
-                </div>
-              </div>
-              <Badge
-                variant="outline"
-                className={`text-[10px] px-2 py-0.5 font-medium ${STATUS_COLORS[c.status] ?? ""}`}
-              >
-                {STATUS_LABELS[c.status] ?? c.status}
-              </Badge>
-              <p className="text-[10px] text-muted-foreground mt-3">
-                {new Date(c.createdAt).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}
-              </p>
-            </button>
-          ))}
+        <div className="rounded-lg border border-border overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50 border-b border-border">
+                {([
+                  { key: "name", label: "Campaign" },
+                  { key: "clientSlug", label: "Client" },
+                  { key: "status", label: "Status" },
+                  { key: "createdAt", label: "Created" },
+                ] as { key: SortKey; label: string }[]).map(col => (
+                  <th key={col.key} className="text-left px-4 py-3">
+                    <button
+                      onClick={() => toggleSort(col.key)}
+                      className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {col.label}
+                      {sortKey === col.key ? (
+                        sortDir === "asc"
+                          ? <ChevronUp className="w-3.5 h-3.5" />
+                          : <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
+                      )}
+                    </button>
+                  </th>
+                ))}
+                <th className="w-16" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border bg-background">
+              {sorted.map(c => (
+                <tr
+                  key={c.id}
+                  onClick={() => setLocation(`/marketing/${c.id}`)}
+                  className="cursor-pointer hover:bg-muted/40 transition-colors group"
+                >
+                  <td className="px-4 py-3 font-medium text-foreground group-hover:text-violet-700 transition-colors">
+                    {c.name}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {clients?.find(cl => cl.clientSlug === c.clientSlug)?.clientName ?? c.clientSlug}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-2 py-0.5 font-medium ${STATUS_COLORS[c.status] ?? ""}`}
+                    >
+                      {STATUS_LABELS[c.status] ?? c.status}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
+                    {new Date(c.createdAt).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
+                        className="p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-violet-600 transition-colors" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
