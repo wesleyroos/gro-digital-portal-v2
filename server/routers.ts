@@ -1297,8 +1297,9 @@ DESIGN REQUIREMENTS:
           if (existing) return { segmentId: existing };
           const resend = new Resend(ENV.resendApiKey);
           const res = await resend.segments.create({ name: input.clientName });
-          const segmentId: string = res?.data?.id ?? (res as any)?.id;
-          if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
+          if (res.error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `Resend: ${res.error.message}` });
+          const segmentId: string = res.data?.id ?? (res as any)?.id;
+          if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Resend segment created but returned no ID' });
           await setResendSegmentId(input.clientSlug, segmentId);
           return { segmentId };
         }),
@@ -1329,14 +1330,14 @@ DESIGN REQUIREMENTS:
         .mutation(async ({ input }) => {
           if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
           let segmentId = await getResendSegmentId(input.clientSlug);
+          const resend = new Resend(ENV.resendApiKey);
           if (!segmentId) {
-            const resend = new Resend(ENV.resendApiKey);
             const res = await resend.segments.create({ name: input.clientName });
-            segmentId = res?.data?.id ?? (res as any)?.id;
-            if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
+            if (res.error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `Resend: ${res.error.message}` });
+            segmentId = res.data?.id ?? (res as any)?.id;
+            if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Resend segment created but returned no ID' });
             await setResendSegmentId(input.clientSlug, segmentId);
           }
-          const resend = new Resend(ENV.resendApiKey);
           await resend.contacts.create({
             email: input.email,
             firstName: input.firstName,
@@ -1360,14 +1361,14 @@ DESIGN REQUIREMENTS:
         .mutation(async ({ input }) => {
           if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
           let segmentId = await getResendSegmentId(input.clientSlug);
+          const resend = new Resend(ENV.resendApiKey);
           if (!segmentId) {
-            const resend = new Resend(ENV.resendApiKey);
             const res = await resend.segments.create({ name: input.clientName });
-            segmentId = res?.data?.id ?? (res as any)?.id;
-            if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create Resend segment' });
+            if (res.error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `Resend: ${res.error.message}` });
+            segmentId = res.data?.id ?? (res as any)?.id;
+            if (!segmentId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Resend segment created but returned no ID' });
             await setResendSegmentId(input.clientSlug, segmentId);
           }
-          const resend = new Resend(ENV.resendApiKey);
           let added = 0;
           let failed = 0;
           for (const contact of input.contacts) {

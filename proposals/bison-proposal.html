@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bison Mining Supplies — Digital Transformation Proposal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      background: #fff;
+      color: #111;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 800px; margin: 0 auto; padding: 0 40px 80px; }
+
+    /* ── Prepared-for bar ── */
+    .topbar {
+      border-bottom: 1px solid #e5e5e5;
+      padding: 18px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 72px;
+    }
+
+    .topbar-left {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 0.03em;
+    }
+
+    .topbar-left strong {
+      color: #111;
+      font-weight: 600;
+    }
+
+    .topbar-logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #111;
+    }
+
+    .topbar-logo span { font-weight: 300; }
+
+    /* ── Hero ── */
+    .hero { margin-bottom: 72px; }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #1D4ED8;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-size: 44px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      color: #111;
+      margin-bottom: 24px;
+      max-width: 600px;
+    }
+
+    .hero-body {
+      font-size: 16px;
+      color: #555;
+      line-height: 1.75;
+      max-width: 560px;
+      border-left: 3px solid #1D4ED8;
+      padding-left: 20px;
+    }
+
+    /* ── Section ── */
+    .section { margin-bottom: 72px; }
+
+    .section-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-eyebrow::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e5e5e5;
+    }
+
+    /* ── Phase cards ── */
+    .phase { margin-bottom: 32px; }
+
+    .phase-meta {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .phase-title-group { display: flex; align-items: baseline; gap: 14px; }
+
+    .phase-num {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #1D4ED8;
+      text-transform: uppercase;
+    }
+
+    .phase-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #111;
+    }
+
+    .phase-timeline {
+      font-size: 12px;
+      color: #aaa;
+      white-space: nowrap;
+    }
+
+    .phase-subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 20px;
+      padding-left: 25px;
+    }
+
+    .phase-content {
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .feature {
+      padding: 16px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      border-right: 1px solid #f0f0f0;
+    }
+
+    .feature:nth-child(even) { border-right: none; }
+    .feature:last-child { border-bottom: none; }
+    .feature:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+
+    .feature-title { font-size: 13px; font-weight: 600; color: #111; margin-bottom: 3px; }
+    .feature-desc { font-size: 12px; color: #888; line-height: 1.5; }
+
+    .phase-footer {
+      background: #fafafa;
+      border-top: 1px solid #e5e5e5;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .phase-footer-label { font-size: 12px; color: #888; }
+    .phase-footer-amount { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: #111; }
+    .phase-footer-terms { font-size: 11px; color: #bbb; margin-top: 1px; text-align: right; }
+
+    .phase-divider {
+      width: 1px;
+      height: 32px;
+      background: #e5e5e5;
+      margin: 0 4px;
+    }
+
+    /* ── Investment table ── */
+    .investment-table { width: 100%; border-collapse: collapse; }
+
+    .investment-table tr { border-bottom: 1px solid #f0f0f0; }
+    .investment-table tr:last-child { border-bottom: none; }
+
+    .investment-table td {
+      padding: 14px 0;
+      font-size: 14px;
+      color: #111;
+      vertical-align: top;
+    }
+
+    .investment-table td:last-child { text-align: right; font-weight: 600; }
+
+    .investment-table .row-label { color: #888; font-size: 12px; }
+    .investment-table .row-sub td { color: #bbb; font-size: 12px; padding: 4px 0 4px 16px; font-weight: 400 !important; }
+    .investment-table .row-sub td:last-child { font-weight: 400 !important; }
+
+    .investment-total {
+      border-top: 2px solid #111 !important;
+      margin-top: 4px;
+    }
+
+    .investment-total td { padding-top: 16px !important; font-size: 15px !important; font-weight: 700 !important; }
+
+    /* ── Why us ── */
+    .three-up {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .three-up-item { }
+    .three-up-num {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #111;
+      margin-bottom: 6px;
+    }
+
+    .three-up-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #111;
+      margin-bottom: 4px;
+    }
+
+    .three-up-desc { font-size: 12px; color: #888; line-height: 1.6; }
+
+    /* ── CTA ── */
+    .cta {
+      border: 1px solid #111;
+      border-radius: 8px;
+      padding: 40px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 40px;
+    }
+
+    .cta-left { flex: 1; }
+    .cta h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .cta p { font-size: 14px; color: #666; line-height: 1.7; max-width: 400px; }
+
+    .cta-right {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .btn-primary {
+      display: block;
+      padding: 11px 24px;
+      background: #1D4ED8;
+      color: #fff;
+      font-weight: 600;
+      border-radius: 6px;
+      font-size: 13px;
+      text-decoration: none;
+      text-align: center;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .btn-secondary {
+      display: block;
+      padding: 11px 24px;
+      border: 1px solid #e5e5e5;
+      color: #111;
+      font-weight: 500;
+      border-radius: 6px;
+      font-size: 13px;
+      text-decoration: none;
+      text-align: center;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .cta-contact {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #bbb;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 64px;
+      border-top: 1px solid #e5e5e5;
+      padding-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-left { font-size: 12px; color: #bbb; line-height: 1.8; }
+    .footer-right { font-size: 12px; color: #bbb; text-align: right; line-height: 1.8; }
+
+    /* ── Optional tag ── */
+    .optional-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #888;
+      background: #f5f5f5;
+      border: 1px solid #e5e5e5;
+      border-radius: 4px;
+      padding: 2px 7px;
+      margin-left: 8px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+    }
+
+    @media (max-width: 640px) {
+      .page { padding: 0 20px 60px; }
+
+      .topbar { flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 40px; }
+
+      .hero h1 { font-size: 28px; }
+      .hero { margin-bottom: 48px; }
+
+      .phase-meta { flex-direction: column; gap: 4px; }
+      .phase-timeline { align-self: flex-start; }
+
+      .features { grid-template-columns: 1fr; }
+      .feature { border-right: none !important; }
+      .feature:last-child { border-bottom: none; }
+      .feature:nth-last-child(2):nth-child(odd) { border-bottom: 1px solid #f0f0f0; }
+
+      .three-up { grid-template-columns: 1fr; gap: 20px; }
+
+      .cta { flex-direction: column; padding: 24px; gap: 24px; }
+      .cta-right { width: 100%; }
+      .btn-primary, .btn-secondary { width: 100%; box-sizing: border-box; }
+
+      .footer { flex-direction: column; gap: 12px; }
+      .footer-right { text-align: left; }
+    }
+
+    @media print {
+      .page { padding: 0 20px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        Prepared exclusively for <strong>Bison Mining Supplies</strong> &nbsp;·&nbsp; February 2026
+      </div>
+      <div class="topbar-logo">GRO<span>digital</span></div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-eyebrow">Digital Transformation Proposal</div>
+      <h1>Your buyers are already searching online. What do they find?</h1>
+      <p class="hero-body">
+        Most mining procurement officers start with a search. If Bison doesn't have a professional digital presence — a searchable catalog, a frictionless quote process, accessible datasheets — they move on to a supplier who does. This proposal outlines how we fix that.
+      </p>
+    </div>
+
+    <!-- Phases -->
+    <div class="section">
+      <div class="section-eyebrow">The Roadmap</div>
+
+      <!-- Phase 1 -->
+      <div class="phase">
+        <div class="phase-meta">
+          <div class="phase-title-group">
+            <span class="phase-num">Phase 01</span>
+            <span class="phase-title">Digital Procurement Platform</span>
+          </div>
+          <span class="phase-timeline">Weeks 1 – 6</span>
+        </div>
+        <div class="phase-subtitle">Your professional online storefront, built from the ground up</div>
+        <div class="phase-content">
+          <div class="features">
+            <div class="feature">
+              <div class="feature-title">Modern Professional Design</div>
+              <div class="feature-desc">Clean, high-end interface optimised for desktop and mobile buyers</div>
+            </div>
+            <div class="feature">
+              <div class="feature-title">Digital Product Catalog</div>
+              <div class="feature-desc">Searchable system with images, specs, and technical details for all ~220 products</div>
+            </div>
+            <div class="feature">
+              <div class="feature-title">Smart Request a Quote</div>
+              <div class="feature-desc">Professional B2B quoting tool — buyers submit inquiries in under a minute</div>
+            </div>
+            <div class="feature">
+              <div class="feature-title">Document Hub</div>
+              <div class="feature-desc">Technical specs, safety data sheets, and compliance documentation — always accessible</div>
+            </div>
+          </div>
+          <div class="phase-footer">
+            <div>
+              <div class="phase-footer-label">Once-off investment</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:20px;">
+              <div style="text-align:right;">
+                <div class="phase-footer-amount">R72,500</div>
+                <div class="phase-footer-terms">50% upfront · 50% on delivery</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 2 -->
+      <div class="phase">
+        <div class="phase-meta">
+          <div class="phase-title-group">
+            <span class="phase-num">Phase 02</span>
+            <span class="phase-title">Managed Services &amp; Growth</span>
+          </div>
+          <span class="phase-timeline">Ongoing from Month 2</span>
+        </div>
+        <div class="phase-subtitle">We keep it running, secure, and growing — you focus on sales</div>
+        <div class="phase-content">
+          <div class="features">
+            <div class="feature">
+              <div class="feature-title">Hosting, Maintenance &amp; Updates <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:6px;">R1,300/mo</span></div>
+              <div class="feature-desc">High-performance infrastructure, monitored 24/7. Regular backups, patches, and content updates included.</div>
+            </div>
+            <div class="feature">
+              <div class="feature-title">Security &amp; Uptime <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:6px;">R249/mo</span></div>
+              <div class="feature-desc">Advanced monitoring, SSL, threat prevention, and rapid response</div>
+            </div>
+            <div class="feature">
+              <div class="feature-title">Performance Analytics <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:6px;">R350/mo</span></div>
+              <div class="feature-desc">Monthly report: visitor behaviour, quote submissions, and top pages</div>
+            </div>
+            <div class="feature">
+              <div class="feature-title">Chat Lead Capture Bot <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:6px;">R650/mo</span></div>
+              <div class="feature-desc">WhatsApp-style chat for real-time customer engagement</div>
+            </div>
+            <div class="feature" style="grid-column: 1 / -1; border-right: none;">
+              <div class="feature-title">Monthly Content Strategy <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:6px;">R3,000/mo</span></div>
+              <div class="feature-desc">2 SEO-optimised blog articles per month (R1,500 each) targeting searches made by mining procurement officers</div>
+            </div>
+          </div>
+          <div class="phase-footer">
+            <div>
+              <div class="phase-footer-label">Monthly retainer</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="phase-footer-amount">R5,549 / month</div>
+              <div class="phase-footer-terms">12-month contract · 30-day cancellation notice</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 3 -->
+      <div class="phase">
+        <div class="phase-meta">
+          <div class="phase-title-group">
+            <span class="phase-num">Phase 03</span>
+            <span class="phase-title">Strategic Growth Engine <span class="optional-tag">Optional</span></span>
+          </div>
+          <span class="phase-timeline">Months 3 – 6</span>
+        </div>
+        <div class="phase-subtitle">Drive new procurement officers to the platform through targeted content and outreach</div>
+        <div class="phase-content">
+          <div class="features">
+            <div class="feature">
+              <div class="feature-title">Industry-Specific Content</div>
+              <div class="feature-desc">SEO-optimised articles targeting searches made by mining procurement officers</div>
+            </div>
+            <div class="feature">
+              <div class="feature-title">LinkedIn Targeting</div>
+              <div class="feature-desc">Identify and engage decision-makers in the mining and resources sector</div>
+            </div>
+            <div class="feature">
+              <div class="feature-title">CRM Integration</div>
+              <div class="feature-desc">Leads from the platform feed directly into your sales pipeline</div>
+            </div>
+          </div>
+          <div class="phase-footer">
+            <div>
+              <div class="phase-footer-label">Scope and pricing to be quoted separately once Phase 1 is underway</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Investment summary -->
+    <div class="section">
+      <div class="section-eyebrow">Investment Summary</div>
+      <table class="investment-table">
+        <tr>
+          <td>Phase 1 — Digital Platform Build</td>
+          <td>R72,500</td>
+        </tr>
+        <tr class="row-sub">
+          <td>50% upfront deposit</td>
+          <td>R36,250</td>
+        </tr>
+        <tr class="row-sub">
+          <td>50% upon completion</td>
+          <td>R36,250</td>
+        </tr>
+        <tr>
+          <td>Phase 2 — Managed Services &amp; Growth</td>
+          <td>R5,549 / mo</td>
+        </tr>
+        <tr class="row-sub">
+          <td>Hosting, Maintenance &amp; Updates</td>
+          <td>R1,300 / mo</td>
+        </tr>
+        <tr class="row-sub">
+          <td>Security &amp; Uptime</td>
+          <td>R249 / mo</td>
+        </tr>
+        <tr class="row-sub">
+          <td>Performance Analytics</td>
+          <td>R350 / mo</td>
+        </tr>
+        <tr class="row-sub">
+          <td>Chat Lead Capture Bot</td>
+          <td>R650 / mo</td>
+        </tr>
+        <tr class="row-sub">
+          <td>Monthly Content Strategy</td>
+          <td>R3,000 / mo</td>
+        </tr>
+        <tr>
+          <td>Phase 3 — Strategic Growth Engine <span class="optional-tag">Optional</span></td>
+          <td style="color:#aaa;font-weight:400;font-size:13px;">Quoted separately</td>
+        </tr>
+        <tr class="investment-total">
+          <td>Total (Phase 1 + 2 × 12 months)</td>
+          <td>R139,088</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Why Gro Digital -->
+    <div class="section">
+      <div class="section-eyebrow">Why Gro Digital</div>
+      <div class="three-up">
+        <div class="three-up-item">
+          <div class="three-up-num">5+</div>
+          <div class="three-up-label">Years in business</div>
+          <div class="three-up-desc">Building digital systems for South African SMEs and professional service firms.</div>
+        </div>
+        <div class="three-up-item">
+          <div class="three-up-num">B2B</div>
+          <div class="three-up-label">Specialist focus</div>
+          <div class="three-up-desc">We build for industrial and professional buyers, not consumer e-commerce.</div>
+        </div>
+        <div class="three-up-item">
+          <div class="three-up-num">1</div>
+          <div class="three-up-label">Point of contact</div>
+          <div class="three-up-desc">No account managers or handoffs. You work directly with the people building it.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <div class="cta-left">
+        <h2>Ready to move forward?</h2>
+        <p>We can have a scoping call this week to align on requirements and kick off Phase 1. The deposit invoice is issued after that call.</p>
+      </div>
+      <div class="cta-right">
+        <a href="mailto:wesley@grodigital.co.za" class="btn-primary">Book a scoping call</a>
+        <a href="https://www.grodigital.co.za" class="btn-secondary">View our work</a>
+        <div class="cta-contact">
+          wesley@grodigital.co.za<br />
+          www.grodigital.co.za
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-left">
+        Gro Digital (Pty) Ltd · 2020/064443/07<br />
+        Darter Studios, Cape Town, 8001
+      </div>
+      <div class="footer-right">
+        This proposal is valid for 30 days.<br />
+        Prepared February 2026.
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

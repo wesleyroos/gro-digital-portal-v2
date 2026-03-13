@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bison Supplies — Phase 0 Proposal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      background: #fff;
+      color: #111;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 800px; margin: 0 auto; padding: 0 40px 80px; }
+
+    /* ── Prepared-for bar ── */
+    .topbar {
+      border-bottom: 1px solid #e5e5e5;
+      padding: 18px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 72px;
+    }
+
+    .topbar-left {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 0.03em;
+    }
+
+    .topbar-left strong {
+      color: #111;
+      font-weight: 600;
+    }
+
+    .topbar-logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #111;
+    }
+
+    .topbar-logo span { font-weight: 300; }
+
+    /* ── Hero ── */
+    .hero { margin-bottom: 72px; }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #1D4ED8;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      color: #111;
+      margin-bottom: 24px;
+      max-width: 560px;
+    }
+
+    .hero-body {
+      font-size: 16px;
+      color: #555;
+      line-height: 1.75;
+      max-width: 560px;
+      border-left: 3px solid #1D4ED8;
+      padding-left: 20px;
+    }
+
+    /* ── Section ── */
+    .section { margin-bottom: 64px; }
+
+    .section-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-eyebrow::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e5e5e5;
+    }
+
+    /* ── Service card ── */
+    .service-card {
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .service-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 22px 24px;
+      border-bottom: 1px solid #f0f0f0;
+      gap: 40px;
+    }
+
+    .service-row:last-of-type { border-bottom: none; }
+
+    .service-info { flex: 1; }
+
+    .service-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111;
+      margin-bottom: 6px;
+    }
+
+    .service-desc {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.6;
+    }
+
+    .service-price {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111;
+      white-space: nowrap;
+      letter-spacing: -0.02em;
+      padding-top: 2px;
+    }
+
+    .service-price-label {
+      font-size: 11px;
+      color: #bbb;
+      font-weight: 400;
+      margin-left: 2px;
+    }
+
+    .service-footer {
+      background: #fafafa;
+      border-top: 1px solid #e5e5e5;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .service-footer-label { font-size: 12px; color: #888; }
+
+    .service-footer-total {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #111;
+    }
+
+    .service-footer-terms {
+      font-size: 11px;
+      color: #bbb;
+      margin-top: 2px;
+      text-align: right;
+    }
+
+    /* ── What's included note ── */
+    .includes {
+      margin-top: 24px;
+      padding: 20px 24px;
+      background: #f8faff;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+    }
+
+    .includes-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1D4ED8;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .includes-list {
+      list-style: none;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 24px;
+    }
+
+    .includes-list li {
+      font-size: 13px;
+      color: #555;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .includes-list li::before {
+      content: '·';
+      color: #1D4ED8;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ── CTA ── */
+    .cta {
+      border: 1px solid #111;
+      border-radius: 8px;
+      padding: 40px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 40px;
+    }
+
+    .cta-left { flex: 1; }
+
+    .cta h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .cta p { font-size: 14px; color: #666; line-height: 1.7; max-width: 380px; }
+
+    .cta-right {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .btn-primary {
+      display: block;
+      padding: 11px 24px;
+      background: #1D4ED8;
+      color: #fff;
+      font-weight: 600;
+      border-radius: 6px;
+      font-size: 13px;
+      text-decoration: none;
+      text-align: center;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .btn-secondary {
+      display: block;
+      padding: 11px 24px;
+      border: 1px solid #e5e5e5;
+      color: #111;
+      font-weight: 500;
+      border-radius: 6px;
+      font-size: 13px;
+      text-decoration: none;
+      text-align: center;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .cta-contact {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #bbb;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 64px;
+      border-top: 1px solid #e5e5e5;
+      padding-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-left { font-size: 12px; color: #bbb; line-height: 1.8; }
+    .footer-right { font-size: 12px; color: #bbb; text-align: right; line-height: 1.8; }
+
+    @media (max-width: 640px) {
+      .page { padding: 0 20px 60px; }
+      .topbar { flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 40px; }
+      .hero h1 { font-size: 28px; }
+      .hero { margin-bottom: 48px; }
+      .service-row { flex-direction: column; gap: 8px; }
+      .includes-list { grid-template-columns: 1fr; }
+      .cta { flex-direction: column; padding: 24px; gap: 24px; }
+      .cta-right { width: 100%; }
+      .btn-primary, .btn-secondary { width: 100%; box-sizing: border-box; }
+      .footer { flex-direction: column; gap: 12px; }
+      .footer-right { text-align: left; }
+    }
+
+    @media print {
+      .page { padding: 0 20px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        Prepared exclusively for <strong>Bison Mining Supplies</strong> &nbsp;·&nbsp; March 2026
+      </div>
+      <div class="topbar-logo">GRO<span>digital</span></div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-eyebrow">Phase 0 Proposal</div>
+      <h1>Keep your digital presence current — without the overhead.</h1>
+      <p class="hero-body">
+        A simple monthly retainer covering your hosting, security, and all the day-to-day updates that keep your website and marketing materials accurate and professional.
+      </p>
+    </div>
+
+    <!-- Services -->
+    <div class="section">
+      <div class="section-eyebrow">What's Included</div>
+
+      <div class="service-card">
+        <div class="service-row">
+          <div class="service-info">
+            <div class="service-title">Hosting, Maintenance &amp; Security</div>
+            <div class="service-desc">High-performance hosting with 24/7 uptime monitoring, SSL certificate, regular backups, software patches, and rapid response to any issues.</div>
+          </div>
+          <div class="service-price">R1,300<span class="service-price-label">/mo</span></div>
+        </div>
+        <div class="service-row">
+          <div class="service-info">
+            <div class="service-title">Website Updates &amp; Content Management</div>
+            <div class="service-desc">Ongoing content updates handled for you — copy changes, marketing material uploads, document replacements (datasheets, BEE certificates, compliance docs), and general site maintenance.</div>
+          </div>
+          <div class="service-price">R2,000<span class="service-price-label">/mo</span></div>
+        </div>
+        <div class="service-footer">
+          <div>
+            <div class="service-footer-label">Monthly retainer</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="service-footer-total">R3,300 / month</div>
+            <div class="service-footer-terms">Month-to-month · 30-day cancellation notice</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="includes">
+        <div class="includes-title">Updates service covers</div>
+        <ul class="includes-list">
+          <li>Copy &amp; text changes</li>
+          <li>BEE certificate uploads</li>
+          <li>Marketing material uploads</li>
+          <li>Product datasheet replacements</li>
+          <li>Safety data sheet updates</li>
+          <li>Contact &amp; team updates</li>
+          <li>Banner &amp; image swaps</li>
+          <li>General content corrections</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <div class="cta-left">
+        <h2>Ready to get started?</h2>
+        <p>We can set this up immediately. First month is invoiced upfront, then monthly from there.</p>
+      </div>
+      <div class="cta-right">
+        <a href="mailto:wesley@grodigital.co.za" class="btn-primary">Accept proposal</a>
+        <a href="https://www.grodigital.co.za" class="btn-secondary">View our work</a>
+        <div class="cta-contact">
+          wesley@grodigital.co.za<br />
+          www.grodigital.co.za
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-left">
+        Gro Digital (Pty) Ltd · 2020/064443/07<br />
+        Darter Studios, Cape Town, 8001
+      </div>
+      <div class="footer-right">
+        This proposal is valid for 30 days.<br />
+        Prepared March 2026.
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
