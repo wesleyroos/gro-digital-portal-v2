@@ -332,10 +332,13 @@ export async function getDistinctClients() {
       clientPhone: sql<string>`MAX(${invoices.clientPhone})`,
       address: clientProfiles.address,
       analyticsToken: clientProfiles.analyticsToken,
+      instagramUsername: clientProfiles.instagramUsername,
+      facebookPageName: clientProfiles.facebookPageName,
+      resendSegmentId: clientProfiles.resendSegmentId,
     })
     .from(invoices)
     .leftJoin(clientProfiles, eq(invoices.clientSlug, clientProfiles.clientSlug))
-    .groupBy(invoices.clientSlug, clientProfiles.address, clientProfiles.analyticsToken);
+    .groupBy(invoices.clientSlug, clientProfiles.address, clientProfiles.analyticsToken, clientProfiles.instagramUsername, clientProfiles.facebookPageName, clientProfiles.resendSegmentId);
 
   const invoiceSlugs = new Set(fromInvoices.map(c => c.clientSlug));
 
@@ -351,6 +354,9 @@ export async function getDistinctClients() {
       clientPhone: p.phone ?? null,
       address: p.address ?? null,
       analyticsToken: p.analyticsToken ?? null,
+      instagramUsername: p.instagramUsername ?? null,
+      facebookPageName: p.facebookPageName ?? null,
+      resendSegmentId: p.resendSegmentId ?? null,
     }));
 
   return [...fromInvoices, ...standaloneProfiles];

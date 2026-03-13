@@ -17,6 +17,9 @@ type ClientRow = {
   clientName: string;
   clientContact?: string | null;
   analyticsToken?: string | null;
+  instagramUsername?: string | null;
+  facebookPageName?: string | null;
+  resendSegmentId?: string | null;
 };
 
 export default function Clients() {
@@ -214,7 +217,26 @@ export default function Clients() {
                     </div>
                     <h4 className="text-sm font-semibold text-foreground mb-1">{client.clientName}</h4>
                     {client.clientContact && (
-                      <p className="text-xs text-muted-foreground mb-3">{client.clientContact}</p>
+                      <p className="text-xs text-muted-foreground mb-2">{client.clientContact}</p>
+                    )}
+                    {(client.instagramUsername || client.facebookPageName || client.resendSegmentId) && (
+                      <div className="flex items-center gap-1 flex-wrap mb-3">
+                        {client.instagramUsername && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-pink-50 text-pink-700 border border-pink-200 px-1.5 py-0.5 rounded-full font-medium">
+                            IG
+                          </span>
+                        )}
+                        {client.facebookPageName && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium">
+                            FB
+                          </span>
+                        )}
+                        {client.resendSegmentId && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium">
+                            ✉
+                          </span>
+                        )}
+                      </div>
                     )}
                     <button
                       onClick={(e) => openAnalytics(e, client)}
@@ -241,11 +263,12 @@ export default function Clients() {
           /* List view */
           <div className="rounded-lg border border-border overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="grid grid-cols-[2fr_2fr_120px_100px_56px] bg-muted/50 border-b border-border px-4 py-2.5">
+            <div className="grid grid-cols-[2fr_2fr_120px_100px_80px_56px] bg-muted/50 border-b border-border px-4 py-2.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Contact</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Open Tasks</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Analytics</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Connected</span>
               <span />
             </div>
             {/* Rows */}
@@ -254,7 +277,7 @@ export default function Clients() {
                 const count = openTaskCount[client.clientSlug] ?? 0;
                 return (
                   <Link key={client.clientSlug} href={`/client/${client.clientSlug}`}>
-                    <div className="grid grid-cols-[2fr_2fr_120px_100px_56px] items-center px-4 py-3 hover:bg-muted/40 transition-colors cursor-pointer group">
+                    <div className="grid grid-cols-[2fr_2fr_120px_100px_80px_56px] items-center px-4 py-3 hover:bg-muted/40 transition-colors cursor-pointer group">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-7 h-7 bg-primary/10 rounded-md flex items-center justify-center shrink-0">
                           <Building2 className="w-3.5 h-3.5 text-primary" />
@@ -293,6 +316,20 @@ export default function Clients() {
                             </span>
                           )}
                         </button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {client.instagramUsername && (
+                          <span className="text-[10px] bg-pink-50 text-pink-700 border border-pink-200 px-1.5 py-0.5 rounded-full font-medium">IG</span>
+                        )}
+                        {client.facebookPageName && (
+                          <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium">FB</span>
+                        )}
+                        {client.resendSegmentId && (
+                          <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium">✉</span>
+                        )}
+                        {!client.instagramUsername && !client.facebookPageName && !client.resendSegmentId && (
+                          <span className="text-xs text-muted-foreground/50">–</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 justify-self-end">
                         <button
