@@ -1,4 +1,4 @@
-import { boolean, date, decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, date, decimal, int, mediumtext, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -197,7 +197,7 @@ export const proposals = mysqlTable("proposals", {
   id: int("id").autoincrement().primaryKey(),
   token: varchar("token", { length: 21 }).notNull().unique(),
   title: varchar("title", { length: 255 }).notNull(),
-  htmlContent: text("htmlContent").notNull(),
+  htmlContent: mediumtext("htmlContent").notNull(),
   status: mysqlEnum("status", ["draft", "sent", "viewed", "accepted", "declined"]).default("draft").notNull(),
   assignedType: mysqlEnum("assignedType", ["client", "lead", "none"]).default("none").notNull(),
   assignedName: varchar("assignedName", { length: 255 }),
@@ -317,7 +317,7 @@ export const campaignMailers = mysqlTable('campaignMailers', {
   campaignId: int('campaignId').notNull(),
   subject: varchar('subject', { length: 255 }).notNull().default(''),
   previewText: varchar('previewText', { length: 255 }),
-  htmlContent: text('htmlContent').notNull().default(''),
+  htmlContent: mediumtext('htmlContent').notNull(),
   status: mysqlEnum('status', ['draft', 'scheduled', 'sent']).default('draft').notNull(),
   scheduledAt: timestamp('scheduledAt'),
   sentAt: timestamp('sentAt'),
