@@ -84,7 +84,10 @@ import {
   getCampaignMailerById,
   getResendSegmentId,
   setResendSegmentId,
+  getSetting,
+  setSetting,
 } from "./db";
+import Anthropic from "@anthropic-ai/sdk";
 import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
 import { createHash } from "crypto";
@@ -544,6 +547,18 @@ export const appRouter = router({
       }),
   }),
 
+  settings: router({
+    getAiModel: adminProcedure.query(async () => {
+      return { model: (await getSetting('aiModel')) ?? 'claude-sonnet-4-6' };
+    }),
+    setAiModel: adminProcedure
+      .input(z.object({ model: z.enum(['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001']) }))
+      .mutation(async ({ input }) => {
+        await setSetting('aiModel', input.model);
+        return { model: input.model };
+      }),
+  }),
+
   henry: router({
     history: adminProcedure.query(async ({ ctx }) => {
       const openId = ctx.user!.openId;
@@ -828,22 +843,16 @@ export const appRouter = router({
         .mutation(async ({ input }) => {
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
-          if (!ENV.openAiApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'OpenAI not configured' });
-          const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: 'You write concise image generation prompts for social media posts. Return only the prompt text, no explanation, no quotes.' },
-                { role: 'user', content: `Write a new image generation prompt for this social media post.\n\nTheme: ${post.theme ?? 'none'}\nCaption: ${post.caption ?? 'none'}\nHashtags: ${post.hashtags ?? 'none'}\n\nThe prompt should describe a specific visual scene or composition that would work well as an Instagram post image.` },
-              ],
-              max_tokens: 200,
-            }),
+          if (!ENV.anthropicApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Anthropic API key not configured' });
+          const model = (await getSetting('aiModel')) ?? 'claude-sonnet-4-6';
+          const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
+          const msg = await anthropic.messages.create({
+            model,
+            max_tokens: 200,
+            system: 'You write concise image generation prompts for social media posts. Return only the prompt text, no explanation, no quotes.',
+            messages: [{ role: 'user', content: `Write a new image generation prompt for this social media post.\n\nTheme: ${post.theme ?? 'none'}\nCaption: ${post.caption ?? 'none'}\nHashtags: ${post.hashtags ?? 'none'}\n\nThe prompt should describe a specific visual scene or composition that would work well as an Instagram post image.` }],
           });
-          if (!res.ok) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to generate prompt' });
-          const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-          const prompt = data.choices[0]?.message?.content?.trim() ?? '';
+          const prompt = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : '';
           return { prompt };
         }),
 
@@ -1133,7 +1142,7 @@ export const appRouter = router({
           purpose: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
-          if (!ENV.openAiApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'OpenAI not configured' });
+          if (!ENV.anthropicApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Anthropic API key not configured' });
           const [campaign, assets] = await Promise.all([
             getCampaignById(input.campaignId),
             getCampaignAssets(input.campaignId),
@@ -1163,29 +1172,22 @@ CONTENT THEMES: ${campaign.contentThemes ?? 'Not specified'}
 STRATEGY: ${campaign.strategy ? campaign.strategy.slice(0, 800) : 'Not specified'}${purposeSection}${assetsSection}`;
 
           // Step 1: generate subject + previewText from campaign context
-          const metaRes = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'gpt-4o',
-              max_tokens: 200,
-              messages: [
-                { role: 'system', content: 'You write compelling email subject lines and preview text for marketing campaigns. Return ONLY valid JSON with keys "subject" (max 80 chars) and "previewText" (max 140 chars, the inbox snippet shown after the subject). No explanation.' },
-                { role: 'user', content: `${campaignContext}\n\nWrite the subject line and preview text for this email campaign mailer.` },
-              ],
-            }),
-            signal: AbortSignal.timeout(30_000),
-          });
+          const aiModel = (await getSetting('aiModel')) ?? 'claude-sonnet-4-6';
+          const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
           let subject = `${campaign.name} — ${new Date().toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}`;
           let previewText: string | undefined;
-          if (metaRes.ok) {
-            const metaData = await metaRes.json() as { choices: Array<{ message: { content: string } }> };
-            try {
-              const parsed = JSON.parse(metaData.choices[0]?.message?.content?.trim() ?? '{}') as { subject?: string; previewText?: string };
-              if (parsed.subject) subject = parsed.subject;
-              if (parsed.previewText) previewText = parsed.previewText;
-            } catch { /* keep defaults */ }
-          }
+          try {
+            const metaMsg = await anthropic.messages.create({
+              model: aiModel,
+              max_tokens: 200,
+              system: 'You write compelling email subject lines and preview text for marketing campaigns. Return ONLY valid JSON with keys "subject" (max 80 chars) and "previewText" (max 140 chars, the inbox snippet shown after the subject). No explanation.',
+              messages: [{ role: 'user', content: `${campaignContext}\n\nWrite the subject line and preview text for this email campaign mailer.` }],
+            });
+            const metaText = metaMsg.content[0]?.type === 'text' ? metaMsg.content[0].text.trim() : '{}';
+            const parsed = JSON.parse(metaText) as { subject?: string; previewText?: string };
+            if (parsed.subject) subject = parsed.subject;
+            if (parsed.previewText) previewText = parsed.previewText;
+          } catch { /* keep defaults */ }
 
           // Step 2: generate HTML
           const prompt = `You are a world-class HTML email designer. Create a beautiful, clean, mobile-responsive HTML email.
@@ -1215,27 +1217,18 @@ DESIGN REQUIREMENTS:
 - Mobile: @media max-width 600px — padding 20px sides, font sizes adjust, images 100% width
 - Return ONLY the raw HTML document. No explanation. No markdown. No code fences. Start with <!DOCTYPE html>.`;
 
-          const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${ENV.openAiApiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'gpt-4o',
-              max_tokens: 8192,
-              messages: [
-                { role: 'system', content: 'You are an expert HTML email developer. Output only raw HTML with no markdown, no code fences, no explanations.' },
-                { role: 'user', content: prompt },
-              ],
-            }),
-            signal: AbortSignal.timeout(60_000),
+          const htmlMsg = await anthropic.messages.create({
+            model: aiModel,
+            max_tokens: 8192,
+            system: 'You are an expert HTML email developer. Output only raw HTML with no markdown, no code fences, no explanations.',
+            messages: [{ role: 'user', content: prompt }],
           });
 
-          if (!res.ok) {
-            const detail = await res.text().catch(() => '');
-            throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `OpenAI error: ${detail.slice(0, 200)}` });
+          if (!htmlMsg.content[0] || htmlMsg.content[0].type !== 'text') {
+            throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No content returned from AI' });
           }
 
-          const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-          let html = data.choices[0]?.message?.content?.trim() ?? '';
+          let html = htmlMsg.content[0].text.trim();
           html = html.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
 
           const mailer = await createCampaignMailer(input.campaignId);

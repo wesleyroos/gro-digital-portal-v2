@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -444,6 +445,7 @@ export default function Settings() {
       <Tabs defaultValue="integrations">
         <TabsList className="mb-6">
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="railway">Railway Status</TabsTrigger>
         </TabsList>
 
@@ -525,12 +527,66 @@ export default function Settings() {
           )}
         </TabsContent>
 
+        <TabsContent value="ai">
+          <div className="space-y-6 max-w-3xl">
+            <AiModelCard />
+          </div>
+        </TabsContent>
+
         <TabsContent value="railway">
           <div className="max-w-2xl">
             <RailwayStatus />
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+const AI_MODELS = [
+  { value: "claude-opus-4-6", label: "Claude Opus 4.6", description: "Most capable — best for complex campaigns" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", description: "Balanced — recommended for most tasks" },
+  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", description: "Fastest — lower cost, great for simple content" },
+];
+
+function AiModelCard() {
+  const { data, isLoading } = trpc.settings.getAiModel.useQuery();
+  const setModel = trpc.settings.setAiModel.useMutation({
+    onSuccess: (res) => toast.success(`AI model updated to ${AI_MODELS.find(m => m.value === res.model)?.label ?? res.model}`),
+    onError: () => toast.error("Failed to update AI model"),
+  });
+
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <h2 className="text-base font-semibold mb-1">Campaign AI Model</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        Choose which Claude model powers campaign content generation — subject lines, email HTML, and image prompts.
+      </p>
+      {isLoading ? (
+        <div className="h-9 w-64 rounded-md bg-muted animate-pulse" />
+      ) : (
+        <div className="flex items-center gap-3">
+          <Select
+            value={data?.model ?? "claude-sonnet-4-6"}
+            onValueChange={(val) => setModel.mutate({ model: val as "claude-opus-4-6" | "claude-sonnet-4-6" | "claude-haiku-4-5-20251001" })}
+            disabled={setModel.isPending}
+          >
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AI_MODELS.map(m => (
+                <SelectItem key={m.value} value={m.value}>
+                  <div>
+                    <span className="font-medium">{m.label}</span>
+                    <span className="text-muted-foreground text-xs ml-2">{m.description}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </div>
   );
 }

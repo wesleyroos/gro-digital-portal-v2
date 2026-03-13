@@ -19,6 +19,7 @@ export const ENV = {
   facebookAppId: process.env.FACEBOOK_APP_ID ?? "",
   facebookAppSecret: process.env.FACEBOOK_APP_SECRET ?? "",
   facebookRedirectUri: process.env.FACEBOOK_REDIRECT_URI ?? "",
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   r2AccessKeyId: process.env.R2_ACCESS_KEY_ID ?? "",

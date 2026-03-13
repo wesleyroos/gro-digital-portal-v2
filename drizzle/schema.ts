@@ -328,3 +328,14 @@ export const campaignMailers = mysqlTable('campaignMailers', {
 
 export type CampaignMailer = typeof campaignMailers.$inferSelect;
 export type InsertCampaignMailer = typeof campaignMailers.$inferInsert;
+
+
+/**
+ * Portal-wide settings — key/value store for admin-configurable options.
+ */
+export const portalSettings = mysqlTable("portal_settings", {
+  key: varchar("key", { length: 128 }).primaryKey(),
+  value: text("value").notNull(),
+});
+
+export type PortalSetting = typeof portalSettings.$inferSelect;
