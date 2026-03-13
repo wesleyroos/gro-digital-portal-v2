@@ -392,26 +392,15 @@ export default function ClientPortal() {
 
   // ── Admin view ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/clients" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-            <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shadow-sm">
-              <span className="text-primary-foreground font-bold text-lg tracking-tighter">G</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground tracking-tight">
-                GRO<span className="font-light">digital</span>
-              </h1>
-              <p className="text-[10px] text-muted-foreground -mt-0.5 tracking-wider uppercase">Client Portal</p>
-            </div>
-          </Link>
-        </div>
-      </header>
+    <div>
+      <div className="space-y-0">
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-0">
+        {/* ── Breadcrumb ── */}
+        <div className="flex items-center gap-2 mb-6 text-sm text-muted-foreground">
+          <Link href="/clients" className="hover:text-foreground transition-colors">Clients</Link>
+          <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
+          <span className="text-foreground font-medium">{clientName}</span>
+        </div>
 
         {/* ── Client identity block ── */}
         <div className="py-6 border-b border-border">
@@ -1131,18 +1120,6 @@ export default function ClientPortal() {
           </div>
         </SheetContent>
       </Sheet>
-
-      <footer className="border-t border-border py-8 mt-12">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">grodigital.co.za</span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Gro Digital (Pty) Ltd. All rights reserved.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

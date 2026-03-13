@@ -37,7 +37,6 @@ function Router() {
       <Route path={"/login"} component={Login} />
 
       {/* Public client-facing routes — no sidebar */}
-      <Route path={"/client/:slug"} component={ClientPortal} />
       <Route path={"/client/:slug/invoice/:invoiceNumber"} component={Invoice} />
       <Route path={"/i/:token"} component={SharedInvoice} />
       <Route path={"/analytics/:token"} component={ClientAnalytics} />
@@ -60,6 +59,7 @@ function Router() {
               <Route path={"/agents"} component={Agents} />
               <Route path={"/proposals"} component={Proposals} />
               <Route path={"/settings"} component={Settings} />
+              <Route path={"/client/:slug"} component={ClientPortal} />
               <Route path={"/invoice/new"} component={CreateInvoice} />
               <Route path={"/invoice/:invoiceNumber/edit"} component={EditInvoice} />
               <Route path={"/invoice/:invoiceNumber"} component={Invoice} />
