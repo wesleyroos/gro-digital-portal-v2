@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,6 +46,8 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-gray-50 text-gray-500 border-gray-200",
 };
 
+const ALL_STATUSES = ["discovery", "strategy", "generating", "approval", "active", "completed"] as const;
+
 type SortKey = "name" | "clientSlug" | "status" | "createdAt";
 type SortDir = "asc" | "desc";
 
@@ -56,6 +58,8 @@ export default function Marketing() {
   const [newClientSlug, setNewClientSlug] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [search, setSearch] = useState("");
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
@@ -107,7 +111,6 @@ export default function Marketing() {
     const year = now.getFullYear();
     const quarter = Math.ceil((now.getMonth() + 1) / 4);
 
-    // Try Q{q} {year}, then cycle forward through the remaining quarters/years
     for (let offset = 0; offset < 8; offset++) {
       const q = ((quarter - 1 + offset) % 4) + 1;
       const y = year + Math.floor((quarter - 1 + offset) / 4);
@@ -118,7 +121,6 @@ export default function Marketing() {
       }
     }
 
-    // Fallback: Campaign #n
     setNewName(`Campaign #${clientCampaigns.length + 1}`);
   }
 
@@ -136,17 +138,48 @@ export default function Marketing() {
     }
   }
 
-  const sorted = useMemo(() => {
+  function toggleFilter(status: string) {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }
+
+  const clientNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of clients ?? []) map[c.clientSlug] = c.clientName;
+    return map;
+  }, [clients]);
+
+  const filtered = useMemo(() => {
     if (!campaigns) return [];
-    return [...campaigns].sort((a, b) => {
+    let list = [...campaigns];
+
+    if (activeFilters.size > 0) {
+      list = list.filter(c => activeFilters.has(c.status));
+    }
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        (clientNameMap[c.clientSlug] ?? c.clientSlug).toLowerCase().includes(q)
+      );
+    }
+
+    return list.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortKey === "clientSlug") cmp = a.clientSlug.localeCompare(b.clientSlug);
+      else if (sortKey === "clientSlug") cmp = (clientNameMap[a.clientSlug] ?? a.clientSlug).localeCompare(clientNameMap[b.clientSlug] ?? b.clientSlug);
       else if (sortKey === "status") cmp = a.status.localeCompare(b.status);
       else if (sortKey === "createdAt") cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [campaigns, sortKey, sortDir]);
+  }, [campaigns, activeFilters, search, clientNameMap, sortKey, sortDir]);
+
+  const hasFilters = activeFilters.size > 0 || search.trim().length > 0;
 
   return (
     <div>
@@ -181,75 +214,137 @@ export default function Marketing() {
           </Button>
         </div>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/50 border-b border-border">
-                {([
-                  { key: "name", label: "Campaign" },
-                  { key: "clientSlug", label: "Client" },
-                  { key: "status", label: "Status" },
-                  { key: "createdAt", label: "Created" },
-                ] as { key: SortKey; label: string }[]).map(col => (
-                  <th key={col.key} className="text-left px-4 py-3">
-                    <button
-                      onClick={() => toggleSort(col.key)}
-                      className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {col.label}
-                      {sortKey === col.key ? (
-                        sortDir === "asc"
-                          ? <ChevronUp className="w-3.5 h-3.5" />
-                          : <ChevronDown className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
-                      )}
-                    </button>
-                  </th>
-                ))}
-                <th className="w-16" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border bg-background">
-              {sorted.map(c => (
-                <tr
-                  key={c.id}
-                  onClick={() => setLocation(`/marketing/${c.id}`)}
-                  className="cursor-pointer hover:bg-muted/40 transition-colors group"
+        <div className="space-y-3">
+          {/* Search + filters toolbar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-48 max-w-72">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search campaigns or clients..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <td className="px-4 py-3 font-medium text-foreground group-hover:text-violet-700 transition-colors">
-                    {c.name}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {clients?.find(cl => cl.clientSlug === c.clientSlug)?.clientName ?? c.clientSlug}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] px-2 py-0.5 font-medium ${STATUS_COLORS[c.status] ?? ""}`}
-                    >
-                      {STATUS_LABELS[c.status] ?? c.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
-                    {new Date(c.createdAt).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
-                        className="p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-violet-600 transition-colors" />
-                    </div>
-                  </td>
-                </tr>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {ALL_STATUSES.map(status => (
+                <button
+                  key={status}
+                  onClick={() => toggleFilter(status)}
+                  className={`h-8 px-3 rounded-md border text-[11px] font-medium transition-colors ${
+                    activeFilters.has(status)
+                      ? STATUS_COLORS[status]
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  }`}
+                >
+                  {STATUS_LABELS[status]}
+                </button>
               ))}
-            </tbody>
-          </table>
+              {hasFilters && (
+                <button
+                  onClick={() => { setActiveFilters(new Set()); setSearch(""); }}
+                  className="h-8 px-2.5 rounded-md text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" />
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  {([
+                    { key: "name", label: "Campaign" },
+                    { key: "clientSlug", label: "Client" },
+                    { key: "status", label: "Status" },
+                    { key: "createdAt", label: "Created" },
+                  ] as { key: SortKey; label: string }[]).map(col => (
+                    <th key={col.key} className="text-left px-4 py-3">
+                      <button
+                        onClick={() => toggleSort(col.key)}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {col.label}
+                        {sortKey === col.key ? (
+                          sortDir === "asc"
+                            ? <ChevronUp className="w-3.5 h-3.5" />
+                            : <ChevronDown className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronsUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                  ))}
+                  <th className="w-16" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border bg-background">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      No campaigns match your search or filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map(c => (
+                    <tr
+                      key={c.id}
+                      onClick={() => setLocation(`/marketing/${c.id}`)}
+                      className="cursor-pointer hover:bg-muted/40 transition-colors group"
+                    >
+                      <td className="px-4 py-3 font-medium text-foreground group-hover:text-violet-700 transition-colors">
+                        {c.name}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {clientNameMap[c.clientSlug] ?? c.clientSlug}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-2 py-0.5 font-medium ${STATUS_COLORS[c.status] ?? ""}`}
+                        >
+                          {STATUS_LABELS[c.status] ?? c.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
+                        {new Date(c.createdAt).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
+                            className="p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-violet-600 transition-colors" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {filtered.length > 0 && (
+            <p className="text-[11px] text-muted-foreground text-right">
+              {filtered.length} of {campaigns.length} campaign{campaigns.length !== 1 ? "s" : ""}
+            </p>
+          )}
         </div>
       )}
 
