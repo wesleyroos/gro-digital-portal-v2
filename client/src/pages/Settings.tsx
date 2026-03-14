@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { RefreshCw, ExternalLink, Instagram, Facebook } from "lucide-react";
@@ -447,6 +447,7 @@ export default function Settings() {
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="railway">Railway Status</TabsTrigger>
+          <TabsTrigger value="logs">Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="integrations">
@@ -538,6 +539,10 @@ export default function Settings() {
             <RailwayStatus />
           </div>
         </TabsContent>
+
+        <TabsContent value="logs">
+          <LogsViewer />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -587,6 +592,125 @@ function AiModelCard() {
           </Select>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Log level styles ──
+const LEVEL_STYLES: Record<string, { text: string; row: string }> = {
+  error: { text: "text-red-400",   row: "bg-red-950/20" },
+  warn:  { text: "text-amber-400", row: "bg-amber-950/10" },
+  info:  { text: "text-blue-400",  row: "" },
+  log:   { text: "text-zinc-400",  row: "" },
+};
+
+function LogsViewer() {
+  const [since, setSince] = useState<number>(0);
+  const [entries, setEntries] = useState<{ ts: number; level: string; msg: string }[]>([]);
+  const [filter, setFilter] = useState<"all" | "error" | "warn">("all");
+  const [autoScroll, setAutoScroll] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lastTsRef = useRef<number>(0);
+  const loadedRef = useRef(false);
+
+  const { data, refetch } = trpc.system.getLogs.useQuery(
+    { since },
+    { refetchInterval: 3000 }
+  );
+
+  useEffect(() => {
+    if (!data) return;
+    if (data.length === 0) return;
+    setEntries(prev => {
+      if (!loadedRef.current) {
+        loadedRef.current = true;
+        return data;
+      }
+      const newEntries = data.filter(e => e.ts > lastTsRef.current);
+      if (newEntries.length === 0) return prev;
+      return [...prev, ...newEntries].slice(-600);
+    });
+    const maxTs = Math.max(...data.map(e => e.ts));
+    if (maxTs > lastTsRef.current) {
+      lastTsRef.current = maxTs;
+      setSince(maxTs);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [entries, autoScroll]);
+
+  const visible = filter === "all" ? entries : entries.filter(e => e.level === filter);
+
+  function fmt(ts: number) {
+    return new Date(ts).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  }
+
+  return (
+    <div className="rounded-xl border bg-card overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-medium text-muted-foreground">Live · {entries.length} entries</span>
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-1">
+          {(["all", "warn", "error"] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`h-6 px-2.5 rounded text-[11px] font-medium transition-colors ${
+                filter === f ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {f === "all" ? "All" : f === "warn" ? "Warn" : "Error"}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setAutoScroll(v => !v)}
+          className={`h-6 px-2.5 rounded text-[11px] font-medium transition-colors ${
+            autoScroll ? "bg-violet-100 text-violet-700" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Auto-scroll {autoScroll ? "on" : "off"}
+        </button>
+        <Button
+          variant="ghost" size="sm" className="h-6 w-6 p-0" title="Refresh"
+          onClick={() => { setEntries([]); lastTsRef.current = 0; loadedRef.current = false; setSince(0); refetch(); }}
+        >
+          <RefreshCw className="w-3 h-3" />
+        </Button>
+      </div>
+
+      <div
+        ref={scrollRef}
+        onScroll={e => {
+          const el = e.currentTarget;
+          setAutoScroll(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
+        }}
+        className="h-[calc(100vh-260px)] min-h-64 overflow-y-auto font-mono text-[11px] leading-5 bg-zinc-950"
+      >
+        {visible.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-zinc-500 text-xs">
+            No log entries yet.
+          </div>
+        ) : (
+          visible.map((entry, i) => {
+            const s = LEVEL_STYLES[entry.level] ?? LEVEL_STYLES.log;
+            return (
+              <div key={i} className={`flex gap-3 px-4 py-0.5 hover:bg-white/5 ${s.row}`}>
+                <span className="shrink-0 text-zinc-500 tabular-nums select-none">{fmt(entry.ts)}</span>
+                <span className={`shrink-0 w-10 ${s.text} uppercase select-none`}>{entry.level}</span>
+                <span className="text-zinc-200 whitespace-pre-wrap break-all">{entry.msg}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

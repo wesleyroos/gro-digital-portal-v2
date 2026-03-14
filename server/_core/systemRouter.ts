@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router } from "./trpc";
+import { getLogs, getLogsSince } from "../logger";
 
 export const systemRouter = router({
   health: publicProcedure
@@ -12,6 +13,12 @@ export const systemRouter = router({
     .query(() => ({
       ok: true,
     })),
+
+  getLogs: adminProcedure
+    .input(z.object({ since: z.number().optional() }))
+    .query(({ input }) => {
+      return input.since ? getLogsSince(input.since) : getLogs();
+    }),
 
   notifyOwner: adminProcedure
     .input(

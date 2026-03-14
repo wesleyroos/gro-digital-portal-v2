@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { installLogInterceptor } from "../logger";
+installLogInterceptor();
 import express from "express";
 import { createServer } from "http";
 import net from "net";
