@@ -5,19 +5,19 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const id = "gro-login-fonts";
+    const id = "gro-login-font";
     if (!document.getElementById(id)) {
       const link = document.createElement("link");
       link.id = id;
       link.rel = "stylesheet";
       link.href =
-        "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Instrument+Sans:wght@400;500;600&display=swap";
+        "https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap";
       document.head.appendChild(link);
     }
-    const t = setTimeout(() => setMounted(true), 60);
+    const t = setTimeout(() => setReady(true), 50);
     return () => clearTimeout(t);
   }, []);
 
@@ -26,29 +26,19 @@ export default function Login() {
     setLoading(true);
     setError("");
     try {
-      // Try client login first
       const res = await fetch("/api/auth/client-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
       });
+      if (res.ok) { window.location.href = "/portal"; return; }
 
-      if (res.ok) {
-        window.location.href = "/portal";
-        return;
-      }
-
-      // Fall back to admin password login
       const adminRes = await fetch("/api/auth/password-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
-
-      if (adminRes.ok) {
-        window.location.href = "/";
-        return;
-      }
+      if (adminRes.ok) { window.location.href = "/"; return; }
 
       setError("Invalid email or password.");
     } catch {
@@ -61,286 +51,315 @@ export default function Login() {
   return (
     <>
       <style>{`
-        .login-page * { box-sizing: border-box; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .login-font-display {
-          font-family: 'Cormorant Garamond', Georgia, serif;
-        }
-        .login-font-ui {
-          font-family: 'Instrument Sans', system-ui, sans-serif;
+        .gro-login {
+          font-family: 'Syne', system-ui, sans-serif;
+          min-height: 100vh;
+          display: flex;
+          align-items: stretch;
+          background: #f4f6f9;
         }
 
-        /* ── dot grid overlay ──────────────────────────── */
-        .login-dot-grid::before {
+        /* ── left brand panel ── */
+        .gro-left {
+          display: none;
+          width: 44%;
+          flex-shrink: 0;
+          background: #0077c2;
+          position: relative;
+          padding: 56px 60px;
+          flex-direction: column;
+          justify-content: space-between;
+          overflow: hidden;
+        }
+
+        @media (min-width: 860px) {
+          .gro-left { display: flex; }
+        }
+
+        /* subtle dot pattern on blue panel */
+        .gro-left::before {
           content: '';
           position: absolute;
           inset: 0;
-          background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
-          background-size: 26px 26px;
+          background-image: radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px);
+          background-size: 28px 28px;
           pointer-events: none;
         }
 
-        /* ── form inputs ───────────────────────────────── */
-        .login-field {
-          width: 100%;
-          padding: 11px 0 11px 0;
-          border: none;
-          border-bottom: 1.5px solid #D8D2CA;
-          background: transparent;
-          font-family: 'Instrument Sans', system-ui, sans-serif;
-          font-size: 15px;
-          color: #1C1916;
-          outline: none;
-          transition: border-color 0.18s ease;
-          -webkit-appearance: none;
-          border-radius: 0;
-        }
-        .login-field:focus {
-          border-bottom-color: #0D1410;
-        }
-        .login-field::placeholder {
-          color: #B8B0A6;
+        /* bottom-right circle accent */
+        .gro-left::after {
+          content: '';
+          position: absolute;
+          bottom: -140px;
+          right: -140px;
+          width: 420px;
+          height: 420px;
+          border-radius: 50%;
+          background: rgba(0,0,0,0.12);
+          pointer-events: none;
         }
 
-        /* ── submit button ─────────────────────────────── */
-        .login-submit {
-          width: 100%;
-          padding: 15px 24px;
-          background: #0D1410;
-          color: #E8E2D8;
-          border: none;
-          font-family: 'Instrument Sans', system-ui, sans-serif;
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 0.12em;
+        .gro-wordmark {
+          font-size: 14px;
+          font-weight: 800;
+          letter-spacing: 0.2em;
           text-transform: uppercase;
-          cursor: pointer;
-          transition: background 0.2s ease, opacity 0.15s ease;
-          border-radius: 2px;
-        }
-        .login-submit:hover:not(:disabled) {
-          background: #1B2E1F;
-        }
-        .login-submit:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
+          color: #fff;
+          position: relative;
+          z-index: 2;
         }
 
-        /* ── responsive ───────────────────────────────── */
-        .login-panel-left { display: none !important; }
-        .login-mobile-logo { display: block; }
-        @media (min-width: 900px) {
-          .login-panel-left { display: flex !important; }
-          .login-mobile-logo { display: none !important; }
+        .gro-wordmark span {
+          color: rgba(255,255,255,0.5);
         }
 
-        /* ── entry animation ───────────────────────────── */
-        .login-form-wrap {
+        .gro-hero {
+          position: relative;
+          z-index: 2;
+        }
+
+        .gro-hero-eyebrow {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.65);
+          margin-bottom: 20px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .gro-hero-eyebrow::before {
+          content: '';
+          display: block;
+          width: 20px;
+          height: 2px;
+          background: rgba(255,255,255,0.65);
+          flex-shrink: 0;
+        }
+
+        .gro-hero-title {
+          font-size: 44px;
+          font-weight: 800;
+          line-height: 1.05;
+          letter-spacing: -0.02em;
+          color: #fff;
+          margin-bottom: 20px;
+        }
+
+        .gro-hero-title em {
+          font-style: normal;
+          color: rgba(255,255,255,0.6);
+        }
+
+        .gro-hero-sub {
+          font-size: 14px;
+          font-weight: 400;
+          line-height: 1.7;
+          color: rgba(255,255,255,0.6);
+          max-width: 280px;
+        }
+
+        .gro-footer-text {
+          font-size: 11px;
+          color: rgba(255,255,255,0.35);
+          letter-spacing: 0.08em;
+          position: relative;
+          z-index: 2;
+        }
+
+        /* ── right form panel ── */
+        .gro-right {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 32px;
+          background: #fff;
+        }
+
+        .gro-form-box {
+          width: 100%;
+          max-width: 400px;
           opacity: 0;
           transform: translateY(14px);
-          transition: opacity 0.5s ease, transform 0.5s ease;
+          transition: opacity 0.4s ease, transform 0.4s ease;
         }
-        .login-form-wrap.visible {
+
+        .gro-form-box.visible {
           opacity: 1;
           transform: translateY(0);
         }
-        .login-panel-left {
-          opacity: 0;
-          transition: opacity 0.6s ease 0.1s;
+
+        /* mobile wordmark */
+        .gro-mobile-mark {
+          font-size: 14px;
+          font-weight: 800;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: #040810;
+          margin-bottom: 40px;
+          display: block;
         }
-        .login-panel-left.visible {
-          opacity: 1;
+        .gro-mobile-mark span { color: #0077c2; }
+
+        @media (min-width: 860px) {
+          .gro-mobile-mark { display: none; }
+        }
+
+        .gro-heading {
+          font-size: 30px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: #0a0d14;
+          margin-bottom: 6px;
+        }
+
+        .gro-subheading {
+          font-size: 14px;
+          color: #8a9099;
+          margin-bottom: 36px;
+          line-height: 1.5;
+        }
+
+        .gro-field-wrap {
+          margin-bottom: 18px;
+        }
+
+        .gro-label {
+          display: block;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #9aa0aa;
+          margin-bottom: 7px;
+        }
+
+        .gro-input {
+          width: 100%;
+          padding: 12px 14px;
+          background: #f7f8fa;
+          border: 1.5px solid #e4e7ec;
+          border-radius: 6px;
+          font-family: 'Syne', system-ui, sans-serif;
+          font-size: 15px;
+          color: #0a0d14;
+          outline: none;
+          transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+          -webkit-appearance: none;
+        }
+
+        .gro-input::placeholder {
+          color: #c2c8d0;
+        }
+
+        .gro-input:focus {
+          border-color: #0077c2;
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(0,119,194,0.1);
+        }
+
+        .gro-error {
+          padding: 11px 14px;
+          background: #fef2f2;
+          border: 1.5px solid #fecaca;
+          border-radius: 6px;
+          font-size: 13px;
+          color: #b91c1c;
+          margin-bottom: 18px;
+          line-height: 1.5;
+        }
+
+        .gro-btn {
+          width: 100%;
+          padding: 13px 24px;
+          background: #0077c2;
+          color: #fff;
+          border: none;
+          border-radius: 6px;
+          font-family: 'Syne', system-ui, sans-serif;
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          cursor: pointer;
+          margin-top: 6px;
+          transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+        }
+
+        .gro-btn:hover:not(:disabled) {
+          background: #006aad;
+          box-shadow: 0 4px 16px rgba(0,119,194,0.28);
+        }
+
+        .gro-btn:active:not(:disabled) {
+          transform: scale(0.99);
+        }
+
+        .gro-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+
+        .gro-contact {
+          margin-top: 28px;
+          font-size: 12px;
+          color: #adb4be;
+          text-align: center;
+          line-height: 1.6;
+        }
+
+        .gro-contact a {
+          color: #0077c2;
+          text-decoration: none;
+        }
+
+        .gro-contact a:hover {
+          text-decoration: underline;
         }
       `}</style>
 
-      <div
-        className="login-page login-font-ui"
-        style={{ minHeight: "100vh", display: "flex" }}
-      >
-        {/* ── Left brand panel (hidden on small screens) ── */}
-        <div
-          className={`login-dot-grid login-panel-left ${mounted ? "visible" : ""}`}
-          style={{
-            width: "42%",
-            flexShrink: 0,
-            background: "#0D1410",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            padding: "52px 56px",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {/* Ghost letterform */}
-          <div
-            className="login-font-display"
-            style={{
-              position: "absolute",
-              bottom: "-120px",
-              right: "-80px",
-              fontSize: "500px",
-              fontWeight: 300,
-              color: "rgba(255,255,255,0.025)",
-              lineHeight: 1,
-              userSelect: "none",
-              pointerEvents: "none",
-              letterSpacing: "-0.04em",
-            }}
-            aria-hidden
-          >
-            G
+      <div className="gro-login">
+        {/* ── Left brand panel ── */}
+        <div className="gro-left">
+          <div className="gro-wordmark">
+            GRO<span>*</span>DIGITAL
           </div>
 
-          {/* Wordmark */}
-          <div>
-            <span
-              className="login-font-display"
-              style={{
-                fontSize: "20px",
-                fontWeight: 400,
-                color: "#DDD7CC",
-                letterSpacing: "0.05em",
-              }}
-            >
-              GRO Digital
-            </span>
-          </div>
-
-          {/* Hero text */}
-          <div>
-            <div
-              style={{
-                width: "32px",
-                height: "2px",
-                background: "#5C8F68",
-                marginBottom: "32px",
-              }}
-            />
-            <h2
-              className="login-font-display"
-              style={{
-                fontSize: "54px",
-                fontWeight: 300,
-                lineHeight: 1.12,
-                color: "#E0DAD0",
-                margin: 0,
-                letterSpacing: "-0.01em",
-              }}
-            >
-              Your brand,
-              <br />
-              <em style={{ fontStyle: "italic", color: "#7DB88A" }}>
-                amplified.
-              </em>
+          <div className="gro-hero">
+            <p className="gro-hero-eyebrow">Client Portal</p>
+            <h2 className="gro-hero-title">
+              Your brand,<br />
+              <em>amplified.</em>
             </h2>
-            <p
-              style={{
-                marginTop: "28px",
-                fontSize: "14px",
-                lineHeight: 1.75,
-                color: "#728070",
-                maxWidth: "260px",
-              }}
-            >
-              Access your campaigns, creative assets, and performance
-              reporting — all in one place.
+            <p className="gro-hero-sub">
+              Track campaigns, review creative assets, and stay across everything — all in one place.
             </p>
           </div>
 
-          {/* Footer */}
-          <p
-            style={{
-              fontSize: "11px",
-              color: "#3A4D3A",
-              letterSpacing: "0.06em",
-            }}
-          >
-            © {new Date().getFullYear()} GRO Digital
-          </p>
+          <p className="gro-footer-text">© {new Date().getFullYear()} GRO Digital</p>
         </div>
 
         {/* ── Right form panel ── */}
-        <div
-          style={{
-            flex: 1,
-            background: "#F9F6F2",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "48px 32px",
-          }}
-        >
-          {/* Mobile wordmark */}
-          <div
-            className="login-mobile-logo"
-            style={{ width: "100%", maxWidth: "380px", marginBottom: "40px" }}
-          >
-            <span
-              className="login-font-display"
-              style={{
-                fontSize: "22px",
-                fontWeight: 400,
-                color: "#0D1410",
-                letterSpacing: "0.04em",
-              }}
-            >
-              GRO Digital
-            </span>
-          </div>
+        <div className="gro-right">
+          <div className={`gro-form-box${ready ? " visible" : ""}`}>
+            <span className="gro-mobile-mark">GRO<span>*</span>DIGITAL</span>
 
-          <div
-            className={`login-form-wrap ${mounted ? "visible" : ""}`}
-            style={{ width: "100%", maxWidth: "380px" }}
-          >
-            {/* Heading */}
-            <div style={{ marginBottom: "44px" }}>
-              <h1
-                className="login-font-display"
-                style={{
-                  fontSize: "40px",
-                  fontWeight: 400,
-                  color: "#0D1410",
-                  margin: 0,
-                  lineHeight: 1.1,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Welcome back.
-              </h1>
-              <p
-                style={{
-                  marginTop: "10px",
-                  fontSize: "14px",
-                  color: "#928D86",
-                }}
-              >
-                Sign in to your client portal.
-              </p>
-            </div>
+            <h1 className="gro-heading">Sign in</h1>
+            <p className="gro-subheading">Access your client portal.</p>
 
             <form onSubmit={handleSubmit} noValidate>
-              {/* Email */}
-              <div style={{ marginBottom: "28px" }}>
-                <label
-                  htmlFor="login-email"
-                  style={{
-                    display: "block",
-                    fontSize: "10.5px",
-                    fontWeight: 600,
-                    letterSpacing: "0.11em",
-                    textTransform: "uppercase" as const,
-                    color: "#7A7470",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Email address
-                </label>
+              <div className="gro-field-wrap">
+                <label htmlFor="gro-email" className="gro-label">Email address</label>
                 <input
-                  id="login-email"
-                  className="login-field"
+                  id="gro-email"
+                  className="gro-input"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="you@company.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
@@ -349,25 +368,11 @@ export default function Login() {
                 />
               </div>
 
-              {/* Password */}
-              <div style={{ marginBottom: "36px" }}>
-                <label
-                  htmlFor="login-password"
-                  style={{
-                    display: "block",
-                    fontSize: "10.5px",
-                    fontWeight: 600,
-                    letterSpacing: "0.11em",
-                    textTransform: "uppercase" as const,
-                    color: "#7A7470",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Password
-                </label>
+              <div className="gro-field-wrap">
+                <label htmlFor="gro-password" className="gro-label">Password</label>
                 <input
-                  id="login-password"
-                  className="login-field"
+                  id="gro-password"
+                  className="gro-input"
                   type="password"
                   placeholder="••••••••••"
                   value={password}
@@ -377,50 +382,16 @@ export default function Login() {
                 />
               </div>
 
-              {/* Error */}
-              {error && (
-                <div
-                  style={{
-                    marginBottom: "24px",
-                    padding: "12px 16px",
-                    background: "#FFF1F1",
-                    border: "1px solid #F5C6C6",
-                    borderRadius: "3px",
-                    fontSize: "13px",
-                    color: "#B91C1C",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {error}
-                </div>
-              )}
+              {error && <div className="gro-error">{error}</div>}
 
-              <button
-                type="submit"
-                className="login-submit"
-                disabled={loading}
-              >
-                {loading ? "Signing in…" : "Sign in"}
+              <button type="submit" className="gro-btn" disabled={loading}>
+                {loading ? "Signing in…" : "Sign in →"}
               </button>
             </form>
 
-            {/* Footer note */}
-            <p
-              style={{
-                marginTop: "32px",
-                fontSize: "12px",
-                color: "#B0A9A1",
-                textAlign: "center" as const,
-                lineHeight: 1.6,
-              }}
-            >
+            <p className="gro-contact">
               Need access?{" "}
-              <a
-                href="mailto:hello@grodigital.co.za"
-                style={{ color: "#5C8F68", textDecoration: "none" }}
-              >
-                Contact GRO Digital
-              </a>
+              <a href="mailto:hello@grodigital.co.za">Contact GRO Digital</a>
             </p>
           </div>
         </div>
