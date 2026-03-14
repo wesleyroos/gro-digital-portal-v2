@@ -362,15 +362,8 @@ export function registerOAuthRoutes(app: Express) {
         res.status(401).json({ error: "Invalid password" });
         return;
       }
-      const ownerOpenId = process.env.OWNER_OPEN_ID || "admin";
-      await db.upsertUser({
-        openId: ownerOpenId,
-        name: "Admin",
-        email: null,
-        loginMethod: "password",
-        role: "superAdmin",
-        lastSignedIn: new Date(),
-      });
+      // Use the owner's openId directly — no DB upsert, avoids creating a nameless ghost user.
+      const ownerOpenId = process.env.OWNER_OPEN_ID || "dev-admin-openid";
       const sessionToken = await sdk.createSessionToken(ownerOpenId, {
         name: "Admin",
         expiresInMs: ONE_YEAR_MS,
