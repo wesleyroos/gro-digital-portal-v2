@@ -26,6 +26,7 @@ import Marketing from "./pages/Marketing";
 import MarketingCampaignWorkspace from "./pages/MarketingCampaignWorkspace";
 import CampaignPreview from "./pages/CampaignPreview";
 import Outreach from "./pages/Outreach";
+import Media from "./pages/Media";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
   return <DashboardLayout>{children}</DashboardLayout>;
@@ -53,6 +54,7 @@ function Router() {
               <Route path={"/invoices"} component={Invoices} />
               <Route path={"/leads"} component={Leads} />
               <Route path={"/outreach"} component={Outreach} />
+              <Route path={"/media"} component={Media} />
               <Route path={"/marketing/:id"} component={MarketingCampaignWorkspace} />
               <Route path={"/marketing"} component={Marketing} />
               <Route path={"/calendar"} component={Calendar} />

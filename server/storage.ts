@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { ENV } from './_core/env';
 
 function getClient() {
@@ -35,4 +35,10 @@ export async function storagePut(
 
   const url = `${ENV.r2PublicUrl.replace(/\/+$/, '')}/${key}`;
   return { key, url };
+}
+
+export async function storageDelete(key: string): Promise<void> {
+  if (!ENV.r2Bucket) throw new Error('R2_BUCKET not configured');
+  const client = getClient();
+  await client.send(new DeleteObjectCommand({ Bucket: ENV.r2Bucket, Key: key }));
 }

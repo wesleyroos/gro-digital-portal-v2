@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, outreachProspects, outreachSequences, outreachSequenceSteps, outreachSends, InsertOutreachProspect, InsertOutreachSequence, InsertOutreachSequenceStep, InsertOutreachSend } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, outreachProspects, outreachSequences, outreachSequenceSteps, outreachSends, InsertOutreachProspect, InsertOutreachSequence, InsertOutreachSequenceStep, InsertOutreachSend, mediaFiles, InsertMediaFile } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1397,4 +1397,27 @@ export async function updateSend(id: number, data: Partial<InsertOutreachSend>) 
   const db = await getDb();
   if (!db) throw new Error('Database not available');
   await db.update(outreachSends).set(data).where(eq(outreachSends.id, id));
+}
+
+// ── Media library ──
+
+export async function getMediaFiles() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(mediaFiles).orderBy(desc(mediaFiles.createdAt));
+}
+
+export async function insertMediaFile(data: InsertMediaFile) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const [result] = await db.insert(mediaFiles).values(data);
+  return result.insertId as number;
+}
+
+export async function deleteMediaFile(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  const rows = await db.select().from(mediaFiles).where(eq(mediaFiles.id, id)).limit(1);
+  await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
+  return rows[0]?.key ?? null;
 }

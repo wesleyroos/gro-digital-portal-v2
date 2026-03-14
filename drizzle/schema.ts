@@ -344,6 +344,22 @@ export const mailerChatMessages = mysqlTable('mailerChatMessages', {
 export type MailerChatMessage = typeof mailerChatMessages.$inferSelect;
 
 /**
+ * Media library — uploaded images/files stored in R2.
+ */
+export const mediaFiles = mysqlTable("mediaFiles", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  url: text("url").notNull(),
+  key: varchar("key", { length: 512 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  size: int("size").notNull().default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MediaFile = typeof mediaFiles.$inferSelect;
+export type InsertMediaFile = typeof mediaFiles.$inferInsert;
+
+/**
  * Outreach prospects — cold contacts and leads targeted for outreach sequences.
  */
 export const outreachProspects = mysqlTable("outreachProspects", {

@@ -89,6 +89,9 @@ import {
   getMailerChatMessages,
   insertMailerChatMessage,
   clearMailerChatMessages,
+  getMediaFiles,
+  insertMediaFile,
+  deleteMediaFile,
   getProspects,
   getProspectById,
   createProspect,
@@ -112,7 +115,7 @@ import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
 import { createHash } from "crypto";
 import { generateAndStorePostImage } from "./image-gen";
-import { storagePut } from "./storage";
+import { storagePut, storageDelete } from "./storage";
 import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
 import { getFacebookPostInsights, postImageToPage, postVideoToPage } from "./facebook";
 import { getPendingFacebookPages, confirmFacebookPage } from "./facebook-oauth";
@@ -1631,6 +1634,38 @@ INSTRUCTIONS:
       .input(z.object({ state: z.string(), pageId: z.string() }))
       .mutation(async ({ input }) => {
         await confirmFacebookPage(input.state, input.pageId);
+        return { success: true };
+      }),
+  }),
+
+  media: router({
+    list: adminProcedure.query(async () => {
+      return getMediaFiles();
+    }),
+
+    upload: adminProcedure
+      .input(z.object({
+        name: z.string(),
+        base64: z.string(),
+        mimeType: z.string(),
+        size: z.number().int(),
+      }))
+      .mutation(async ({ input }) => {
+        const ext = input.mimeType.split('/')[1]?.split('+')[0] ?? 'bin';
+        const key = `media/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const buffer = Buffer.from(input.base64, 'base64');
+        const { url } = await storagePut(key, buffer, input.mimeType);
+        const id = await insertMediaFile({ name: input.name, url, key, mimeType: input.mimeType, size: input.size });
+        return { id, url, key };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        const key = await deleteMediaFile(input.id);
+        if (key) {
+          try { await storageDelete(key); } catch { /* ignore R2 errors */ }
+        }
         return { success: true };
       }),
   }),
