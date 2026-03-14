@@ -87,7 +87,12 @@ export default function MarketingCampaignWorkspace() {
   const [assetsExpanded, setAssetsExpanded] = useState(true);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [selectedMailerId, setSelectedMailerId] = useState<number | null>(null);
-  const [mailerTab, setMailerTab] = useState<'edit' | 'preview'>('preview');
+  const [mailerTab, setMailerTab] = useState<'edit' | 'preview' | 'ai'>('preview');
+  const [mailerAiMessages, setMailerAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [mailerAiInput, setMailerAiInput] = useState('');
+  const [mailerAiLoading, setMailerAiLoading] = useState(false);
+  const [mailerAiHistoryLoaded, setMailerAiHistoryLoaded] = useState<number | null>(null);
+  const mailerAiBottomRef = useRef<HTMLDivElement>(null);
   const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
   const [mailerDirty, setMailerDirty] = useState(false);
   const [showGenerateMailer, setShowGenerateMailer] = useState(false);
@@ -236,6 +241,33 @@ export default function MarketingCampaignWorkspace() {
     onError: (e) => toast.error(e.message),
   });
 
+  const { data: mailerChatHistory } = trpc.campaign.mailer.chat.getMessages.useQuery(
+    { mailerId: selectedMailerId ?? 0 },
+    { enabled: !!selectedMailerId && mailerTab === 'ai' }
+  );
+  const mailerChatSendMutation = trpc.campaign.mailer.chat.send.useMutation();
+  const mailerChatClearMutation = trpc.campaign.mailer.chat.clear.useMutation({
+    onSuccess: () => { setMailerAiMessages([]); setMailerAiHistoryLoaded(null); },
+    onError: () => toast.error('Failed to clear chat'),
+  });
+
+  async function sendMailerAiMessage() {
+    const msg = mailerAiInput.trim();
+    if (!msg || mailerAiLoading || !selectedMailerId) return;
+    setMailerAiInput('');
+    setMailerAiMessages(prev => [...prev, { role: 'user', content: msg }]);
+    setMailerAiLoading(true);
+    try {
+      const result = await mailerChatSendMutation.mutateAsync({ mailerId: selectedMailerId, message: msg });
+      setMailerAiMessages(prev => [...prev, { role: 'assistant', content: result.reply }]);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'AI request failed';
+      toast.error(msg);
+    } finally {
+      setMailerAiLoading(false);
+    }
+  }
+
   async function generateCalendar() {
     if (calendarGenerating) return;
     setCalendarGenerating(true);
@@ -265,6 +297,23 @@ export default function MarketingCampaignWorkspace() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [localMessages, chatLoading]);
+
+  useEffect(() => {
+    if (mailerChatHistory && selectedMailerId && mailerAiHistoryLoaded !== selectedMailerId) {
+      setMailerAiMessages(mailerChatHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+      setMailerAiHistoryLoaded(selectedMailerId);
+    }
+  }, [mailerChatHistory, selectedMailerId, mailerAiHistoryLoaded]);
+
+  useEffect(() => {
+    mailerAiBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [mailerAiMessages, mailerAiLoading]);
+
+  // Reset AI history loaded flag when switching mailers
+  useEffect(() => {
+    setMailerAiHistoryLoaded(null);
+    setMailerAiMessages([]);
+  }, [selectedMailerId]);
 
   const approveMutation = trpc.campaign.post.approve.useMutation({
     onSuccess: () => refetch(),
@@ -1337,6 +1386,10 @@ export default function MarketingCampaignWorkspace() {
                       onClick={() => setMailerTab('preview')}
                       className={`px-3 py-1.5 transition-colors ${mailerTab === 'preview' ? 'bg-violet-600 text-white' : 'bg-background text-foreground hover:bg-muted'}`}
                     >Preview</button>
+                    <button
+                      onClick={() => setMailerTab('ai')}
+                      className={`px-3 py-1.5 transition-colors flex items-center gap-1 ${mailerTab === 'ai' ? 'bg-violet-600 text-white' : 'bg-background text-foreground hover:bg-muted'}`}
+                    ><Bot className="w-3 h-3" />AI Edit</button>
                   </div>
                   <select
                     value={mailer?.status ?? 'draft'}
@@ -1425,7 +1478,7 @@ export default function MarketingCampaignWorkspace() {
                   </div>
                 </div>
 
-                {/* HTML editor / preview */}
+                {/* HTML editor / preview / AI */}
                 <div className="flex-1 min-h-0 rounded-xl border border-border overflow-hidden">
                   {mailerTab === 'edit' ? (
                     <textarea
@@ -1435,13 +1488,116 @@ export default function MarketingCampaignWorkspace() {
                       className="w-full h-full resize-none font-mono text-xs p-3 focus:outline-none bg-muted/30"
                       spellCheck={false}
                     />
-                  ) : (
+                  ) : mailerTab === 'preview' ? (
                     <iframe
                       srcDoc={mailerDraft.htmlContent || '<p style="font-family:sans-serif;color:#999;padding:2rem">No HTML content yet</p>'}
                       className="w-full h-full border-0"
                       sandbox="allow-same-origin"
                       title="Mailer preview"
                     />
+                  ) : (
+                    /* AI Edit — split pane */
+                    <div className="flex h-full">
+                      {/* Left: live preview */}
+                      <div className="w-1/2 border-r border-border h-full">
+                        <iframe
+                          srcDoc={mailerDraft.htmlContent || '<p style="font-family:sans-serif;color:#999;padding:2rem">No HTML content yet</p>'}
+                          className="w-full h-full border-0"
+                          sandbox="allow-same-origin"
+                          title="Mailer preview"
+                        />
+                      </div>
+                      {/* Right: chat */}
+                      <div className="w-1/2 flex flex-col h-full bg-background">
+                        {/* Chat header */}
+                        <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                            <Bot className="w-3.5 h-3.5 text-violet-500" />
+                            AI Mailer Editor
+                          </div>
+                          <button
+                            onClick={() => { if (confirm('Clear chat history?')) mailerChatClearMutation.mutate({ mailerId: selectedMailerId! }); }}
+                            className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                          >Clear</button>
+                        </div>
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
+                          {mailerAiMessages.length === 0 && !mailerAiLoading && (
+                            <div className="text-xs text-muted-foreground text-center py-8">
+                              <Bot className="w-8 h-8 mx-auto mb-2 text-violet-300" />
+                              <p className="font-medium mb-1">AI has full context of this campaign</p>
+                              <p className="text-[11px]">Describe changes you want and the AI will rewrite the HTML for you.</p>
+                            </div>
+                          )}
+                          {mailerAiMessages.map((msg, i) => {
+                            // Detect if assistant message contains HTML
+                            const hasHtml = msg.role === 'assistant' && /<!DOCTYPE html/i.test(msg.content);
+                            // Split text from HTML if both present
+                            const htmlMatch = hasHtml ? msg.content.match(/(<!DOCTYPE html[\s\S]*)/i) : null;
+                            const textPart = hasHtml && htmlMatch ? msg.content.slice(0, htmlMatch.index).trim() : msg.content;
+                            const htmlPart = htmlMatch ? htmlMatch[1] : null;
+                            return (
+                              <div key={i} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                                  msg.role === 'user'
+                                    ? 'bg-violet-600 text-white rounded-br-sm'
+                                    : 'bg-muted text-foreground rounded-bl-sm'
+                                }`}>
+                                  {textPart || (htmlPart ? '(HTML updated — see preview)' : '')}
+                                </div>
+                                {htmlPart && (
+                                  <button
+                                    onClick={() => {
+                                      setMailerDraft(d => ({ ...d, htmlContent: htmlPart }));
+                                      setMailerDirty(true);
+                                      toast.success('HTML applied — save to keep changes');
+                                    }}
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    Apply changes
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {mailerAiLoading && (
+                            <div className="flex items-start gap-2">
+                              <div className="bg-muted rounded-xl rounded-bl-sm px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                                <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                                Thinking…
+                              </div>
+                            </div>
+                          )}
+                          <div ref={mailerAiBottomRef} />
+                        </div>
+                        {/* Input */}
+                        <div className="border-t border-border p-2 shrink-0">
+                          <div className="flex gap-2 items-end">
+                            <textarea
+                              value={mailerAiInput}
+                              onChange={e => setMailerAiInput(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  sendMailerAiMessage();
+                                }
+                              }}
+                              placeholder="Describe changes… (Enter to send)"
+                              rows={2}
+                              className="flex-1 resize-none text-xs rounded-lg border bg-background px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                            />
+                            <button
+                              onClick={sendMailerAiMessage}
+                              disabled={mailerAiLoading || !mailerAiInput.trim()}
+                              className="shrink-0 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white p-2 transition-colors"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

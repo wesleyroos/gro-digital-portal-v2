@@ -86,6 +86,9 @@ import {
   setResendSegmentId,
   getSetting,
   setSetting,
+  getMailerChatMessages,
+  insertMailerChatMessage,
+  clearMailerChatMessages,
 } from "./db";
 import Anthropic from "@anthropic-ai/sdk";
 import { describeImageForBrand } from "./_core/imageGeneration";
@@ -1394,6 +1397,104 @@ DESIGN REQUIREMENTS:
           await resend.contacts.segments.remove({ email: input.email, segmentId });
           return { ok: true };
         }),
+
+      chat: router({
+        getMessages: adminProcedure
+          .input(z.object({ mailerId: z.number().int() }))
+          .query(async ({ input }) => getMailerChatMessages(input.mailerId)),
+
+        send: adminProcedure
+          .input(z.object({
+            mailerId: z.number().int(),
+            message: z.string().min(1).max(8000),
+          }))
+          .mutation(async ({ input }) => {
+            if (!ENV.anthropicApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Anthropic API key not configured' });
+
+            const mailer = await getCampaignMailerById(input.mailerId);
+            if (!mailer) throw new TRPCError({ code: 'NOT_FOUND', message: 'Mailer not found' });
+
+            const [campaign, assets, allMailers, posts, history] = await Promise.all([
+              getCampaignById(mailer.campaignId),
+              getCampaignAssets(mailer.campaignId),
+              getCampaignMailers(mailer.campaignId),
+              getPostsByCampaign(mailer.campaignId),
+              getMailerChatMessages(input.mailerId),
+            ]);
+
+            if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+
+            // Build rich context for the system prompt
+            const assetsSection = assets.filter(a => a.aiDescription).length > 0
+              ? `\n\nBRAND ASSETS:\n${assets.filter(a => a.aiDescription).map((a, i) => `- ${a.label || `Asset ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
+              : '';
+
+            const imagesSection = posts.filter(p => p.imageUrl).length > 0
+              ? `\n\nGENERATED CAMPAIGN IMAGES (for visual style reference):\n${posts.filter(p => p.imageUrl).slice(0, 8).map((p, i) => `- Image ${i + 1}${p.theme ? ` (${p.theme})` : ''}: ${p.imageUrl}`).join('\n')}`
+              : '';
+
+            const otherMailers = allMailers.filter(m => m.id !== input.mailerId);
+            const mailersSection = otherMailers.length > 0
+              ? `\n\nOTHER MAILERS IN THIS SEQUENCE:\n${otherMailers.map((m, i) => `Email ${i + 1}: "${m.subject || 'Untitled'}"\n${m.htmlContent ? m.htmlContent.slice(0, 600) + (m.htmlContent.length > 600 ? '...' : '') : '(no content)'}`).join('\n\n')}`
+              : '';
+
+            const systemPrompt = `You are an expert HTML email designer and copywriter embedded inside a marketing portal. You help the admin iteratively improve and redesign email HTML by chatting.
+
+CAMPAIGN CONTEXT:
+Campaign: ${campaign.name}
+Client: ${campaign.clientSlug}
+Brand Voice: ${campaign.brandVoice ?? 'Not specified'}
+Target Audience: ${campaign.targetAudience ?? 'Not specified'}
+Content Themes: ${campaign.contentThemes ?? 'Not specified'}
+Strategy: ${campaign.strategy ? campaign.strategy.slice(0, 1000) : 'Not specified'}${assetsSection}${imagesSection}${mailersSection}
+
+CURRENT MAILER BEING EDITED:
+Subject: ${mailer.subject || '(none)'}
+Preview Text: ${mailer.previewText || '(none)'}
+HTML Content:
+${mailer.htmlContent || '(empty)'}
+
+INSTRUCTIONS:
+- When the user asks for changes to the email, respond with the COMPLETE updated HTML document.
+- Start your HTML response on a new line after any explanation text.
+- If providing HTML, always include the FULL document starting with <!DOCTYPE html> — never partial snippets.
+- You may also answer questions, explain choices, or suggest improvements without outputting HTML.
+- Keep responses concise. If outputting HTML, provide it after a brief explanation (1-3 sentences max before the code).`;
+
+            // Save user message
+            await insertMailerChatMessage(input.mailerId, 'user', input.message);
+
+            // Build messages array from history + new message
+            const msgs: { role: 'user' | 'assistant'; content: string }[] = [
+              ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+              { role: 'user', content: input.message },
+            ];
+
+            const aiModel = (await getSetting('aiModel')) ?? 'claude-sonnet-4-6';
+            const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
+
+            const response = await anthropic.messages.create({
+              model: aiModel,
+              max_tokens: 8192,
+              system: systemPrompt,
+              messages: msgs,
+            });
+
+            const replyText = response.content[0]?.type === 'text' ? response.content[0].text : '';
+
+            // Save assistant reply
+            await insertMailerChatMessage(input.mailerId, 'assistant', replyText);
+
+            return { reply: replyText };
+          }),
+
+        clear: adminProcedure
+          .input(z.object({ mailerId: z.number().int() }))
+          .mutation(async ({ input }) => {
+            await clearMailerChatMessages(input.mailerId);
+            return { success: true };
+          }),
+      }),
 
       broadcast: adminProcedure
         .input(z.object({

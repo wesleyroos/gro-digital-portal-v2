@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1255,4 +1255,24 @@ export async function setSetting(key: string, value: string): Promise<void> {
   if (!db) throw new Error('Database not available');
   await db.insert(portalSettings).values({ key, value })
     .onDuplicateKeyUpdate({ set: { value } });
+}
+
+// ── Mailer chat ──
+
+export async function getMailerChatMessages(mailerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(mailerChatMessages).where(eq(mailerChatMessages.mailerId, mailerId)).orderBy(asc(mailerChatMessages.createdAt));
+}
+
+export async function insertMailerChatMessage(mailerId: number, role: 'user' | 'assistant', content: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.insert(mailerChatMessages).values({ mailerId, role, content });
+}
+
+export async function clearMailerChatMessages(mailerId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.delete(mailerChatMessages).where(eq(mailerChatMessages.mailerId, mailerId));
 }

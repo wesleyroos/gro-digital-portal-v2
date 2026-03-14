@@ -331,6 +331,19 @@ export type InsertCampaignMailer = typeof campaignMailers.$inferInsert;
 
 
 /**
+ * Mailer chat messages — per-mailer AI conversation history.
+ */
+export const mailerChatMessages = mysqlTable('mailerChatMessages', {
+  id: int('id').autoincrement().primaryKey(),
+  mailerId: int('mailerId').notNull(),
+  role: mysqlEnum('role', ['user', 'assistant']).notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+});
+
+export type MailerChatMessage = typeof mailerChatMessages.$inferSelect;
+
+/**
  * Portal-wide settings — key/value store for admin-configurable options.
  */
 export const portalSettings = mysqlTable("portal_settings", {
