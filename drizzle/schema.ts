@@ -344,6 +344,85 @@ export const mailerChatMessages = mysqlTable('mailerChatMessages', {
 export type MailerChatMessage = typeof mailerChatMessages.$inferSelect;
 
 /**
+ * Outreach prospects — cold contacts and leads targeted for outreach sequences.
+ */
+export const outreachProspects = mysqlTable("outreachProspects", {
+  id: int("id").autoincrement().primaryKey(),
+  businessName: varchar("businessName", { length: 255 }).notNull(),
+  contactName: varchar("contactName", { length: 255 }),
+  contactEmail: varchar("contactEmail", { length: 320 }),
+  contactPhone: varchar("contactPhone", { length: 64 }),
+  linkedinUrl: varchar("linkedinUrl", { length: 512 }),
+  instagramHandle: varchar("instagramHandle", { length: 128 }),
+  website: varchar("website", { length: 512 }),
+  industry: varchar("industry", { length: 255 }),
+  location: varchar("location", { length: 255 }),
+  source: mysqlEnum("source", ["discovery", "manual"]).default("manual").notNull(),
+  sourceQuery: text("sourceQuery"),
+  status: mysqlEnum("status", ["new", "in_sequence", "replied", "converted", "unsubscribed"]).default("new").notNull(),
+  notes: text("notes"),
+  leadId: int("leadId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type OutreachProspect = typeof outreachProspects.$inferSelect;
+export type InsertOutreachProspect = typeof outreachProspects.$inferInsert;
+
+/**
+ * Outreach sequences — reusable multi-step outreach templates.
+ */
+export const outreachSequences = mysqlTable("outreachSequences", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  targetDescription: text("targetDescription"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type OutreachSequence = typeof outreachSequences.$inferSelect;
+export type InsertOutreachSequence = typeof outreachSequences.$inferInsert;
+
+/**
+ * Outreach sequence steps — individual steps within a sequence.
+ */
+export const outreachSequenceSteps = mysqlTable("outreachSequenceSteps", {
+  id: int("id").autoincrement().primaryKey(),
+  sequenceId: int("sequenceId").notNull(),
+  stepNumber: int("stepNumber").notNull(),
+  delayDays: int("delayDays").default(0).notNull(),
+  channel: mysqlEnum("channel", ["email", "linkedin", "instagram"]).notNull(),
+  subjectTemplate: varchar("subjectTemplate", { length: 255 }),
+  messageTemplate: text("messageTemplate").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type OutreachSequenceStep = typeof outreachSequenceSteps.$inferSelect;
+export type InsertOutreachSequenceStep = typeof outreachSequenceSteps.$inferInsert;
+
+/**
+ * Outreach sends — individual send records per prospect per step.
+ */
+export const outreachSends = mysqlTable("outreachSends", {
+  id: int("id").autoincrement().primaryKey(),
+  prospectId: int("prospectId").notNull(),
+  sequenceId: int("sequenceId").notNull(),
+  stepId: int("stepId").notNull(),
+  channel: mysqlEnum("channel", ["email", "linkedin", "instagram"]).notNull(),
+  subject: varchar("subject", { length: 255 }),
+  message: text("message"),
+  status: mysqlEnum("status", ["draft", "approved", "sent", "opened", "clicked", "replied"]).default("draft").notNull(),
+  scheduledAt: timestamp("scheduledAt"),
+  sentAt: timestamp("sentAt"),
+  resendMessageId: varchar("resendMessageId", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type OutreachSend = typeof outreachSends.$inferSelect;
+export type InsertOutreachSend = typeof outreachSends.$inferInsert;
+
+/**
  * Portal-wide settings — key/value store for admin-configurable options.
  */
 export const portalSettings = mysqlTable("portal_settings", {
