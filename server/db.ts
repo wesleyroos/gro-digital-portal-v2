@@ -56,8 +56,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = 'superAdmin';
+      updateSet.role = 'superAdmin';
     }
 
     if (!values.lastSignedIn) {
@@ -87,6 +87,57 @@ export async function getUserByOpenId(openId: string) {
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
 
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getClientUsersBySlug(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db.select().from(users).where(eq(users.clientSlug, clientSlug));
+}
+
+export async function createClientUser(data: {
+  openId: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  clientSlug: string;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(users).values({
+    openId: data.openId,
+    name: data.name,
+    email: data.email,
+    loginMethod: "password",
+    role: "client",
+    clientSlug: data.clientSlug,
+    passwordHash: data.passwordHash,
+    lastSignedIn: new Date(),
+  });
+}
+
+export async function updateUserPasswordHash(openId: string, passwordHash: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(users).set({ passwordHash }).where(eq(users.openId, openId));
+}
+
+export async function deleteClientUser(openId: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(users).where(eq(users.openId, openId));
 }
 
 // ── Invoice queries ──
@@ -899,6 +950,12 @@ export async function getCampaigns() {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(marketingCampaigns).orderBy(desc(marketingCampaigns.createdAt));
+}
+
+export async function getCampaignsByClientSlug(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(marketingCampaigns).where(eq(marketingCampaigns.clientSlug, clientSlug)).orderBy(desc(marketingCampaigns.createdAt));
 }
 
 export async function getCampaignById(id: number) {

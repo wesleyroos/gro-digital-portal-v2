@@ -4,6 +4,25 @@ import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 import { registerGoogleOAuthRoutes } from "../google-oauth";
+import { scrypt, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  const hash = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt}:${hash.toString("hex")}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [salt, hashHex] = stored.split(":");
+  if (!salt || !hashHex) return false;
+  const hash = (await scryptAsync(password, salt, 64)) as Buffer;
+  const storedBuf = Buffer.from(hashHex, "hex");
+  if (hash.length !== storedBuf.length) return false;
+  return timingSafeEqual(hash, storedBuf);
+}
 
 async function buildHenrySystemMessage(): Promise<string> {
   const [outstanding, tasks, clients] = await Promise.all([
@@ -349,7 +368,7 @@ export function registerOAuthRoutes(app: Express) {
         name: "Admin",
         email: null,
         loginMethod: "password",
-        role: "admin",
+        role: "superAdmin",
         lastSignedIn: new Date(),
       });
       const sessionToken = await sdk.createSessionToken(ownerOpenId, {
@@ -362,6 +381,85 @@ export function registerOAuthRoutes(app: Express) {
     } catch (error) {
       console.error("[Auth] Password login error:", error);
       res.status(500).json({ error: "Login failed, check server logs" });
+    }
+  });
+
+  // Client login — email + password for portal users
+  app.post("/api/auth/client-login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body as { email?: string; password?: string };
+      if (!email || !password) {
+        res.status(400).json({ error: "Email and password are required" });
+        return;
+      }
+
+      const user = await db.getUserByEmail(email.toLowerCase().trim());
+      if (!user || user.role !== "client" || !user.passwordHash) {
+        res.status(401).json({ error: "Invalid email or password" });
+        return;
+      }
+
+      const valid = await verifyPassword(password, user.passwordHash);
+      if (!valid) {
+        res.status(401).json({ error: "Invalid email or password" });
+        return;
+      }
+
+      await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        name: user.name ?? email,
+        expiresInMs: ONE_YEAR_MS,
+      });
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Auth] Client login error:", error);
+      res.status(500).json({ error: "Login failed, check server logs" });
+    }
+  });
+
+  // Client: change own password (authenticated client session)
+  app.post("/api/auth/change-password", async (req: Request, res: Response) => {
+    try {
+      let user: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
+      try {
+        user = await sdk.authenticateRequest(req);
+      } catch {
+        res.status(401).json({ error: "Not authenticated" });
+        return;
+      }
+
+      if (user.role !== "client") {
+        res.status(403).json({ error: "Not a client account" });
+        return;
+      }
+
+      const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+      if (!currentPassword || !newPassword || newPassword.length < 8) {
+        res.status(400).json({ error: "Invalid input" });
+        return;
+      }
+
+      const dbUser = await db.getUserByOpenId(user.openId);
+      if (!dbUser?.passwordHash) {
+        res.status(400).json({ error: "No password set on this account" });
+        return;
+      }
+
+      const valid = await verifyPassword(currentPassword, dbUser.passwordHash);
+      if (!valid) {
+        res.status(401).json({ error: "Current password is incorrect" });
+        return;
+      }
+
+      const newHash = await hashPassword(newPassword);
+      await db.updateUserPasswordHash(user.openId, newHash);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Auth] Change password error:", error);
+      res.status(500).json({ error: "Failed to change password" });
     }
   });
 

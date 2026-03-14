@@ -23,6 +23,7 @@ const SAFE_MIGRATIONS = [
   'drizzle/0029_facebook.sql',
   'drizzle/0030_posted_at.sql',
   'drizzle/0031_facebook_user_token.sql',
+  'drizzle/0034_client_portal_users.sql',
 ];
 
 for (const relPath of SAFE_MIGRATIONS) {

@@ -30,7 +30,9 @@ function authenticateApiKey(req: CreateExpressContextOptions["req"]): User | nul
     name: "MCP Service",
     email: null,
     loginMethod: "api-key",
-    role: "admin",
+    role: "superAdmin",
+    clientSlug: null,
+    passwordHash: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   } as User;

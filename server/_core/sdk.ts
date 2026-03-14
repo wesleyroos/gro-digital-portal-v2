@@ -270,19 +270,21 @@ class SDKServer {
     const ownerOpenId = process.env.OWNER_OPEN_ID || "admin";
     const signedInAt = new Date();
 
-    // Fast-path: if the session belongs to the owner, return a synthetic admin
+    // Fast-path: if the session belongs to the owner, return a synthetic superAdmin
     // user without a DB lookup. This allows login to work even before the DB
     // is fully set up.
     if (sessionUserId === ownerOpenId) {
       // Best-effort DB sync in the background — don't block or fail on errors
-      db.upsertUser({ openId: ownerOpenId, name: "Admin", role: "admin", lastSignedIn: signedInAt }).catch(() => {});
+      db.upsertUser({ openId: ownerOpenId, name: "Admin", role: "superAdmin", lastSignedIn: signedInAt }).catch(() => {});
       return {
         id: 1,
         openId: ownerOpenId,
         name: "Admin",
         email: null,
         loginMethod: "password",
-        role: "admin",
+        role: "superAdmin",
+        clientSlug: null,
+        passwordHash: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       } as User;

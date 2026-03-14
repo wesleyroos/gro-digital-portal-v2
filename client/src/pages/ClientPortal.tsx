@@ -82,7 +82,7 @@ function TypeIcon({ type }: { type: string }) {
   return <FileText className="w-5 h-5 text-primary" />;
 }
 
-type AdminTab = "overview" | "social" | "billing" | "tasks";
+type AdminTab = "overview" | "social" | "billing" | "tasks" | "portalAccess";
 
 export default function ClientPortal() {
   const params = useParams<{ slug: string }>();
@@ -90,7 +90,7 @@ export default function ClientPortal() {
 
   const utils = trpc.useUtils();
   const { data: me } = trpc.auth.me.useQuery();
-  const isAdmin = me?.role === "admin";
+  const isAdmin = me?.role === "admin" || me?.role === "superAdmin";
 
   const { data: invoices, isLoading, error } = trpc.invoice.listByClient.useQuery({ clientSlug: slug });
   const { data: profile } = trpc.client.getProfile.useQuery({ clientSlug: slug }, { enabled: isAdmin });
@@ -100,6 +100,10 @@ export default function ClientPortal() {
   const { data: fbStatus } = trpc.facebook.getStatus.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: emailStatus } = trpc.campaign.mailer.getSegmentStatus.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: allCampaigns = [] } = trpc.campaign.list.useQuery(undefined, { enabled: isAdmin });
+  const { data: portalUsers = [], refetch: refetchPortalUsers } = trpc.portalUsers.listByClient.useQuery(
+    { clientSlug: slug },
+    { enabled: isAdmin && me?.role === "superAdmin" }
+  );
 
   const openTasks = allTasks.filter(t => t.status !== "done" && t.clientSlug === slug);
   const clientCampaigns = allCampaigns.filter(c => c.clientSlug === slug);
@@ -155,6 +159,42 @@ export default function ClientPortal() {
       toast.success("Facebook disconnected");
     },
     onError: () => toast.error("Failed to disconnect Facebook"),
+  });
+
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [resetPasswordOpenId, setResetPasswordOpenId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+
+  const createPortalUser = trpc.portalUsers.create.useMutation({
+    onSuccess: () => {
+      refetchPortalUsers();
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setCreatingUser(false);
+      toast.success("Portal user created");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deletePortalUser = trpc.portalUsers.delete.useMutation({
+    onSuccess: () => {
+      refetchPortalUsers();
+      toast.success("User removed");
+    },
+    onError: () => toast.error("Failed to remove user"),
+  });
+
+  const resetPortalPassword = trpc.portalUsers.resetPassword.useMutation({
+    onSuccess: () => {
+      setResetPasswordOpenId(null);
+      setNewPassword("");
+      toast.success("Password updated");
+    },
+    onError: () => toast.error("Failed to update password"),
   });
 
   function startEditingNotes() {
@@ -526,7 +566,7 @@ export default function ClientPortal() {
 
         {/* ── Tab navigation ── */}
         <div className="flex items-center gap-0 border-b border-border mb-8">
-          {(["overview", "social", "billing", "tasks"] as const).map((t) => (
+          {(["overview", "social", "billing", "tasks", "portalAccess"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -549,6 +589,7 @@ export default function ClientPortal() {
                   )}
                 </>
               )}
+              {t === "portalAccess" && "Portal Access"}
             </button>
           ))}
         </div>
@@ -1009,6 +1050,132 @@ export default function ClientPortal() {
                 </CardContent>
               </Card>
             )}
+          </div>
+        )}
+
+        {/* ── Portal Access tab ── */}
+        {tab === "portalAccess" && (
+          <div className="space-y-6">
+            <Card className="shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm font-medium">Client Portal Users</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Users who can log in and view {clientName}'s portal.</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => setCreatingUser(v => !v)}>
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    Add user
+                  </Button>
+                </div>
+
+                {creatingUser && (
+                  <div className="mb-4 p-4 border border-border rounded-lg space-y-3 bg-muted/20">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">New user</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Name</Label>
+                        <Input value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="James Kieser" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Email</Label>
+                        <Input type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} placeholder="james@prospr.co.za" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Temporary password</Label>
+                        <Input type="password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} placeholder="Min 8 characters" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => createPortalUser.mutate({ name: newUserName, email: newUserEmail, password: newUserPassword, clientSlug: slug })}
+                        disabled={!newUserName || !newUserEmail || newUserPassword.length < 8 || createPortalUser.isPending}
+                      >
+                        {createPortalUser.isPending ? "Creating..." : "Create user"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setCreatingUser(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
+
+                {portalUsers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No portal users yet.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Create a user above to give {clientName} access to their portal.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {portalUsers.map(u => (
+                      <div key={u.openId} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{u.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground shrink-0 hidden sm:block">
+                          Last login: {u.lastSignedIn ? new Date(u.lastSignedIn).toLocaleDateString() : "Never"}
+                        </p>
+                        {resetPasswordOpenId === u.openId ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="password"
+                              placeholder="New password"
+                              value={newPassword}
+                              onChange={e => setNewPassword(e.target.value)}
+                              className="h-8 w-36 text-xs"
+                            />
+                            <Button
+                              size="sm"
+                              className="h-8"
+                              onClick={() => resetPortalPassword.mutate({ openId: u.openId, password: newPassword })}
+                              disabled={newPassword.length < 8 || resetPortalPassword.isPending}
+                            >
+                              Save
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8" onClick={() => { setResetPasswordOpenId(null); setNewPassword(""); }}>
+                              <X className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setResetPasswordOpenId(u.openId)}>
+                              Reset password
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              onClick={() => deletePortalUser.mutate({ openId: u.openId })}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardContent className="p-5">
+                <p className="text-sm font-medium mb-1">Portal login URL</p>
+                <p className="text-xs text-muted-foreground mb-3">Share this URL with {clientName} — they'll use their email and password to sign in.</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-muted border border-border rounded px-2 py-1.5 text-muted-foreground truncate">
+                    {`${window.location.origin}/login`}
+                  </code>
+                  <Button
+                    variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0"
+                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/login`).then(() => toast.success("URL copied")).catch(() => {})}
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 

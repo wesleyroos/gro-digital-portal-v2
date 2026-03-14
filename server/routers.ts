@@ -5,7 +5,7 @@ import { ENV } from "./_core/env";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { TRPCError } from "@trpc/server";
-import { adminProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, clientProcedure, publicProcedure, router, superAdminProcedure } from "./_core/trpc";
 import { z } from "zod";
 import {
   deleteInvoice,
@@ -109,7 +109,13 @@ import {
   getSends,
   createSend,
   updateSend,
+  getClientUsersBySlug,
+  createClientUser,
+  deleteClientUser,
+  updateUserPasswordHash,
+  getCampaignsByClientSlug,
 } from "./db";
+import { hashPassword } from "./_core/oauth";
 import Anthropic from "@anthropic-ai/sdk";
 import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
@@ -2006,6 +2012,101 @@ Only return JSON.`,
           return { success: true, leadId: prospect.leadId };
         }),
     }),
+  }),
+
+  // ── Client portal — scoped to the logged-in client's own data ──
+  clientPortal: router({
+    getProfile: clientProcedure.query(async ({ ctx }) => {
+      return getClientProfile(ctx.clientSlug);
+    }),
+
+    getCampaigns: clientProcedure.query(async ({ ctx }) => {
+      return getCampaignsByClientSlug(ctx.clientSlug);
+    }),
+
+    getCampaign: clientProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign || campaign.clientSlug !== ctx.clientSlug) return null;
+        return campaign;
+      }),
+
+    getCampaignPosts: clientProcedure
+      .input(z.object({ campaignId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.campaignId);
+        if (!campaign || campaign.clientSlug !== ctx.clientSlug) return [];
+        return getPostsByCampaign(input.campaignId);
+      }),
+
+    getCampaignMailers: clientProcedure
+      .input(z.object({ campaignId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.campaignId);
+        if (!campaign || campaign.clientSlug !== ctx.clientSlug) return [];
+        return getCampaignMailers(input.campaignId);
+      }),
+
+    getInvoices: clientProcedure.query(async ({ ctx }) => {
+      return getInvoicesByClientSlug(ctx.clientSlug);
+    }),
+  }),
+
+  // ── Admin: portal user management ──
+  portalUsers: router({
+    listByClient: superAdminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .query(async ({ input }) => {
+        const users = await getClientUsersBySlug(input.clientSlug);
+        return users.map(u => ({
+          id: u.id,
+          openId: u.openId,
+          name: u.name,
+          email: u.email,
+          createdAt: u.createdAt,
+          lastSignedIn: u.lastSignedIn,
+        }));
+      }),
+
+    create: superAdminProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        password: z.string().min(8),
+        clientSlug: z.string().min(1),
+      }))
+      .mutation(async ({ input }) => {
+        const { nanoid } = await import("nanoid");
+        const openId = `client_${nanoid(16)}`;
+        const passwordHash = await hashPassword(input.password);
+        await createClientUser({
+          openId,
+          name: input.name,
+          email: input.email.toLowerCase().trim(),
+          passwordHash,
+          clientSlug: input.clientSlug,
+        });
+        return { success: true, openId };
+      }),
+
+    resetPassword: superAdminProcedure
+      .input(z.object({
+        openId: z.string(),
+        password: z.string().min(8),
+      }))
+      .mutation(async ({ input }) => {
+        const passwordHash = await hashPassword(input.password);
+        await updateUserPasswordHash(input.openId, passwordHash);
+        return { success: true };
+      }),
+
+    delete: superAdminProcedure
+      .input(z.object({ openId: z.string() }))
+      .mutation(async ({ input }) => {
+        await deleteClientUser(input.openId);
+        return { success: true };
+      }),
   }),
 });
 

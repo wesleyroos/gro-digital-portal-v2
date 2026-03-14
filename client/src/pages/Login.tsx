@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export default function Login() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -13,18 +14,21 @@ export default function Login() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/password-login", {
+      const isClientLogin = email.trim().length > 0;
+
+      const res = await fetch(isClientLogin ? "/api/auth/client-login" : "/api/auth/password-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(isClientLogin ? { email: email.trim(), password } : { password }),
       });
+
       if (res.ok) {
-        window.location.href = "/";
+        window.location.href = isClientLogin ? "/portal" : "/";
       } else if (res.status === 401) {
-        setError("Invalid password");
+        setError(isClientLogin ? "Invalid email or password" : "Invalid password");
       } else {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? "Server error — check Railway logs");
+        setError(body.error ?? "Server error — check logs");
       }
     } catch {
       setError("Something went wrong, try again");
@@ -43,12 +47,20 @@ export default function Login() {
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
+              type="email"
+              placeholder="Email (leave blank for admin)"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              autoFocus
+              autoComplete="email"
+            />
+            <Input
               type="password"
               placeholder="Password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              autoFocus
+              autoComplete="current-password"
             />
             {error && <p className="text-xs text-red-500">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>

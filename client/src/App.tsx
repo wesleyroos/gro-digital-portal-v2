@@ -5,6 +5,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import DashboardLayout from "./components/DashboardLayout";
+import ClientLayout from "./components/ClientLayout";
 import Home from "./pages/Home";
 import Invoice from "./pages/Invoice";
 import SharedInvoice from "./pages/SharedInvoice";
@@ -27,6 +28,11 @@ import MarketingCampaignWorkspace from "./pages/MarketingCampaignWorkspace";
 import CampaignPreview from "./pages/CampaignPreview";
 import Outreach from "./pages/Outreach";
 import Media from "./pages/Media";
+import PortalDashboard from "./pages/portal/PortalDashboard";
+import PortalMarketing from "./pages/portal/PortalMarketing";
+import PortalMarketingCampaign from "./pages/portal/PortalMarketingCampaign";
+import PortalInvoices from "./pages/portal/PortalInvoices";
+import PortalSettings from "./pages/portal/PortalSettings";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
   return <DashboardLayout>{children}</DashboardLayout>;
@@ -44,32 +50,75 @@ function Router() {
       <Route path={"/analytics/:token"} component={ClientAnalytics} />
       <Route path={"/campaign/preview/:token"} component={CampaignPreview} />
 
-      {/* Admin routes — wrapped in sidebar layout */}
+      {/* Client portal routes — wrapped in ClientLayout */}
       <Route>
         {() => (
-          <AdminLayout>
-            <Switch>
-              <Route path={"/"} component={Home} />
-              <Route path={"/clients"} component={Clients} />
-              <Route path={"/invoices"} component={Invoices} />
-              <Route path={"/leads"} component={Leads} />
-              <Route path={"/outreach"} component={Outreach} />
-              <Route path={"/media"} component={Media} />
-              <Route path={"/marketing/:id"} component={MarketingCampaignWorkspace} />
-              <Route path={"/marketing"} component={Marketing} />
-              <Route path={"/calendar"} component={Calendar} />
-              <Route path={"/tasks"} component={Tasks} />
-              <Route path={"/subscriptions"} component={Subscriptions} />
-              <Route path={"/agents"} component={Agents} />
-              <Route path={"/proposals"} component={Proposals} />
-              <Route path={"/settings"} component={Settings} />
-              <Route path={"/client/:slug"} component={ClientPortal} />
-              <Route path={"/invoice/new"} component={CreateInvoice} />
-              <Route path={"/invoice/:invoiceNumber/edit"} component={EditInvoice} />
-              <Route path={"/invoice/:invoiceNumber"} component={Invoice} />
-              <Route component={NotFound} />
-            </Switch>
-          </AdminLayout>
+          <Switch>
+            <Route path={"/portal/marketing/:id"}>
+              {() => (
+                <ClientLayout>
+                  <PortalMarketingCampaign />
+                </ClientLayout>
+              )}
+            </Route>
+            <Route path={"/portal/marketing"}>
+              {() => (
+                <ClientLayout>
+                  <PortalMarketing />
+                </ClientLayout>
+              )}
+            </Route>
+            <Route path={"/portal/invoices"}>
+              {() => (
+                <ClientLayout>
+                  <PortalInvoices />
+                </ClientLayout>
+              )}
+            </Route>
+            <Route path={"/portal/settings"}>
+              {() => (
+                <ClientLayout>
+                  <PortalSettings />
+                </ClientLayout>
+              )}
+            </Route>
+            <Route path={"/portal"}>
+              {() => (
+                <ClientLayout>
+                  <PortalDashboard />
+                </ClientLayout>
+              )}
+            </Route>
+
+            {/* Admin routes — wrapped in sidebar layout */}
+            <Route>
+              {() => (
+                <AdminLayout>
+                  <Switch>
+                    <Route path={"/"} component={Home} />
+                    <Route path={"/clients"} component={Clients} />
+                    <Route path={"/invoices"} component={Invoices} />
+                    <Route path={"/leads"} component={Leads} />
+                    <Route path={"/outreach"} component={Outreach} />
+                    <Route path={"/media"} component={Media} />
+                    <Route path={"/marketing/:id"} component={MarketingCampaignWorkspace} />
+                    <Route path={"/marketing"} component={Marketing} />
+                    <Route path={"/calendar"} component={Calendar} />
+                    <Route path={"/tasks"} component={Tasks} />
+                    <Route path={"/subscriptions"} component={Subscriptions} />
+                    <Route path={"/agents"} component={Agents} />
+                    <Route path={"/proposals"} component={Proposals} />
+                    <Route path={"/settings"} component={Settings} />
+                    <Route path={"/client/:slug"} component={ClientPortal} />
+                    <Route path={"/invoice/new"} component={CreateInvoice} />
+                    <Route path={"/invoice/:invoiceNumber/edit"} component={EditInvoice} />
+                    <Route path={"/invoice/:invoiceNumber"} component={Invoice} />
+                    <Route component={NotFound} />
+                  </Switch>
+                </AdminLayout>
+              )}
+            </Route>
+          </Switch>
         )}
       </Route>
     </Switch>
