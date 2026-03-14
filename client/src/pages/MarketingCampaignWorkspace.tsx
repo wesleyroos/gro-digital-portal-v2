@@ -47,7 +47,10 @@ const POST_CALENDAR_COLORS: Record<string, string> = {
 };
 
 export default function MarketingCampaignWorkspace() {
-  const [, params] = useRoute("/marketing/:id");
+  const [, adminParams] = useRoute("/marketing/:id");
+  const [, portalParams] = useRoute("/portal/marketing/:id");
+  const params = adminParams ?? portalParams;
+  const isPortal = !!portalParams;
   const [, setLocation] = useLocation();
   const campaignId = parseInt(params?.id ?? "0", 10);
 
@@ -358,7 +361,7 @@ export default function MarketingCampaignWorkspace() {
     onError: () => toast.error("Failed to save strategy"),
   });
   const deleteMutation = trpc.campaign.delete.useMutation({
-    onSuccess: () => { toast.success("Campaign deleted"); setLocation("/marketing"); },
+    onSuccess: () => { toast.success("Campaign deleted"); setLocation(isPortal ? "/portal/marketing" : "/marketing"); },
     onError: () => toast.error("Failed to delete campaign"),
   });
   const generateShareLinkMutation = trpc.campaign.generateShareLink.useMutation({
@@ -584,7 +587,7 @@ export default function MarketingCampaignWorkspace() {
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5 shrink-0">
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setLocation("/marketing")}>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setLocation(isPortal ? "/portal/marketing" : "/marketing")}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">

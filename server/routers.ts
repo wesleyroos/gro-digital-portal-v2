@@ -5,7 +5,7 @@ import { ENV } from "./_core/env";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { TRPCError } from "@trpc/server";
-import { adminProcedure, clientProcedure, publicProcedure, router, superAdminProcedure } from "./_core/trpc";
+import { adminProcedure, clientProcedure, protectedProcedure, publicProcedure, router, superAdminProcedure } from "./_core/trpc";
 import { z } from "zod";
 import {
   deleteInvoice,
@@ -74,6 +74,7 @@ import {
   getFacebookTokens,
   updatePostFacebookId,
   getCampaignAssets,
+  getCampaignAssetById,
   insertCampaignAsset,
   deleteCampaignAsset,
   updateCampaignAssetDescription,
@@ -165,6 +166,20 @@ async function compressMailerImages(html: string): Promise<string> {
     })
   );
   return result;
+}
+
+/** Throws FORBIDDEN if a client user tries to access a campaign that isn't theirs. No-op for admin/superAdmin. */
+function assertCampaignAccess(user: { role: string; clientSlug?: string | null }, campaignClientSlug: string) {
+  if (user.role === 'client' && user.clientSlug !== campaignClientSlug) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+  }
+}
+
+/** Throws FORBIDDEN if a client user tries to access another client's slug. No-op for admin/superAdmin. */
+function assertClientSlugAccess(user: { role: string; clientSlug?: string | null }, clientSlug: string) {
+  if (user.role === 'client' && user.clientSlug !== clientSlug) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+  }
 }
 
 export const appRouter = router({
@@ -685,13 +700,17 @@ export const appRouter = router({
   }),
 
   campaign: router({
-    list: adminProcedure.query(async () => getCampaigns()),
+    list: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role === 'client') return getCampaignsByClientSlug(ctx.user.clientSlug!);
+      return getCampaigns();
+    }),
 
-    get: adminProcedure
+    get: protectedProcedure
       .input(z.object({ id: z.number().int() }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
         const campaign = await getCampaignById(input.id);
         if (!campaign) return null;
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         const [posts, messages] = await Promise.all([
           getPostsByCampaign(input.id),
           getCampaignMessages(input.id),
@@ -699,78 +718,103 @@ export const appRouter = router({
         return { campaign, posts, messages };
       }),
 
-    create: adminProcedure
+    create: protectedProcedure
       .input(z.object({ clientSlug: z.string().min(1), name: z.string().min(1) }))
-      .mutation(async ({ input }) => {
-        const id = await createCampaign(input);
+      .mutation(async ({ ctx, input }) => {
+        const clientSlug = ctx.user.role === 'client' ? ctx.user.clientSlug! : input.clientSlug;
+        const id = await createCampaign({ clientSlug, name: input.name });
         return { id };
       }),
 
-    updateStatus: adminProcedure
+    updateStatus: protectedProcedure
       .input(z.object({
         id: z.number().int(),
         status: z.enum(['discovery', 'strategy', 'generating', 'approval', 'active', 'completed']),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         await updateCampaign(input.id, { status: input.status });
         return { success: true };
       }),
 
-    setImageModel: adminProcedure
+    setImageModel: protectedProcedure
       .input(z.object({
         id: z.number().int(),
         imageModel: z.enum(['dall-e-3', 'nano-banana-2', 'gpt-image-1']),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         await updateCampaign(input.id, { imageModel: input.imageModel });
         return { success: true };
       }),
 
-    setImageStyle: adminProcedure
+    setImageStyle: protectedProcedure
       .input(z.object({
         id: z.number().int(),
         imageStyle: z.string(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         await updateCampaign(input.id, { imageStyle: input.imageStyle });
         return { success: true };
       }),
 
-    setImageAspectRatio: adminProcedure
+    setImageAspectRatio: protectedProcedure
       .input(z.object({
         id: z.number().int(),
         imageAspectRatio: z.enum(['1:1', '4:5', '9:16', '16:9']),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         await updateCampaign(input.id, { imageAspectRatio: input.imageAspectRatio });
         return { success: true };
       }),
 
-    saveStrategy: adminProcedure
+    saveStrategy: protectedProcedure
       .input(z.object({ id: z.number().int(), strategy: z.string().min(1) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         await updateCampaign(input.id, { strategy: input.strategy, status: 'strategy' });
         return { success: true };
       }),
 
-    delete: adminProcedure
+    delete: protectedProcedure
       .input(z.object({ id: z.number().int() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         await deleteCampaign(input.id);
         return { success: true };
       }),
 
-    generateShareLink: adminProcedure
+    generateShareLink: protectedProcedure
       .input(z.object({ id: z.number().int() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         const token = nanoid(21);
         await updateCampaign(input.id, { shareToken: token });
         return { token };
       }),
 
-    setSharePassword: adminProcedure
+    setSharePassword: protectedProcedure
       .input(z.object({ id: z.number().int(), password: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         const hashed = input.password
           ? createHash('sha256').update(input.password).digest('hex')
           : null;
@@ -778,9 +822,12 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    revokeShareLink: adminProcedure
+    revokeShareLink: protectedProcedure
       .input(z.object({ id: z.number().int() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         await updateCampaign(input.id, { shareToken: null, sharePassword: null });
         return { success: true };
       }),
@@ -806,30 +853,45 @@ export const appRouter = router({
       }),
 
     post: router({
-      approve: adminProcedure
+      approve: protectedProcedure
         .input(z.object({ postId: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const post = await getPostById(input.postId);
+          if (!post) throw new TRPCError({ code: 'NOT_FOUND' });
+          const campaign = await getCampaignById(post.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           await updatePostStatus(input.postId, 'approved');
           return { success: true };
         }),
 
-      setStatus: adminProcedure
+      setStatus: protectedProcedure
         .input(z.object({ postId: z.number().int(), status: z.enum(['draft', 'approved', 'rejected', 'scheduled']) }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const post = await getPostById(input.postId);
+          if (!post) throw new TRPCError({ code: 'NOT_FOUND' });
+          const campaign = await getCampaignById(post.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           await updatePostStatus(input.postId, input.status);
           return { success: true };
         }),
 
-      reject: adminProcedure
+      reject: protectedProcedure
         .input(z.object({ postId: z.number().int(), notes: z.string().optional() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const post = await getPostById(input.postId);
+          if (!post) throw new TRPCError({ code: 'NOT_FOUND' });
+          const campaign = await getCampaignById(post.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           await updatePostStatus(input.postId, 'rejected', { notes: input.notes });
           return { success: true };
         }),
 
-      generateImage: adminProcedure
+      generateImage: protectedProcedure
         .input(z.object({ postId: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
@@ -837,17 +899,19 @@ export const appRouter = router({
             getCampaignById(post.campaignId),
             getCampaignAssets(post.campaignId),
           ]);
-          const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
-          const style = campaign?.imageStyle ?? '';
-          const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
+          const model = (campaign.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
+          const style = campaign.imageStyle ?? '';
+          const aspectRatio = (campaign.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
           const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));
           const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio, referenceImages);
           return { url };
         }),
 
-      regenerateImage: adminProcedure
+      regenerateImage: protectedProcedure
         .input(z.object({ postId: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           if (!post.imagePrompt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No image prompt set' });
@@ -855,9 +919,11 @@ export const appRouter = router({
             getCampaignById(post.campaignId),
             getCampaignAssets(post.campaignId),
           ]);
-          const model = (campaign?.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
-          const style = campaign?.imageStyle ?? '';
-          const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
+          const model = (campaign.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
+          const style = campaign.imageStyle ?? '';
+          const aspectRatio = (campaign.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
           const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));
           const url = await generateAndStorePostImage(post.imagePrompt, post.id, model, style, aspectRatio, referenceImages);
           // If the post was rejected, reset to draft so the client can review the new image
@@ -867,11 +933,14 @@ export const appRouter = router({
           return { url };
         }),
 
-      suggestImagePrompt: adminProcedure
+      suggestImagePrompt: protectedProcedure
         .input(z.object({ postId: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
+          const campaign = await getCampaignById(post.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           if (!ENV.anthropicApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Anthropic API key not configured' });
           const model = (await getSetting('aiModel')) ?? 'claude-sonnet-4-6';
           const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
@@ -885,15 +954,19 @@ export const appRouter = router({
           return { prompt };
         }),
 
-      updateContent: adminProcedure
+      updateContent: protectedProcedure
         .input(z.object({
           postId: z.number().int(),
           caption: z.string().optional(),
           hashtags: z.string().optional(),
           imagePrompt: z.string().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           const post = await getPostById(input.postId);
+          if (post) {
+            const campaign = await getCampaignById(post.campaignId);
+            if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          }
           await updatePostContent(input.postId, {
             caption: input.caption,
             hashtags: input.hashtags,
@@ -906,13 +979,18 @@ export const appRouter = router({
           return { success: true };
         }),
 
-      uploadImage: adminProcedure
+      uploadImage: protectedProcedure
         .input(z.object({
           postId: z.number().int(),
           base64: z.string(),
           mimeType: z.string(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const post = await getPostById(input.postId);
+          if (post) {
+            const campaign = await getCampaignById(post.campaignId);
+            if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          }
           const buffer = Buffer.from(input.base64, 'base64');
           const ext = input.mimeType.split('/')[1] ?? 'jpg';
           const { url } = await storagePut(`uploads/${Date.now()}.${ext}`, buffer, input.mimeType);
@@ -920,13 +998,18 @@ export const appRouter = router({
           return { url };
         }),
 
-      uploadVideo: adminProcedure
+      uploadVideo: protectedProcedure
         .input(z.object({
           postId: z.number().int(),
           base64: z.string(),
           mimeType: z.string(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const post = await getPostById(input.postId);
+          if (post) {
+            const campaign = await getCampaignById(post.campaignId);
+            if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          }
           const buffer = Buffer.from(input.base64, 'base64');
           const ext = input.mimeType.split('/')[1] ?? 'mp4';
           const { url } = await storagePut(`videos/${Date.now()}.${ext}`, buffer, input.mimeType);
@@ -934,32 +1017,37 @@ export const appRouter = router({
           return { url };
         }),
 
-      approveAll: adminProcedure
+      approveAll: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           await approveAllPosts(input.campaignId);
           return { success: true };
         }),
 
-      getInsights: adminProcedure
+      getInsights: protectedProcedure
         .input(z.object({ postId: z.number().int() }))
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           if (!post.instagramPostId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Post has not been published to Instagram yet' });
           const campaign = await getCampaignById(post.campaignId);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           const tokens = await getInstagramTokens(campaign.clientSlug);
           if (!tokens) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Instagram not connected' });
           const insights = await getPostInsights(post.instagramPostId, tokens.accessToken);
           return insights;
         }),
 
-      getPerformance: adminProcedure
+      getPerformance: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
           const campaign = await getCampaignById(input.campaignId);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           const posts = await getPostsByCampaign(input.campaignId);
           const postedPosts = posts.filter(p => p.status === 'posted' && (p.instagramPostId || p.facebookPostId));
           if (postedPosts.length === 0) return { rows: [] };
@@ -1006,9 +1094,9 @@ export const appRouter = router({
           return { rows };
         }),
 
-      publishNow: adminProcedure
+      publishNow: protectedProcedure
         .input(z.object({ postId: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
           const isVideo = post.mediaType === 'video';
@@ -1016,6 +1104,7 @@ export const appRouter = router({
           if (!mediaUrl) throw new TRPCError({ code: 'BAD_REQUEST', message: `Post has no ${isVideo ? 'video' : 'image'} — upload one first` });
           const campaign = await getCampaignById(post.campaignId);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           const caption = [post.caption ?? '', post.hashtags ?? ''].filter(Boolean).join('\n\n');
           const postedTo: string[] = [];
 
@@ -1083,26 +1172,36 @@ export const appRouter = router({
 
     }),
 
-    setPlatforms: adminProcedure
+    setPlatforms: protectedProcedure
       .input(z.object({ id: z.number().int(), postToInstagram: z.boolean(), postToFacebook: z.boolean() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        const campaign = await getCampaignById(input.id);
+        if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+        assertCampaignAccess(ctx.user, campaign.clientSlug);
         await updateCampaign(input.id, { postToInstagram: input.postToInstagram, postToFacebook: input.postToFacebook });
         return { success: true };
       }),
 
     asset: router({
-      list: adminProcedure
+      list: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
-        .query(async ({ input }) => getCampaignAssets(input.campaignId)),
+        .query(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          return getCampaignAssets(input.campaignId);
+        }),
 
-      upload: adminProcedure
+      upload: protectedProcedure
         .input(z.object({
           campaignId: z.number().int(),
           base64: z.string(),
           mimeType: z.string(),
           label: z.string().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           const buffer = Buffer.from(input.base64, 'base64');
           const ext = input.mimeType.split('/')[1] ?? 'jpg';
           const { url } = await storagePut(`campaign-assets/${input.campaignId}/${Date.now()}.${ext}`, buffer, input.mimeType);
@@ -1114,27 +1213,39 @@ export const appRouter = router({
           return asset;
         }),
 
-      delete: adminProcedure
+      delete: protectedProcedure
         .input(z.object({ assetId: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const asset = await getCampaignAssetById(input.assetId);
+          if (asset) {
+            const campaign = await getCampaignById(asset.campaignId);
+            if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          }
           await deleteCampaignAsset(input.assetId);
           return { success: true };
         }),
     }),
 
     mailer: router({
-      list: adminProcedure
+      list: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
-        .query(async ({ input }) => getCampaignMailers(input.campaignId)),
+        .query(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          return getCampaignMailers(input.campaignId);
+        }),
 
-      create: adminProcedure
+      create: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
           const mailer = await createCampaignMailer(input.campaignId);
           return mailer;
         }),
 
-      update: adminProcedure
+      update: protectedProcedure
         .input(z.object({
           id: z.number().int(),
           subject: z.string().optional(),
@@ -1144,7 +1255,12 @@ export const appRouter = router({
           scheduledAt: z.string().nullable().optional(), // ISO string or null
           notes: z.string().nullable().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const mailer = await getCampaignMailerById(input.id);
+          if (mailer) {
+            const campaign = await getCampaignById(mailer.campaignId);
+            if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          }
           await updateCampaignMailer(input.id, {
             subject: input.subject,
             previewText: input.previewText,
@@ -1156,27 +1272,33 @@ export const appRouter = router({
           return { success: true };
         }),
 
-      delete: adminProcedure
+      delete: protectedProcedure
         .input(z.object({ id: z.number().int() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          const mailer = await getCampaignMailerById(input.id);
+          if (mailer) {
+            const campaign = await getCampaignById(mailer.campaignId);
+            if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          }
           await deleteCampaignMailer(input.id);
           return { success: true };
         }),
 
-      generate: adminProcedure
+      generate: protectedProcedure
         .input(z.object({
           campaignId: z.number().int(),
           heroImageUrl: z.string().nullable().optional(),
           logoUrl: z.string().nullable().optional(),
           purpose: z.string().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           if (!ENV.anthropicApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Anthropic API key not configured' });
           const [campaign, assets] = await Promise.all([
             getCampaignById(input.campaignId),
             getCampaignAssets(input.campaignId),
           ]);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
 
           const assetsWithDesc = assets.filter(a => a.aiDescription);
           const assetsSection = assetsWithDesc.length > 0
@@ -1265,17 +1387,19 @@ DESIGN REQUIREMENTS:
           return { ...mailer, subject, previewText: previewText ?? null, htmlContent: html };
         }),
 
-      sendTest: adminProcedure
+      sendTest: protectedProcedure
         .input(z.object({
           mailerId: z.number().int(),
           emails: z.array(z.string().email()).min(1).max(10),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
           if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
           if (!ENV.resendFromEmail) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_FROM_EMAIL is not configured' });
 
           const mailer = await getCampaignMailerById(input.mailerId);
           if (!mailer) throw new TRPCError({ code: 'NOT_FOUND', message: 'Mailer not found' });
+          const mailerCampaign = await getCampaignById(mailer.campaignId);
+          if (mailerCampaign) assertCampaignAccess(ctx.user, mailerCampaign.clientSlug);
           if (!mailer.htmlContent) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Mailer has no HTML content yet' });
 
           // Compress any large images referenced in the HTML before sending
@@ -1303,9 +1427,10 @@ DESIGN REQUIREMENTS:
           return { sent: results.filter(r => r.status === 'fulfilled').length, failed };
         }),
 
-      getSegmentStatus: adminProcedure
+      getSegmentStatus: protectedProcedure
         .input(z.object({ clientSlug: z.string() }))
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
+          assertClientSlugAccess(ctx.user, input.clientSlug);
           if (!ENV.resendApiKey) return { segmentId: null, subscriberCount: 0 };
           const segmentId = await getResendSegmentId(input.clientSlug);
           if (!segmentId) return { segmentId: null, subscriberCount: 0 };
@@ -1318,9 +1443,10 @@ DESIGN REQUIREMENTS:
           }
         }),
 
-      ensureSegment: adminProcedure
+      ensureSegment: protectedProcedure
         .input(z.object({ clientSlug: z.string(), clientName: z.string() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          assertClientSlugAccess(ctx.user, input.clientSlug);
           if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
           const existing = await getResendSegmentId(input.clientSlug);
           if (existing) return { segmentId: existing };
@@ -1333,9 +1459,10 @@ DESIGN REQUIREMENTS:
           return { segmentId };
         }),
 
-      listSubscribers: adminProcedure
+      listSubscribers: protectedProcedure
         .input(z.object({ clientSlug: z.string() }))
-        .query(async ({ input }) => {
+        .query(async ({ ctx, input }) => {
+          assertClientSlugAccess(ctx.user, input.clientSlug);
           if (!ENV.resendApiKey) return [];
           const segmentId = await getResendSegmentId(input.clientSlug);
           if (!segmentId) return [];
@@ -1348,7 +1475,7 @@ DESIGN REQUIREMENTS:
           }
         }),
 
-      addSubscriber: adminProcedure
+      addSubscriber: protectedProcedure
         .input(z.object({
           clientSlug: z.string(),
           clientName: z.string(),
@@ -1356,7 +1483,8 @@ DESIGN REQUIREMENTS:
           firstName: z.string().optional(),
           lastName: z.string().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          assertClientSlugAccess(ctx.user, input.clientSlug);
           if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
           let segmentId = await getResendSegmentId(input.clientSlug);
           const resend = new Resend(ENV.resendApiKey);
@@ -1377,7 +1505,7 @@ DESIGN REQUIREMENTS:
           return { ok: true };
         }),
 
-      importSubscribers: adminProcedure
+      importSubscribers: protectedProcedure
         .input(z.object({
           clientSlug: z.string(),
           clientName: z.string(),
@@ -1387,7 +1515,8 @@ DESIGN REQUIREMENTS:
             lastName: z.string().optional(),
           })).min(1).max(500),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          assertClientSlugAccess(ctx.user, input.clientSlug);
           if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
           let segmentId = await getResendSegmentId(input.clientSlug);
           const resend = new Resend(ENV.resendApiKey);
@@ -1413,9 +1542,10 @@ DESIGN REQUIREMENTS:
           return { added, failed };
         }),
 
-      removeSubscriber: adminProcedure
+      removeSubscriber: protectedProcedure
         .input(z.object({ clientSlug: z.string(), email: z.string().email() }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          assertClientSlugAccess(ctx.user, input.clientSlug);
           if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
           const segmentId = await getResendSegmentId(input.clientSlug);
           if (!segmentId) throw new TRPCError({ code: 'NOT_FOUND', message: 'No subscriber list for this client' });
@@ -1425,16 +1555,23 @@ DESIGN REQUIREMENTS:
         }),
 
       chat: router({
-        getMessages: adminProcedure
+        getMessages: protectedProcedure
           .input(z.object({ mailerId: z.number().int() }))
-          .query(async ({ input }) => getMailerChatMessages(input.mailerId)),
+          .query(async ({ ctx, input }) => {
+            const mailer = await getCampaignMailerById(input.mailerId);
+            if (mailer) {
+              const campaign = await getCampaignById(mailer.campaignId);
+              if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+            }
+            return getMailerChatMessages(input.mailerId);
+          }),
 
-        send: adminProcedure
+        send: protectedProcedure
           .input(z.object({
             mailerId: z.number().int(),
             message: z.string().min(1).max(8000),
           }))
-          .mutation(async ({ input }) => {
+          .mutation(async ({ ctx, input }) => {
             if (!ENV.anthropicApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Anthropic API key not configured' });
 
             const mailer = await getCampaignMailerById(input.mailerId);
@@ -1449,6 +1586,7 @@ DESIGN REQUIREMENTS:
             ]);
 
             if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+            assertCampaignAccess(ctx.user, campaign.clientSlug);
 
             // Build rich context for the system prompt
             const assetsSection = assets.filter(a => a.aiDescription).length > 0
@@ -1537,21 +1675,27 @@ INSTRUCTIONS:
             return { reply: replyText };
           }),
 
-        clear: adminProcedure
+        clear: protectedProcedure
           .input(z.object({ mailerId: z.number().int() }))
-          .mutation(async ({ input }) => {
+          .mutation(async ({ ctx, input }) => {
+            const mailer = await getCampaignMailerById(input.mailerId);
+            if (mailer) {
+              const campaign = await getCampaignById(mailer.campaignId);
+              if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+            }
             await clearMailerChatMessages(input.mailerId);
             return { success: true };
           }),
       }),
 
-      broadcast: adminProcedure
+      broadcast: protectedProcedure
         .input(z.object({
           mailerId: z.number().int(),
           clientSlug: z.string(),
           scheduledAt: z.string().optional(),
         }))
-        .mutation(async ({ input }) => {
+        .mutation(async ({ ctx, input }) => {
+          assertClientSlugAccess(ctx.user, input.clientSlug);
           if (!ENV.resendApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_API_KEY is not configured' });
           if (!ENV.resendFromEmail) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'RESEND_FROM_EMAIL is not configured' });
 
@@ -1587,9 +1731,10 @@ INSTRUCTIONS:
   }),
 
   instagram: router({
-    getStatus: adminProcedure
+    getStatus: protectedProcedure
       .input(z.object({ clientSlug: z.string() }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
+        assertClientSlugAccess(ctx.user, input.clientSlug);
         const tokens = await getInstagramTokens(input.clientSlug);
         if (!tokens) return { connected: false, username: null, businessId: null };
         return { connected: true, username: tokens.username, businessId: tokens.businessId };
@@ -1615,9 +1760,10 @@ INSTRUCTIONS:
   }),
 
   facebook: router({
-    getStatus: adminProcedure
+    getStatus: protectedProcedure
       .input(z.object({ clientSlug: z.string() }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
+        assertClientSlugAccess(ctx.user, input.clientSlug);
         const tokens = await getFacebookTokens(input.clientSlug);
         if (!tokens) return { connected: false, pageName: null, pageId: null };
         return { connected: true, pageName: tokens.pageName, pageId: tokens.pageId };

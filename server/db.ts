@@ -1220,6 +1220,13 @@ export async function updatePostFacebookId(postId: number, facebookPostId: strin
     .where(eq(marketingPosts.id, postId));
 }
 
+export async function getCampaignAssetById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(campaignAssets).where(eq(campaignAssets.id, id)).limit(1);
+  return rows[0];
+}
+
 export async function getCampaignAssets(campaignId: number) {
   const db = await getDb();
   if (!db) return [];

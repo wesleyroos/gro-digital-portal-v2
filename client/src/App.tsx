@@ -57,14 +57,14 @@ function Router() {
             <Route path={"/portal/marketing/:id"}>
               {() => (
                 <ClientLayout>
-                  <PortalMarketingCampaign />
+                  <MarketingCampaignWorkspace />
                 </ClientLayout>
               )}
             </Route>
             <Route path={"/portal/marketing"}>
               {() => (
                 <ClientLayout>
-                  <PortalMarketing />
+                  <Marketing />
                 </ClientLayout>
               )}
             </Route>

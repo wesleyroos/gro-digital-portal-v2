@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,9 +54,17 @@ type SortDir = "asc" | "desc";
 
 export default function Marketing() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  const isClient = user?.role === "client";
+
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState("");
   const [newClientSlug, setNewClientSlug] = useState("");
+
+  // Pre-fill clientSlug for client users once auth loads
+  useEffect(() => {
+    if (isClient && user?.clientSlug) setNewClientSlug(user.clientSlug);
+  }, [isClient, user?.clientSlug]);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [search, setSearch] = useState("");
@@ -64,7 +73,7 @@ export default function Marketing() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const { data: campaigns, refetch } = trpc.campaign.list.useQuery();
-  const { data: clients } = trpc.invoice.clients.useQuery();
+  const { data: clients } = trpc.invoice.clients.useQuery(undefined, { enabled: !isClient });
 
   const { data: igStatus } = trpc.instagram.getStatus.useQuery(
     { clientSlug: newClientSlug },
@@ -83,8 +92,8 @@ export default function Marketing() {
       refetch();
       setShowNew(false);
       setNewName("");
-      setNewClientSlug("");
-      setLocation(`/marketing/${data.id}`);
+      if (!isClient) setNewClientSlug("");
+      setLocation(isClient ? `/portal/marketing/${data.id}` : `/marketing/${data.id}`);
     },
     onError: () => toast.error("Failed to create campaign"),
   });
@@ -267,7 +276,7 @@ export default function Marketing() {
                 <tr className="bg-muted/50 border-b border-border">
                   {([
                     { key: "name", label: "Campaign" },
-                    { key: "clientSlug", label: "Client" },
+                    ...(isClient ? [] : [{ key: "clientSlug" as SortKey, label: "Client" }]),
                     { key: "status", label: "Status" },
                     { key: "createdAt", label: "Created" },
                   ] as { key: SortKey; label: string }[]).map(col => (
@@ -287,13 +296,13 @@ export default function Marketing() {
                       </button>
                     </th>
                   ))}
-                  <th className="w-16" />
+                  {!isClient && <th className="w-16" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-background">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    <td colSpan={isClient ? 3 : 5} className="px-4 py-10 text-center text-sm text-muted-foreground">
                       No campaigns match your search or filters.
                     </td>
                   </tr>
@@ -301,15 +310,17 @@ export default function Marketing() {
                   filtered.map(c => (
                     <tr
                       key={c.id}
-                      onClick={() => setLocation(`/marketing/${c.id}`)}
+                      onClick={() => setLocation(isClient ? `/portal/marketing/${c.id}` : `/marketing/${c.id}`)}
                       className="cursor-pointer hover:bg-muted/40 transition-colors group"
                     >
                       <td className="px-4 py-3 font-medium text-foreground group-hover:text-violet-700 transition-colors">
                         {c.name}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {clientNameMap[c.clientSlug] ?? c.clientSlug}
-                      </td>
+                      {!isClient && (
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {clientNameMap[c.clientSlug] ?? c.clientSlug}
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <Badge
                           variant="outline"
@@ -321,18 +332,20 @@ export default function Marketing() {
                       <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
                         {new Date(c.createdAt).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
-                            className="p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                          <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-violet-600 transition-colors" />
-                        </div>
-                      </td>
+                      {!isClient && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteId(c.id); }}
+                              className="p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-violet-600 transition-colors" />
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -354,21 +367,23 @@ export default function Marketing() {
             <DialogTitle>New Campaign</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Client</Label>
-              <Select value={newClientSlug} onValueChange={setNewClientSlug}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select client..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(clients ?? []).map(c => (
-                    <SelectItem key={c.clientSlug} value={c.clientSlug}>
-                      {c.clientName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!isClient && (
+              <div className="space-y-1.5">
+                <Label>Client</Label>
+                <Select value={newClientSlug} onValueChange={setNewClientSlug}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(clients ?? []).map(c => (
+                      <SelectItem key={c.clientSlug} value={c.clientSlug}>
+                        {c.clientName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <div className="flex items-baseline gap-2">
                 <Label>Campaign Name</Label>
