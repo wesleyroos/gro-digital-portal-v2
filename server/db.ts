@@ -136,6 +136,12 @@ export async function createClientUser(data: {
   });
 }
 
+export async function updateUserProfile(openId: string, fields: { name?: string; email?: string }): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set(fields).where(eq(users.openId, openId));
+}
+
 export async function updateUserPasswordHash(openId: string, passwordHash: string): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

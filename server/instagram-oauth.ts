@@ -4,15 +4,22 @@ import { ENV } from './_core/env';
 import { storeInstagramTokens } from './db';
 import { exchangeForLongLivedToken, getIgUserInfo } from './instagram';
 
-// In-memory CSRF state store: state nonce → { expiry, clientSlug }
-const stateStore = new Map<string, { expiry: number; clientSlug: string }>();
+// In-memory CSRF state store: state nonce → { expiry, clientSlug, returnPath }
+const stateStore = new Map<string, { expiry: number; clientSlug: string; returnPath: string }>();
 
 export function registerInstagramOAuthRoutes(app: Express) {
-  // Initiate Instagram OAuth consent flow (admin only)
+  // Initiate Instagram OAuth consent flow (admin or client for own slug)
   app.get('/api/auth/instagram/init/:clientSlug', async (req: Request, res: Response) => {
+    let returnPath = '/marketing';
     try {
       const user = await sdk.authenticateRequest(req);
-      if (user.role !== 'admin') {
+      if (user.role === 'client') {
+        if (user.clientSlug !== req.params.clientSlug) {
+          res.status(403).json({ error: 'Forbidden' });
+          return;
+        }
+        returnPath = '/portal/settings';
+      } else if (user.role !== 'admin' && user.role !== 'superAdmin') {
         res.status(403).json({ error: 'Forbidden' });
         return;
       }
@@ -28,7 +35,7 @@ export function registerInstagramOAuthRoutes(app: Express) {
 
     const { clientSlug } = req.params;
     const state = crypto.randomUUID();
-    stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, clientSlug });
+    stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, clientSlug, returnPath });
 
     const authUrl = new URL('https://www.instagram.com/oauth/authorize');
     authUrl.searchParams.set('force_reauth', 'true');
@@ -52,13 +59,14 @@ export function registerInstagramOAuthRoutes(app: Express) {
       return;
     }
     stateStore.delete(state);
-    const { clientSlug } = stored;
+    const { clientSlug, returnPath } = stored;
 
     try {
       const user = await sdk.authenticateRequest(req);
-      if (user.role !== 'admin') {
-        res.status(403).json({ error: 'Forbidden' });
-        return;
+      if (user.role === 'client') {
+        if (user.clientSlug !== clientSlug) { res.status(403).json({ error: 'Forbidden' }); return; }
+      } else if (user.role !== 'admin' && user.role !== 'superAdmin') {
+        res.status(403).json({ error: 'Forbidden' }); return;
       }
     } catch {
       res.status(401).json({ error: 'Unauthorized' });
@@ -92,10 +100,10 @@ export function registerInstagramOAuthRoutes(app: Express) {
       // Store in DB
       await storeInstagramTokens(clientSlug, igUserId, longToken, username);
 
-      res.redirect(302, `/marketing?instagram=connected&client=${encodeURIComponent(clientSlug)}`);
+      res.redirect(302, `${returnPath}?instagram=connected&client=${encodeURIComponent(clientSlug)}`);
     } catch (error) {
       console.error('[Instagram OAuth] Callback error:', error);
-      res.redirect(302, `/settings?instagram=error`);
+      res.redirect(302, `${returnPath}?instagram=error`);
     }
   });
 }

@@ -114,6 +114,7 @@ import {
   createClientUser,
   deleteClientUser,
   updateUserPasswordHash,
+  updateUserProfile,
   getCampaignsByClientSlug,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
@@ -193,6 +194,15 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    updateProfile: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1).max(120).optional(),
+        email: z.string().email().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await updateUserProfile(ctx.user.openId, input);
+        return { success: true };
+      }),
   }),
 
   invoice: router({
@@ -1740,9 +1750,10 @@ INSTRUCTIONS:
         return { connected: true, username: tokens.username, businessId: tokens.businessId };
       }),
 
-    disconnect: adminProcedure
+    disconnect: protectedProcedure
       .input(z.object({ clientSlug: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        assertClientSlugAccess(ctx.user, input.clientSlug);
         await clearInstagramTokens(input.clientSlug);
         return { success: true };
       }),
@@ -1769,9 +1780,10 @@ INSTRUCTIONS:
         return { connected: true, pageName: tokens.pageName, pageId: tokens.pageId };
       }),
 
-    disconnect: adminProcedure
+    disconnect: protectedProcedure
       .input(z.object({ clientSlug: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        assertClientSlugAccess(ctx.user, input.clientSlug);
         await clearFacebookTokens(input.clientSlug);
         return { success: true };
       }),

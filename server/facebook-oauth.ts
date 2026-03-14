@@ -4,16 +4,17 @@ import { ENV } from './_core/env';
 import { storeFacebookPage } from './db';
 import { exchangeForLongLivedToken, getFacebookPages } from './facebook';
 
-// CSRF state store: nonce → { expiry, clientSlug }
-const stateStore = new Map<string, { expiry: number; clientSlug: string }>();
+// CSRF state store: nonce → { expiry, clientSlug, returnPath }
+const stateStore = new Map<string, { expiry: number; clientSlug: string; returnPath: string }>();
 
-// Page selection store: nonce → { expiry, clientSlug, pages }
+// Page selection store: nonce → { expiry, clientSlug, pages, returnPath }
 // Used when a user manages multiple pages and needs to pick one.
 const pageSelectionStore = new Map<string, {
   expiry: number;
   clientSlug: string;
   pages: Array<{ id: string; name: string; access_token: string }>;
   userToken?: string;
+  returnPath: string;
 }>();
 
 /** Called from tRPC to get the pending pages list for UI selection. */
@@ -34,11 +35,17 @@ export async function confirmFacebookPage(state: string, pageId: string) {
 }
 
 export function registerFacebookOAuthRoutes(app: Express) {
-  // Initiate Facebook OAuth consent flow (admin only)
+  // Initiate Facebook OAuth consent flow (admin or client for own slug)
   app.get('/api/auth/facebook/init/:clientSlug', async (req: Request, res: Response) => {
+    let returnPath = '/settings';
     try {
       const user = await sdk.authenticateRequest(req);
-      if (user.role !== 'admin') { res.status(403).json({ error: 'Forbidden' }); return; }
+      if (user.role === 'client') {
+        if (user.clientSlug !== req.params.clientSlug) { res.status(403).json({ error: 'Forbidden' }); return; }
+        returnPath = '/portal/settings';
+      } else if (user.role !== 'admin' && user.role !== 'superAdmin') {
+        res.status(403).json({ error: 'Forbidden' }); return;
+      }
     } catch {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
@@ -50,7 +57,7 @@ export function registerFacebookOAuthRoutes(app: Express) {
 
     const { clientSlug } = req.params;
     const state = crypto.randomUUID();
-    stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, clientSlug });
+    stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, clientSlug, returnPath });
 
     const authUrl = new URL('https://www.facebook.com/v21.0/dialog/oauth');
     authUrl.searchParams.set('client_id', ENV.facebookAppId);
@@ -73,11 +80,15 @@ export function registerFacebookOAuthRoutes(app: Express) {
       res.status(400).json({ error: 'Invalid or expired state' }); return;
     }
     stateStore.delete(state);
-    const { clientSlug } = stored;
+    const { clientSlug, returnPath } = stored;
 
     try {
       const user = await sdk.authenticateRequest(req);
-      if (user.role !== 'admin') { res.status(403).json({ error: 'Forbidden' }); return; }
+      if (user.role === 'client') {
+        if (user.clientSlug !== clientSlug) { res.status(403).json({ error: 'Forbidden' }); return; }
+      } else if (user.role !== 'admin' && user.role !== 'superAdmin') {
+        res.status(403).json({ error: 'Forbidden' }); return;
+      }
     } catch {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
@@ -116,7 +127,7 @@ export function registerFacebookOAuthRoutes(app: Express) {
       // Auto-select if only one page
       if (pages.length === 1) {
         await storeFacebookPage(clientSlug, pages[0].id, pages[0].access_token, pages[0].name, longLivedToken);
-        res.redirect(302, `/settings?facebook=connected&client=${encodeURIComponent(clientSlug)}`);
+        res.redirect(302, `${returnPath}?facebook=connected&client=${encodeURIComponent(clientSlug)}`);
         return;
       }
 
@@ -127,11 +138,12 @@ export function registerFacebookOAuthRoutes(app: Express) {
         clientSlug,
         pages,
         userToken: longLivedToken,
+        returnPath,
       });
-      res.redirect(302, `/settings?facebook=select&state=${selectionState}&client=${encodeURIComponent(clientSlug)}`);
+      res.redirect(302, `${returnPath}?facebook=select&state=${selectionState}&client=${encodeURIComponent(clientSlug)}`);
     } catch (error) {
       console.error('[Facebook OAuth] Callback error:', error);
-      res.redirect(302, `/settings?facebook=error`);
+      res.redirect(302, `${returnPath}?facebook=error`);
     }
   });
 }
