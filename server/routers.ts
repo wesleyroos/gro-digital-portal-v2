@@ -1434,6 +1434,8 @@ DESIGN REQUIREMENTS:
               : '';
 
             const otherMailers = allMailers.filter(m => m.id !== input.mailerId);
+            const mailerPosition = allMailers.findIndex(m => m.id === input.mailerId) + 1;
+            const totalMailers = allMailers.length;
             const mailersSection = otherMailers.length > 0
               ? `\n\nOTHER MAILERS IN THIS SEQUENCE:\n${otherMailers.map((m, i) => `Email ${i + 1}: "${m.subject || 'Untitled'}"\n${m.htmlContent ? m.htmlContent.slice(0, 600) + (m.htmlContent.length > 600 ? '...' : '') : '(no content)'}`).join('\n\n')}`
               : '';
@@ -1449,10 +1451,31 @@ Content Themes: ${campaign.contentThemes ?? 'Not specified'}
 Strategy: ${campaign.strategy ? campaign.strategy.slice(0, 1000) : 'Not specified'}${assetsSection}${imagesSection}${mailersSection}
 
 CURRENT MAILER BEING EDITED:
+Position: Email ${mailerPosition} of ${totalMailers} in the sequence
 Subject: ${mailer.subject || '(none)'}
 Preview Text: ${mailer.previewText || '(none)'}
 HTML Content:
 ${mailer.htmlContent || '(empty)'}
+
+BRAND GUIDELINES (apply to all output):
+- Primary colour: #2D7AB6 (blue) — use for primary CTAs, accents, labels
+- Dark colour: #111111 — use for headings, secondary CTAs, dark backgrounds
+- Light background: #f7f9fc — use for callout boxes and section backgrounds
+- Tone: direct, no-fluff, outcomes-focused. No buzzwords, no hype. Short sentences. Active voice.
+- Always write as if the reader is a busy business owner who values results over promises.
+
+CTA RULES:
+- One primary CTA per email (blue #2D7AB6 button). Secondary CTAs are optional (dark #111111 button).
+- CTAs must link to specific pages — NEVER link to the bare homepage (https://www.grodigital.co.za with no path).
+  - "See what's included" / "View marketing packages" → https://www.grodigital.co.za/services/marketing
+  - "Book a strategy call" / booking CTAs → https://www.grodigital.co.za/contact
+  - "Claim your spot" / sign-up CTAs → https://www.grodigital.co.za/contact
+
+EMAIL SEQUENCE FRAMING (use to set the right tone):
+- Email 1 of 4: Announcement — introduce the new service, build curiosity
+- Email 2 of 4: Education — explain exactly what's included, remove doubt
+- Email 3 of 4: Urgency/conviction — competitive pressure, why act now
+- Email 4 of 4: Close — concrete offer, scarcity, clear next step
 
 INSTRUCTIONS:
 - When the user asks for changes to the email, respond with the COMPLETE updated HTML document.
