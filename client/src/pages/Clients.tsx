@@ -28,11 +28,31 @@ export default function Clients() {
   const { data: tasks = [] } = trpc.task.list.useQuery(undefined, { retry: false });
   const { data: allSubs = [] } = trpc.subscription.list.useQuery(undefined, { retry: false });
   const { data: allCampaigns = [] } = trpc.campaign.list.useQuery(undefined, { retry: false });
+  const { data: allInvoices = [] } = trpc.invoice.list.useQuery(undefined, { retry: false });
 
   const activeSubSlugs = new Set(
     allSubs.filter(s => s.status === "active").map(s => s.clientSlug)
   );
   const campaignSlugs = new Set(allCampaigns.map(c => c.clientSlug));
+
+  // Recurring amounts per client (active subs only)
+  const recurringBySlug = allSubs
+    .filter(s => s.status === "active")
+    .reduce<Record<string, { monthly: number; annual: number }>>((acc, s) => {
+      if (!acc[s.clientSlug]) acc[s.clientSlug] = { monthly: 0, annual: 0 };
+      const amt = parseFloat(s.amount as string) || 0;
+      if (s.type === "monthly") acc[s.clientSlug].monthly += amt;
+      else if (s.type === "annual") acc[s.clientSlug].annual += amt;
+      return acc;
+    }, {});
+
+  // Outstanding balance per client (sent + overdue invoices)
+  const outstandingBySlug = allInvoices
+    .filter(i => i.status === "sent" || i.status === "overdue")
+    .reduce<Record<string, number>>((acc, i) => {
+      acc[i.clientSlug] = (acc[i.clientSlug] ?? 0) + (parseFloat(i.amountDue as string) || 0);
+      return acc;
+    }, {});
   const [view, setView] = useState<ViewMode>(() =>
     (localStorage.getItem("clients-view") as ViewMode) ?? "card"
   );
@@ -280,11 +300,13 @@ export default function Clients() {
           /* List view */
           <div className="rounded-lg border border-border overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_48px] bg-muted/50 border-b border-border px-6 py-3">
+            <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_48px] bg-muted/50 border-b border-border px-6 py-3">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Hosting</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Marketing</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Analytics</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recurring</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Outstanding</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Tasks</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Connected</span>
               <span />
@@ -296,9 +318,11 @@ export default function Clients() {
                 const hasHosting = activeSubSlugs.has(client.clientSlug);
                 const hasMarketing = campaignSlugs.has(client.clientSlug);
                 const hasAnalytics = !!client.analyticsToken;
+                const recurring = recurringBySlug[client.clientSlug];
+                const outstanding = outstandingBySlug[client.clientSlug] ?? 0;
                 return (
                   <Link key={client.clientSlug} href={`/client/${client.clientSlug}`}>
-                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_48px] items-center px-6 py-3.5 hover:bg-muted/40 transition-colors cursor-pointer group">
+                    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_48px] items-center px-6 py-3.5 hover:bg-muted/40 transition-colors cursor-pointer group">
                       {/* Client name + contact stacked */}
                       <div className="flex items-center gap-3 min-w-0 pr-4">
                         <div className="w-7 h-7 bg-primary/10 rounded-md flex items-center justify-center shrink-0">
@@ -338,6 +362,31 @@ export default function Clients() {
                             {hasAnalytics ? "Active" : "Set up"}
                           </span>
                         </button>
+                      </div>
+
+                      {/* Recurring */}
+                      <div className="space-y-0.5">
+                        {recurring ? (
+                          <>
+                            {recurring.monthly > 0 && (
+                              <p className="text-sm font-medium text-foreground">R {recurring.monthly.toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}<span className="text-[10px] text-muted-foreground font-normal">/mo</span></p>
+                            )}
+                            {recurring.annual > 0 && (
+                              <p className="text-sm font-medium text-foreground">R {recurring.annual.toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}<span className="text-[10px] text-muted-foreground font-normal">/yr</span></p>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground/40">–</span>
+                        )}
+                      </div>
+
+                      {/* Outstanding */}
+                      <div>
+                        {outstanding > 0 ? (
+                          <span className="text-sm font-medium text-amber-600">R {outstanding.toLocaleString("en-ZA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground/40">–</span>
+                        )}
                       </div>
 
                       {/* Tasks */}
