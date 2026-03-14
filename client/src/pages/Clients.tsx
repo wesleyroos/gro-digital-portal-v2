@@ -300,7 +300,7 @@ export default function Clients() {
           /* List view */
           <div className="rounded-lg border border-border overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_48px] bg-muted/50 border-b border-border px-6 py-3">
+            <div className="grid grid-cols-[2fr_80px_90px_90px_110px_110px_70px_90px_48px] bg-muted/50 border-b border-border px-6 py-3">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Hosting</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Marketing</span>
@@ -322,7 +322,7 @@ export default function Clients() {
                 const outstanding = outstandingBySlug[client.clientSlug] ?? 0;
                 return (
                   <Link key={client.clientSlug} href={`/client/${client.clientSlug}`}>
-                    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_48px] items-center px-6 py-3.5 hover:bg-muted/40 transition-colors cursor-pointer group">
+                    <div className="grid grid-cols-[2fr_80px_90px_90px_110px_110px_70px_90px_48px] items-center px-6 py-3.5 hover:bg-muted/40 transition-colors cursor-pointer group">
                       {/* Client name + contact stacked */}
                       <div className="flex items-center gap-3 min-w-0 pr-4">
                         <div className="w-7 h-7 bg-primary/10 rounded-md flex items-center justify-center shrink-0">
