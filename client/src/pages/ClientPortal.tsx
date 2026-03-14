@@ -1,7 +1,30 @@
 import { useState } from "react";
+
+function generatePassword(): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%&*";
+  const all = upper + lower + digits + symbols;
+  const arr = Array.from(crypto.getRandomValues(new Uint8Array(12)));
+  // Guarantee at least one of each category
+  const pwd = [
+    upper[arr[0] % upper.length],
+    lower[arr[1] % lower.length],
+    digits[arr[2] % digits.length],
+    symbols[arr[3] % symbols.length],
+    ...arr.slice(4).map(b => all[b % all.length]),
+  ];
+  // Shuffle
+  for (let i = pwd.length - 1; i > 0; i--) {
+    const j = arr[i] % (i + 1);
+    [pwd[i], pwd[j]] = [pwd[j], pwd[i]];
+  }
+  return pwd.join("");
+}
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
-import { Plus } from "lucide-react";
+import { Plus, Shuffle, Copy } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1083,7 +1106,15 @@ export default function ClientPortal() {
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Temporary password</Label>
-                        <Input type="password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} placeholder="Min 8 characters" />
+                        <div className="flex gap-1">
+                          <Input type="text" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} placeholder="Min 8 characters" className="font-mono text-sm" />
+                          <Button type="button" size="icon" variant="outline" className="shrink-0" title="Generate password" onClick={() => setNewUserPassword(generatePassword())}>
+                            <Shuffle className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button type="button" size="icon" variant="outline" className="shrink-0" title="Copy password" disabled={!newUserPassword} onClick={() => navigator.clipboard.writeText(newUserPassword)}>
+                            <Copy className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -1117,14 +1148,20 @@ export default function ClientPortal() {
                           Last login: {u.lastSignedIn ? new Date(u.lastSignedIn).toLocaleDateString() : "Never"}
                         </p>
                         {resetPasswordOpenId === u.openId ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <Input
-                              type="password"
+                              type="text"
                               placeholder="New password"
                               value={newPassword}
                               onChange={e => setNewPassword(e.target.value)}
-                              className="h-8 w-36 text-xs"
+                              className="h-8 w-36 text-xs font-mono"
                             />
+                            <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0" title="Generate password" onClick={() => setNewPassword(generatePassword())}>
+                              <Shuffle className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0" title="Copy password" disabled={!newPassword} onClick={() => navigator.clipboard.writeText(newPassword)}>
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
                             <Button
                               size="sm"
                               className="h-8"
