@@ -5,12 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Building2, ArrowRight, FileText, Plus, LayoutGrid, List, BarChart2, Link2, ExternalLink, Trash2, AlertTriangle } from "lucide-react";
-import { useState } from "react";
+import { Building2, ArrowRight, FileText, Plus, LayoutGrid, List, BarChart2, Link2, ExternalLink, Trash2, AlertTriangle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 type ViewMode = "card" | "list";
+type SortCol = "name" | "hosting" | "marketing" | "analytics" | "recurring" | "outstanding" | "tasks" | "connected";
+type SortDir = "asc" | "desc";
 
 type ClientRow = {
   clientSlug: string;
@@ -53,6 +55,14 @@ export default function Clients() {
       acc[i.clientSlug] = (acc[i.clientSlug] ?? 0) + (parseFloat(i.amountDue as string) || 0);
       return acc;
     }, {});
+  const [sortCol, setSortCol] = useState<SortCol>("recurring");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("desc"); }
+  }
+
   const [view, setView] = useState<ViewMode>(() =>
     (localStorage.getItem("clients-view") as ViewMode) ?? "card"
   );
@@ -86,6 +96,34 @@ export default function Clients() {
       acc[t.clientSlug!] = (acc[t.clientSlug!] ?? 0) + 1;
       return acc;
     }, {});
+
+  const sortedClients = useMemo(() => {
+    if (!clients) return [];
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...clients].sort((a, b) => {
+      switch (sortCol) {
+        case "name": return dir * a.clientName.localeCompare(b.clientName);
+        case "hosting": return dir * (Number(activeSubSlugs.has(a.clientSlug)) - Number(activeSubSlugs.has(b.clientSlug)));
+        case "marketing": return dir * (Number(campaignSlugs.has(a.clientSlug)) - Number(campaignSlugs.has(b.clientSlug)));
+        case "analytics": return dir * (Number(!!a.analyticsToken) - Number(!!b.analyticsToken));
+        case "recurring": {
+          const ra = recurringBySlug[a.clientSlug];
+          const rb = recurringBySlug[b.clientSlug];
+          const va = ra ? ra.monthly + ra.annual / 12 : 0;
+          const vb = rb ? rb.monthly + rb.annual / 12 : 0;
+          return dir * (va - vb);
+        }
+        case "outstanding": return dir * ((outstandingBySlug[a.clientSlug] ?? 0) - (outstandingBySlug[b.clientSlug] ?? 0));
+        case "tasks": return dir * ((openTaskCount[a.clientSlug] ?? 0) - (openTaskCount[b.clientSlug] ?? 0));
+        case "connected": {
+          const ca = [a.instagramUsername, a.facebookPageName, a.resendSegmentId].filter(Boolean).length;
+          const cb = [b.instagramUsername, b.facebookPageName, b.resendSegmentId].filter(Boolean).length;
+          return dir * (ca - cb);
+        }
+        default: return 0;
+      }
+    });
+  }, [clients, sortCol, sortDir, activeSubSlugs, campaignSlugs, recurringBySlug, outstandingBySlug, openTaskCount]);
 
   const deleteClientMutation = trpc.client.delete.useMutation({
     onSuccess: () => {
@@ -301,19 +339,23 @@ export default function Clients() {
           <div className="rounded-lg border border-border overflow-hidden shadow-sm">
             {/* Header */}
             <div className="grid grid-cols-[2fr_80px_90px_90px_110px_110px_70px_90px_48px] bg-muted/50 border-b border-border px-6 py-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Hosting</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Marketing</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Analytics</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recurring</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Outstanding</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Tasks</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Connected</span>
+              {(["name", "hosting", "marketing", "analytics", "recurring", "outstanding", "tasks", "connected"] as SortCol[]).map((col, i) => {
+                const labels: Record<SortCol, string> = { name: "Client", hosting: "Hosting", marketing: "Marketing", analytics: "Analytics", recurring: "Recurring", outstanding: "Outstanding", tasks: "Tasks", connected: "Connected" };
+                const active = sortCol === col;
+                return (
+                  <button key={col} onClick={() => handleSort(col)} className="flex items-center gap-1 group text-left focus:outline-none">
+                    <span className={`text-[11px] font-semibold uppercase tracking-wider transition-colors ${active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>{labels[col]}</span>
+                    <span className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors">
+                      {active ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronsUpDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                    </span>
+                  </button>
+                );
+              })}
               <span />
             </div>
             {/* Rows */}
             <div className="divide-y divide-border bg-background">
-              {clients.map((client) => {
+              {sortedClients.map((client) => {
                 const count = openTaskCount[client.clientSlug] ?? 0;
                 const hasHosting = activeSubSlugs.has(client.clientSlug);
                 const hasMarketing = campaignSlugs.has(client.clientSlug);
