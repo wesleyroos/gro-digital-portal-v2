@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
 
+const LOGO_URL =
+  "https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773510512118-7qummfmnmo2.jpeg";
+
+// Brand blue extracted from the logo
+const BLUE = "#3A9BD5";
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,7 +20,7 @@ export default function Login() {
       link.id = id;
       link.rel = "stylesheet";
       link.href =
-        "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap";
+        "https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap";
       document.head.appendChild(link);
     }
     const t = setTimeout(() => setReady(true), 40);
@@ -53,339 +59,237 @@ export default function Login() {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .gro-page {
-          font-family: 'Outfit', system-ui, sans-serif;
+        .gl-page {
+          font-family: 'Nunito', system-ui, sans-serif;
           min-height: 100vh;
-          background: #f5f7fa;
-          display: flex;
-          flex-direction: column;
-          position: relative;
-          overflow: hidden;
-        }
-
-        /* Subtle dot grid — mirrors their dark site's grid texture */
-        .gro-page::before {
-          content: '';
-          position: fixed;
-          inset: 0;
-          background-image: radial-gradient(circle, #d0d8e4 1px, transparent 1px);
-          background-size: 32px 32px;
-          opacity: 0.55;
-          pointer-events: none;
-        }
-
-        /* Blue glow accent — top-left, echoing their hero */
-        .gro-page::after {
-          content: '';
-          position: fixed;
-          top: -200px;
-          left: -200px;
-          width: 600px;
-          height: 600px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(0,119,194,0.1) 0%, transparent 65%);
-          pointer-events: none;
-        }
-
-        /* ── Top nav bar ── */
-        .gro-nav {
-          position: relative;
-          z-index: 10;
-          display: flex;
-          align-items: center;
-          padding: 28px 48px;
-        }
-
-        @media (max-width: 600px) {
-          .gro-nav { padding: 24px 24px; }
-        }
-
-        .gro-logo {
-          font-size: 18px;
-          font-weight: 800;
-          letter-spacing: -0.01em;
-          color: #0d1117;
-          text-decoration: none;
-          line-height: 1;
-        }
-
-        .gro-logo-accent {
-          color: #0077c2;
-        }
-
-        /* ── Main centered content ── */
-        .gro-main {
-          position: relative;
-          z-index: 10;
-          flex: 1;
+          background: #EDF2F7;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 24px 24px 64px;
+          padding: 24px 16px;
         }
 
-        .gro-card {
+        /* Card */
+        .gl-card {
           width: 100%;
-          max-width: 460px;
+          max-width: 420px;
+          background: #fff;
+          border-radius: 16px;
+          box-shadow:
+            0 1px 3px rgba(0,0,0,0.06),
+            0 8px 32px rgba(0,0,0,0.08),
+            0 24px 64px rgba(58,155,213,0.07);
+          padding: 44px 40px 40px;
           opacity: 0;
-          transform: translateY(18px);
-          transition: opacity 0.4s ease, transform 0.4s ease;
+          transform: translateY(16px);
+          transition: opacity 0.38s ease, transform 0.38s ease;
         }
 
-        .gro-card.ready {
+        @media (max-width: 480px) {
+          .gl-card { padding: 36px 28px 32px; }
+        }
+
+        .gl-card.ready {
           opacity: 1;
           transform: translateY(0);
         }
 
-        /* Eyebrow */
-        .gro-eyebrow {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          color: #0077c2;
-          margin-bottom: 16px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
+        /* Logo */
+        .gl-logo-wrap {
+          margin-bottom: 32px;
         }
 
-        .gro-eyebrow::before {
-          content: '';
+        .gl-logo {
+          height: 44px;
+          width: auto;
           display: block;
-          width: 20px;
-          height: 2px;
-          background: #0077c2;
-          flex-shrink: 0;
         }
 
-        /* Heading — mirrors the big bold hero type from their site */
-        .gro-title {
-          font-size: clamp(40px, 6vw, 56px);
-          font-weight: 900;
-          letter-spacing: -0.03em;
-          line-height: 1.0;
-          color: #0d1117;
-          margin-bottom: 12px;
+        /* Divider line */
+        .gl-divider {
+          height: 1px;
+          background: #EDF2F7;
+          margin-bottom: 28px;
         }
 
-        .gro-title-accent {
-          color: #0077c2;
+        /* Heading */
+        .gl-heading {
+          font-size: 22px;
+          font-weight: 800;
+          color: #1A202C;
+          margin-bottom: 4px;
+          letter-spacing: -0.01em;
         }
 
-        .gro-subtitle {
-          font-size: 15px;
-          font-weight: 400;
-          color: #6b7685;
-          line-height: 1.6;
-          margin-bottom: 40px;
-          max-width: 340px;
+        .gl-sub {
+          font-size: 14px;
+          color: #718096;
+          margin-bottom: 28px;
+          font-weight: 500;
         }
 
-        /* Form */
-        .gro-label {
+        /* Field */
+        .gl-label {
           display: block;
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 700;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: #8a95a3;
-          margin-bottom: 7px;
+          color: #4A5568;
+          margin-bottom: 6px;
+          letter-spacing: 0.01em;
         }
 
-        .gro-input {
+        .gl-input {
           display: block;
           width: 100%;
-          padding: 13px 16px;
-          background: #ffffff;
-          border: 1.5px solid #dde3ec;
+          padding: 11px 14px;
+          background: #F7FAFC;
+          border: 1.5px solid #E2E8F0;
           border-radius: 8px;
-          font-family: 'Outfit', system-ui, sans-serif;
+          font-family: 'Nunito', system-ui, sans-serif;
           font-size: 15px;
-          font-weight: 400;
-          color: #0d1117;
+          font-weight: 500;
+          color: #1A202C;
           outline: none;
-          transition: border-color 0.15s, box-shadow 0.15s;
+          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
           -webkit-appearance: none;
           margin-bottom: 18px;
         }
 
-        .gro-input::placeholder {
-          color: #b8c0cc;
+        .gl-input::placeholder {
+          color: #CBD5E0;
+          font-weight: 400;
         }
 
-        .gro-input:focus {
-          border-color: #0077c2;
-          box-shadow: 0 0 0 3px rgba(0, 119, 194, 0.12);
+        .gl-input:focus {
+          border-color: ${BLUE};
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(58,155,213,0.15);
         }
 
-        /* autocomplete dark bg override */
-        .gro-input:-webkit-autofill {
-          -webkit-box-shadow: 0 0 0 1000px #fff inset;
-          -webkit-text-fill-color: #0d1117;
+        .gl-input:-webkit-autofill {
+          -webkit-box-shadow: 0 0 0 1000px #F7FAFC inset;
+          -webkit-text-fill-color: #1A202C;
         }
 
-        .gro-error {
-          padding: 11px 14px;
-          background: #fff1f1;
-          border: 1.5px solid #fca5a5;
+        /* Error */
+        .gl-error {
+          padding: 10px 14px;
+          background: #FFF5F5;
+          border: 1.5px solid #FED7D7;
           border-radius: 8px;
           font-size: 13px;
-          color: #b91c1c;
+          font-weight: 600;
+          color: #C53030;
           margin-bottom: 16px;
           line-height: 1.5;
         }
 
-        .gro-btn {
+        /* Button */
+        .gl-btn {
           width: 100%;
-          padding: 14px 28px;
-          background: #0077c2;
+          padding: 13px 24px;
+          background: ${BLUE};
           color: #fff;
           border: none;
           border-radius: 8px;
-          font-family: 'Outfit', system-ui, sans-serif;
+          font-family: 'Nunito', system-ui, sans-serif;
           font-size: 15px;
-          font-weight: 700;
+          font-weight: 800;
           letter-spacing: 0.01em;
           cursor: pointer;
           transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
+          margin-top: 4px;
         }
 
-        .gro-btn:hover:not(:disabled) {
-          background: #006aad;
-          box-shadow: 0 6px 20px rgba(0, 119, 194, 0.3);
+        .gl-btn:hover:not(:disabled) {
+          background: #2a8bc5;
+          box-shadow: 0 4px 16px rgba(58,155,213,0.35);
         }
 
-        .gro-btn:active:not(:disabled) {
+        .gl-btn:active:not(:disabled) {
           transform: scale(0.99);
         }
 
-        .gro-btn:disabled {
-          opacity: 0.45;
+        .gl-btn:disabled {
+          opacity: 0.5;
           cursor: not-allowed;
         }
 
-        .gro-btn-arrow {
-          font-size: 18px;
-          line-height: 1;
-          transition: transform 0.15s;
-        }
-
-        .gro-btn:hover:not(:disabled) .gro-btn-arrow {
-          transform: translateX(3px);
-        }
-
-        .gro-help {
+        /* Footer */
+        .gl-footer {
           margin-top: 24px;
           font-size: 13px;
-          color: #9aa3b0;
+          color: #A0AEC0;
           text-align: center;
-        }
-
-        .gro-help a {
-          color: #0077c2;
-          text-decoration: none;
           font-weight: 500;
+          line-height: 1.6;
         }
 
-        .gro-help a:hover {
+        .gl-footer a {
+          color: ${BLUE};
+          text-decoration: none;
+          font-weight: 700;
+        }
+
+        .gl-footer a:hover {
           text-decoration: underline;
-        }
-
-        /* ── Decorative rotating ring (mirrors their site's bottom-right element) ── */
-        .gro-ring {
-          position: fixed;
-          bottom: -80px;
-          right: -80px;
-          width: 280px;
-          height: 280px;
-          pointer-events: none;
-          opacity: 0.18;
-          animation: gro-spin 30s linear infinite;
-        }
-
-        @keyframes gro-spin {
-          to { transform: rotate(360deg); }
         }
       `}</style>
 
-      <div className="gro-page">
-        {/* Nav */}
-        <nav className="gro-nav">
-          <span className="gro-logo">
-            Gro<span className="gro-logo-accent">Digital</span>
-          </span>
-        </nav>
+      <div className="gl-page">
+        <div className={`gl-card${ready ? " ready" : ""}`}>
 
-        {/* Main */}
-        <main className="gro-main">
-          <div className={`gro-card${ready ? " ready" : ""}`}>
-            <p className="gro-eyebrow">Client Portal</p>
-
-            <h1 className="gro-title">
-              Sign<br />
-              <span className="gro-title-accent">in.</span>
-            </h1>
-
-            <p className="gro-subtitle">
-              Access your campaigns, creative assets, and performance data.
-            </p>
-
-            <form onSubmit={handleSubmit} noValidate>
-              <label htmlFor="gro-email" className="gro-label">Email address</label>
-              <input
-                id="gro-email"
-                className="gro-input"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoFocus
-                autoComplete="email"
-              />
-
-              <label htmlFor="gro-password" className="gro-label">Password</label>
-              <input
-                id="gro-password"
-                className="gro-input"
-                type="password"
-                placeholder="••••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-
-              {error && <div className="gro-error">{error}</div>}
-
-              <button type="submit" className="gro-btn" disabled={loading}>
-                {loading ? "Signing in…" : <>Sign in <span className="gro-btn-arrow">→</span></>}
-              </button>
-            </form>
-
-            <p className="gro-help">
-              Need access?{" "}
-              <a href="mailto:hello@grodigital.co.za">Contact GRO Digital</a>
-            </p>
+          <div className="gl-logo-wrap">
+            <img
+              src={LOGO_URL}
+              alt="GRO digital"
+              className="gl-logo"
+            />
           </div>
-        </main>
 
-        {/* Decorative ring — mirrors the circular "DIGITAL STUDIO" on their site */}
-        <svg className="gro-ring" viewBox="0 0 280 280" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="140" cy="140" r="120" stroke="#0077c2" strokeWidth="1" strokeDasharray="4 8" />
-          <circle cx="140" cy="140" r="96" stroke="#0077c2" strokeWidth="1" strokeDasharray="2 6" />
-          <text fill="#0077c2" fontSize="11" fontFamily="Outfit,sans-serif" fontWeight="600" letterSpacing="6">
-            <textPath href="#ring-path">
-              GRO DIGITAL · CLIENT PORTAL · GRO DIGITAL · CLIENT PORTAL ·
-            </textPath>
-          </text>
-          <path id="ring-path" d="M140,20 a120,120 0 1,1 -0.1,0" fill="none" />
-        </svg>
+          <div className="gl-divider" />
+
+          <p className="gl-heading">Welcome back</p>
+          <p className="gl-sub">Sign in to your client portal</p>
+
+          <form onSubmit={handleSubmit} noValidate>
+            <label htmlFor="gl-email" className="gl-label">Email address</label>
+            <input
+              id="gl-email"
+              className="gl-input"
+              type="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoFocus
+              autoComplete="email"
+            />
+
+            <label htmlFor="gl-password" className="gl-label">Password</label>
+            <input
+              id="gl-password"
+              className="gl-input"
+              type="password"
+              placeholder="••••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+
+            {error && <div className="gl-error">{error}</div>}
+
+            <button type="submit" className="gl-btn" disabled={loading}>
+              {loading ? "Signing in…" : "Sign in →"}
+            </button>
+          </form>
+
+          <p className="gl-footer">
+            Need access?{" "}
+            <a href="mailto:hello@grodigital.co.za">Contact GRO Digital</a>
+          </p>
+        </div>
       </div>
     </>
   );
