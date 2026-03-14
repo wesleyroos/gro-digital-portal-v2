@@ -42,6 +42,9 @@ const menuItems = [
   { icon: Bot, label: "Agents", path: "/agents", roles: undefined },
   { icon: CheckSquare, label: "Tasks", path: "/tasks", roles: undefined },
   { icon: CalendarDays, label: "Calendar", path: "/calendar", roles: undefined },
+];
+
+const bottomItems = [
   { icon: Users, label: "Users", path: "/users", roles: ["superAdmin"] as string[] },
   { icon: Settings2, label: "Settings", path: "/settings", roles: undefined },
 ];
@@ -208,6 +211,24 @@ function DashboardLayoutContent({
           </SidebarContent>
 
           <SidebarFooter className="p-3">
+            <SidebarMenu className="mb-1">
+              {bottomItems.filter(item => !item.roles || item.roles.includes(user?.role ?? "")).map(item => {
+                const isActive = location === item.path;
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      onClick={() => setLocation(item.path)}
+                      tooltip={item.label}
+                      className="h-10 transition-all font-normal"
+                    >
+                      <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
