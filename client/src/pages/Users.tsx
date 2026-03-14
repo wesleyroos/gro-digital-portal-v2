@@ -57,14 +57,14 @@ type NewUserForm = {
   password: string;
   role: "superAdmin" | "admin" | "client";
   clientSlug: string;
-  assignedClients: string;
+  assignedClients: string[];
 };
 
 type EditState = {
   openId: string;
   role: "superAdmin" | "admin" | "client";
   clientSlug: string;
-  assignedClients: string;
+  assignedClients: string[];
 };
 
 type ResetState = {
@@ -77,6 +77,8 @@ export default function Users() {
   const utils = trpc.useUtils();
 
   const usersQuery = trpc.users.list.useQuery(undefined, { enabled: user?.role === "superAdmin" });
+  const clientsQuery = trpc.invoice.clients.useQuery(undefined, { enabled: user?.role === "superAdmin" });
+  const allClients = (clientsQuery.data ?? []) as { clientSlug: string; clientName: string }[];
   const createMutation = trpc.users.create.useMutation();
   const updateRoleMutation = trpc.users.updateRole.useMutation();
   const resetPasswordMutation = trpc.users.resetPassword.useMutation();
@@ -89,7 +91,7 @@ export default function Users() {
     password: generatePassword(),
     role: "client",
     clientSlug: "",
-    assignedClients: "",
+    assignedClients: [],
   });
 
   const [editState, setEditState] = useState<EditState | null>(null);
@@ -113,13 +115,11 @@ export default function Users() {
         password: newUser.password,
         role: newUser.role,
         clientSlug: newUser.clientSlug || undefined,
-        assignedClients: newUser.role === "admin" && newUser.assignedClients
-          ? newUser.assignedClients.split(",").map(s => s.trim()).filter(Boolean)
-          : undefined,
+        assignedClients: newUser.role === "admin" ? newUser.assignedClients : undefined,
       });
       toast.success("User created");
       setShowAdd(false);
-      setNewUser({ name: "", email: "", password: generatePassword(), role: "client", clientSlug: "", assignedClients: "" });
+      setNewUser({ name: "", email: "", password: generatePassword(), role: "client", clientSlug: "", assignedClients: [] });
       utils.users.list.invalidate();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create user");
@@ -134,9 +134,7 @@ export default function Users() {
         openId: editState.openId,
         role: editState.role,
         clientSlug: editState.clientSlug || null,
-        assignedClients: editState.role === "admin" && editState.assignedClients
-          ? editState.assignedClients.split(",").map(s => s.trim()).filter(Boolean)
-          : editState.role === "admin" ? [] : undefined,
+        assignedClients: editState.role === "admin" ? editState.assignedClients : undefined,
       });
       toast.success("User updated");
       setEditState(null);
@@ -263,24 +261,38 @@ export default function Users() {
               </div>
               {newUser.role === "client" && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="new-clientSlug">Client slug</Label>
-                  <Input
-                    id="new-clientSlug"
-                    value={newUser.clientSlug}
-                    onChange={e => setNewUser(p => ({ ...p, clientSlug: e.target.value }))}
-                    placeholder="acme-co"
-                  />
+                  <Label>Client</Label>
+                  <Select value={newUser.clientSlug} onValueChange={v => setNewUser(p => ({ ...p, clientSlug: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select a client…" /></SelectTrigger>
+                    <SelectContent>
+                      {allClients.map(c => (
+                        <SelectItem key={c.clientSlug} value={c.clientSlug}>{c.clientName || c.clientSlug}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               {newUser.role === "admin" && (
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="new-assignedClients">Assigned clients (comma-separated slugs)</Label>
-                  <Input
-                    id="new-assignedClients"
-                    value={newUser.assignedClients}
-                    onChange={e => setNewUser(p => ({ ...p, assignedClients: e.target.value }))}
-                    placeholder="acme-co, globex, initech"
-                  />
+                  <Label>Assigned clients</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 border rounded-md bg-muted/30 max-h-48 overflow-y-auto">
+                    {allClients.map(c => (
+                      <label key={c.clientSlug} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-border"
+                          checked={newUser.assignedClients.includes(c.clientSlug)}
+                          onChange={e => setNewUser(p => ({
+                            ...p,
+                            assignedClients: e.target.checked
+                              ? [...p.assignedClients, c.clientSlug]
+                              : p.assignedClients.filter(s => s !== c.clientSlug),
+                          }))}
+                        />
+                        <span className="truncate">{c.clientName || c.clientSlug}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="sm:col-span-2 flex gap-2 pt-2">
@@ -344,7 +356,7 @@ export default function Users() {
                                 openId: u.openId,
                                 role: u.role,
                                 clientSlug: u.clientSlug ?? "",
-                                assignedClients: u.assignedClients.join(", "),
+                                assignedClients: u.assignedClients,
                               })}
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -417,24 +429,38 @@ export default function Users() {
                               </div>
                               {editState.role === "client" && (
                                 <div className="space-y-1">
-                                  <Label className="text-xs">Client slug</Label>
-                                  <Input
-                                    className="h-8 text-sm w-40"
-                                    value={editState.clientSlug}
-                                    onChange={e => setEditState(p => p ? { ...p, clientSlug: e.target.value } : p)}
-                                    placeholder="acme-co"
-                                  />
+                                  <Label className="text-xs">Client</Label>
+                                  <Select value={editState.clientSlug} onValueChange={v => setEditState(p => p ? { ...p, clientSlug: v } : p)}>
+                                    <SelectTrigger className="h-8 text-sm w-48"><SelectValue placeholder="Select…" /></SelectTrigger>
+                                    <SelectContent>
+                                      {allClients.map(c => (
+                                        <SelectItem key={c.clientSlug} value={c.clientSlug}>{c.clientName || c.clientSlug}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               )}
                               {editState.role === "admin" && (
                                 <div className="space-y-1">
-                                  <Label className="text-xs">Assigned clients (comma-separated)</Label>
-                                  <Input
-                                    className="h-8 text-sm w-64"
-                                    value={editState.assignedClients}
-                                    onChange={e => setEditState(p => p ? { ...p, assignedClients: e.target.value } : p)}
-                                    placeholder="acme-co, globex"
-                                  />
+                                  <Label className="text-xs">Assigned clients</Label>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 border rounded-md bg-background max-h-36 overflow-y-auto w-80">
+                                    {allClients.map(c => (
+                                      <label key={c.clientSlug} className="flex items-center gap-2 text-xs cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          className="rounded border-border"
+                                          checked={editState.assignedClients.includes(c.clientSlug)}
+                                          onChange={e => setEditState(p => p ? {
+                                            ...p,
+                                            assignedClients: e.target.checked
+                                              ? [...p.assignedClients, c.clientSlug]
+                                              : p.assignedClients.filter(s => s !== c.clientSlug),
+                                          } : p)}
+                                        />
+                                        <span className="truncate">{c.clientName || c.clientSlug}</span>
+                                      </label>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                               <Button type="submit" size="sm" disabled={updateRoleMutation.isPending}>

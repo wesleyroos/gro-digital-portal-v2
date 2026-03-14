@@ -241,9 +241,14 @@ export const appRouter = router({
         return { invoice, items };
       }),
 
-    // Admin-only: list all invoices
-    list: adminProcedure.query(async () => {
-      return getAllInvoices();
+    // Admin-only: list all invoices (filtered to assigned clients for admin role)
+    list: adminProcedure.query(async ({ ctx }) => {
+      const all = await getAllInvoices();
+      if (ctx.user.role === 'admin') {
+        const assigned: string[] = ctx.user.assignedClients ? JSON.parse(ctx.user.assignedClients) : [];
+        return all.filter(i => assigned.includes(i.clientSlug));
+      }
+      return all;
     }),
 
     delete: adminProcedure
@@ -260,9 +265,14 @@ export const appRouter = router({
         return getInvoicesByClientSlug(input.clientSlug);
       }),
 
-    // Admin-only: list all distinct clients
-    clients: adminProcedure.query(async () => {
-      return getDistinctClients();
+    // Admin-only: list all distinct clients (filtered to assigned clients for admin role)
+    clients: adminProcedure.query(async ({ ctx }) => {
+      const all = await getDistinctClients();
+      if (ctx.user.role === 'admin') {
+        const assigned: string[] = ctx.user.assignedClients ? JSON.parse(ctx.user.assignedClients) : [];
+        return all.filter(c => assigned.includes(c.clientSlug));
+      }
+      return all;
     }),
 
     // Admin-only: revenue metrics
