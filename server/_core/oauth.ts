@@ -393,7 +393,7 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
-      const user = await db.getClientUserByEmail(email.toLowerCase().trim());
+      const user = await db.getUserByEmailWithPassword(email.toLowerCase().trim());
       if (!user || !user.passwordHash) {
         res.status(401).json({ error: "Invalid email or password" });
         return;
@@ -413,7 +413,7 @@ export function registerOAuthRoutes(app: Express) {
       });
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-      res.json({ success: true });
+      res.json({ success: true, role: user.role });
     } catch (error) {
       console.error("[Auth] Client login error:", error);
       res.status(500).json({ error: "Login failed, check server logs" });

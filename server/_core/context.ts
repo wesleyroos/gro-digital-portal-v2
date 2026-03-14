@@ -32,6 +32,7 @@ function authenticateApiKey(req: CreateExpressContextOptions["req"]): User | nul
     loginMethod: "api-key",
     role: "superAdmin",
     clientSlug: null,
+    assignedClients: null,
     passwordHash: null,
     createdAt: new Date(),
     updatedAt: new Date(),

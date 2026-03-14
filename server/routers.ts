@@ -116,6 +116,9 @@ import {
   updateUserPasswordHash,
   updateUserProfile,
   getCampaignsByClientSlug,
+  getAllUsers,
+  updateUserAssignedClients,
+  updateUserRole,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
 import Anthropic from "@anthropic-ai/sdk";
@@ -169,17 +172,29 @@ async function compressMailerImages(html: string): Promise<string> {
   return result;
 }
 
-/** Throws FORBIDDEN if a client user tries to access a campaign that isn't theirs. No-op for admin/superAdmin. */
-function assertCampaignAccess(user: { role: string; clientSlug?: string | null }, campaignClientSlug: string) {
+/** Throws FORBIDDEN if a client user tries to access a campaign that isn't theirs. Enforces assignedClients for admin role. */
+function assertCampaignAccess(user: { role: string; clientSlug?: string | null; assignedClients?: string | null }, campaignClientSlug: string) {
   if (user.role === 'client' && user.clientSlug !== campaignClientSlug) {
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
   }
+  if (user.role === 'admin') {
+    const assigned: string[] = user.assignedClients ? JSON.parse(user.assignedClients) : [];
+    if (!assigned.includes(campaignClientSlug)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+    }
+  }
 }
 
-/** Throws FORBIDDEN if a client user tries to access another client's slug. No-op for admin/superAdmin. */
-function assertClientSlugAccess(user: { role: string; clientSlug?: string | null }, clientSlug: string) {
+/** Throws FORBIDDEN if a client user tries to access another client's slug. Enforces assignedClients for admin role. */
+function assertClientSlugAccess(user: { role: string; clientSlug?: string | null; assignedClients?: string | null }, clientSlug: string) {
   if (user.role === 'client' && user.clientSlug !== clientSlug) {
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+  }
+  if (user.role === 'admin') {
+    const assigned: string[] = user.assignedClients ? JSON.parse(user.assignedClients) : [];
+    if (!assigned.includes(clientSlug)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+    }
   }
 }
 
@@ -712,6 +727,11 @@ export const appRouter = router({
   campaign: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       if (ctx.user.role === 'client') return getCampaignsByClientSlug(ctx.user.clientSlug!);
+      if (ctx.user.role === 'admin') {
+        const assigned: string[] = ctx.user.assignedClients ? JSON.parse(ctx.user.assignedClients) : [];
+        const all = await getCampaigns();
+        return all.filter(c => assigned.includes(c.clientSlug));
+      }
       return getCampaigns();
     }),
 
@@ -2253,6 +2273,80 @@ Only return JSON.`,
         openId: z.string(),
         password: z.string().min(8),
       }))
+      .mutation(async ({ input }) => {
+        const passwordHash = await hashPassword(input.password);
+        await updateUserPasswordHash(input.openId, passwordHash);
+        return { success: true };
+      }),
+
+    delete: superAdminProcedure
+      .input(z.object({ openId: z.string() }))
+      .mutation(async ({ input }) => {
+        await deleteClientUser(input.openId);
+        return { success: true };
+      }),
+  }),
+
+  // ── Super-admin: full user management ──
+  users: router({
+    list: superAdminProcedure.query(async () => {
+      const all = await getAllUsers();
+      return all.map(u => ({
+        openId: u.openId,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        clientSlug: u.clientSlug,
+        assignedClients: u.assignedClients ? JSON.parse(u.assignedClients) as string[] : [],
+        lastSignedIn: u.lastSignedIn,
+        createdAt: u.createdAt,
+      }));
+    }),
+
+    create: superAdminProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        password: z.string().min(8),
+        role: z.enum(["superAdmin", "admin", "client"]),
+        clientSlug: z.string().optional(),
+        assignedClients: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { nanoid } = await import("nanoid");
+        const openId = `user_${nanoid(16)}`;
+        const passwordHash = await hashPassword(input.password);
+        await createClientUser({
+          openId,
+          name: input.name,
+          email: input.email.toLowerCase().trim(),
+          passwordHash,
+          clientSlug: input.clientSlug ?? null,
+          role: input.role,
+        });
+        if (input.assignedClients?.length) {
+          await updateUserAssignedClients(openId, input.assignedClients);
+        }
+        return { success: true, openId };
+      }),
+
+    updateRole: superAdminProcedure
+      .input(z.object({
+        openId: z.string(),
+        role: z.enum(["superAdmin", "admin", "client"]),
+        clientSlug: z.string().optional().nullable(),
+        assignedClients: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await updateUserRole(input.openId, input.role);
+        if (input.assignedClients !== undefined) {
+          await updateUserAssignedClients(input.openId, input.assignedClients);
+        }
+        return { success: true };
+      }),
+
+    resetPassword: superAdminProcedure
+      .input(z.object({ openId: z.string(), password: z.string().min(8) }))
       .mutation(async ({ input }) => {
         const passwordHash = await hashPassword(input.password);
         await updateUserPasswordHash(input.openId, passwordHash);

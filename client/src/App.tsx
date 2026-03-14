@@ -28,6 +28,7 @@ import MarketingCampaignWorkspace from "./pages/MarketingCampaignWorkspace";
 import CampaignPreview from "./pages/CampaignPreview";
 import Outreach from "./pages/Outreach";
 import Media from "./pages/Media";
+import Users from "./pages/Users";
 import PortalDashboard from "./pages/portal/PortalDashboard";
 import PortalMarketing from "./pages/portal/PortalMarketing";
 import PortalMarketingCampaign from "./pages/portal/PortalMarketingCampaign";
@@ -108,6 +109,7 @@ function Router() {
                     <Route path={"/subscriptions"} component={Subscriptions} />
                     <Route path={"/agents"} component={Agents} />
                     <Route path={"/proposals"} component={Proposals} />
+                    <Route path={"/users"} component={Users} />
                     <Route path={"/settings"} component={Settings} />
                     <Route path={"/client/:slug"} component={ClientPortal} />
                     <Route path={"/invoice/new"} component={CreateInvoice} />

@@ -37,7 +37,11 @@ export default function Login() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
       });
-      if (res.ok) { window.location.href = "/portal"; return; }
+      if (res.ok) {
+        const data = await res.json() as { success: boolean; role?: string };
+        if (data.role === 'client') { window.location.href = "/portal"; return; }
+        window.location.href = "/"; return;
+      }
 
       const adminRes = await fetch("/api/auth/password-login", {
         method: "POST",

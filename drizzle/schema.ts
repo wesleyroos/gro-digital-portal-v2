@@ -17,6 +17,7 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   googleRefreshToken: text("googleRefreshToken"),
   googleConnectedEmail: varchar("googleConnectedEmail", { length: 320 }),
+  assignedClients: text("assignedClients"),
 });
 
 export type User = typeof users.$inferSelect;

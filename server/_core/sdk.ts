@@ -284,6 +284,7 @@ class SDKServer {
         loginMethod: "password",
         role: "superAdmin",
         clientSlug: null,
+        assignedClients: null,
         passwordHash: null,
         createdAt: new Date(),
         updatedAt: new Date(),

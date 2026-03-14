@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, Bot, ScrollText, Megaphone, Rocket, Images } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, Bot, ScrollText, Megaphone, Rocket, Images, Users } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -30,19 +30,20 @@ import { Button } from "./ui/button";
 import TaskTray from "./TaskTray";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: Building2, label: "Clients", path: "/clients" },
-  { icon: Repeat, label: "Subscriptions", path: "/subscriptions" },
-  { icon: FileText, label: "Invoices", path: "/invoices" },
-  { icon: ScrollText, label: "Proposals", path: "/proposals" },
-  { icon: Target, label: "Leads", path: "/leads" },
-  { icon: Rocket, label: "Outreach", path: "/outreach" },
-  { icon: Megaphone, label: "Marketing", path: "/marketing" },
-  { icon: Images, label: "Media", path: "/media" },
-  { icon: Bot, label: "Agents", path: "/agents" },
-  { icon: CheckSquare, label: "Tasks", path: "/tasks" },
-  { icon: CalendarDays, label: "Calendar", path: "/calendar" },
-  { icon: Settings2, label: "Settings", path: "/settings" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/", roles: undefined },
+  { icon: Building2, label: "Clients", path: "/clients", roles: undefined },
+  { icon: Repeat, label: "Subscriptions", path: "/subscriptions", roles: undefined },
+  { icon: FileText, label: "Invoices", path: "/invoices", roles: undefined },
+  { icon: ScrollText, label: "Proposals", path: "/proposals", roles: undefined },
+  { icon: Target, label: "Leads", path: "/leads", roles: undefined },
+  { icon: Rocket, label: "Outreach", path: "/outreach", roles: undefined },
+  { icon: Megaphone, label: "Marketing", path: "/marketing", roles: undefined },
+  { icon: Images, label: "Media", path: "/media", roles: undefined },
+  { icon: Bot, label: "Agents", path: "/agents", roles: undefined },
+  { icon: CheckSquare, label: "Tasks", path: "/tasks", roles: undefined },
+  { icon: CalendarDays, label: "Calendar", path: "/calendar", roles: undefined },
+  { icon: Users, label: "Users", path: "/users", roles: ["superAdmin"] as string[] },
+  { icon: Settings2, label: "Settings", path: "/settings", roles: undefined },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -185,7 +186,7 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
+              {menuItems.filter(item => !item.roles || item.roles.includes(user?.role ?? "")).map(item => {
                 const isActive = location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>

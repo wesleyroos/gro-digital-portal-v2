@@ -204,6 +204,13 @@
       "when": 1771938000000,
       "tag": "0034_client_portal_users",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1771939000000,
+      "tag": "0035_user_assigned_clients",
+      "breakpoints": true
     }
   ]
 }

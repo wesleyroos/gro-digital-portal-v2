@@ -1,4 +1,4 @@
-import { eq, inArray, sql, asc, desc, and } from "drizzle-orm";
+import { eq, inArray, sql, asc, desc, and, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, outreachProspects, outreachSequences, outreachSequenceSteps, outreachSends, InsertOutreachProspect, InsertOutreachSequence, InsertOutreachSequenceStep, InsertOutreachSend, mediaFiles, InsertMediaFile } from "../drizzle/schema";
@@ -119,7 +119,8 @@ export async function createClientUser(data: {
   name: string;
   email: string;
   passwordHash: string;
-  clientSlug: string;
+  clientSlug: string | null;
+  role?: "client" | "admin" | "superAdmin";
 }): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -129,7 +130,7 @@ export async function createClientUser(data: {
     name: data.name,
     email: data.email,
     loginMethod: "password",
-    role: "client",
+    role: data.role ?? "client",
     clientSlug: data.clientSlug,
     passwordHash: data.passwordHash,
     lastSignedIn: new Date(),
@@ -154,6 +155,35 @@ export async function deleteClientUser(openId: string): Promise<void> {
   if (!db) throw new Error("Database not available");
 
   await db.delete(users).where(eq(users.openId, openId));
+}
+
+export async function getAllUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(users).orderBy(users.createdAt);
+}
+
+export async function getUserByEmailWithPassword(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users)
+    .where(and(eq(users.email, email), isNotNull(users.passwordHash)))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateUserAssignedClients(openId: string, assignedClients: string[]): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users)
+    .set({ assignedClients: JSON.stringify(assignedClients) })
+    .where(eq(users.openId, openId));
+}
+
+export async function updateUserRole(openId: string, role: "client" | "admin" | "superAdmin"): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ role }).where(eq(users.openId, openId));
 }
 
 // ── Invoice queries ──
