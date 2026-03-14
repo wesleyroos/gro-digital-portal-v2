@@ -26,6 +26,13 @@ export default function Clients() {
   const utils = trpc.useUtils();
   const { data: clients, isLoading } = trpc.invoice.clients.useQuery(undefined, { retry: false });
   const { data: tasks = [] } = trpc.task.list.useQuery(undefined, { retry: false });
+  const { data: allSubs = [] } = trpc.subscription.list.useQuery(undefined, { retry: false });
+  const { data: allCampaigns = [] } = trpc.campaign.list.useQuery(undefined, { retry: false });
+
+  const activeSubSlugs = new Set(
+    allSubs.filter(s => s.status === "active").map(s => s.clientSlug)
+  );
+  const campaignSlugs = new Set(allCampaigns.map(c => c.clientSlug));
   const [view, setView] = useState<ViewMode>(() =>
     (localStorage.getItem("clients-view") as ViewMode) ?? "card"
   );
@@ -219,8 +226,18 @@ export default function Clients() {
                     {client.clientContact && (
                       <p className="text-xs text-muted-foreground mb-2">{client.clientContact}</p>
                     )}
-                    {(client.instagramUsername || client.facebookPageName || client.resendSegmentId) && (
+                    {(client.instagramUsername || client.facebookPageName || client.resendSegmentId || activeSubSlugs.has(client.clientSlug) || campaignSlugs.has(client.clientSlug)) && (
                       <div className="flex items-center gap-1 flex-wrap mb-3">
+                        {activeSubSlugs.has(client.clientSlug) && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-medium">
+                            Hosting
+                          </span>
+                        )}
+                        {campaignSlugs.has(client.clientSlug) && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full font-medium">
+                            Marketing
+                          </span>
+                        )}
                         {client.instagramUsername && (
                           <span className="inline-flex items-center gap-1 text-[10px] bg-pink-50 text-pink-700 border border-pink-200 px-1.5 py-0.5 rounded-full font-medium">
                             IG
@@ -263,10 +280,12 @@ export default function Clients() {
           /* List view */
           <div className="rounded-lg border border-border overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="grid grid-cols-[2fr_2fr_120px_100px_80px_56px] bg-muted/50 border-b border-border px-4 py-2.5">
+            <div className="grid grid-cols-[2fr_1.5fr_100px_80px_80px_80px_80px_56px] bg-muted/50 border-b border-border px-4 py-2.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Client</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Contact</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Open Tasks</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Hosting</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Marketing</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Analytics</span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Connected</span>
               <span />
@@ -277,7 +296,7 @@ export default function Clients() {
                 const count = openTaskCount[client.clientSlug] ?? 0;
                 return (
                   <Link key={client.clientSlug} href={`/client/${client.clientSlug}`}>
-                    <div className="grid grid-cols-[2fr_2fr_120px_100px_80px_56px] items-center px-4 py-3 hover:bg-muted/40 transition-colors cursor-pointer group">
+                    <div className="grid grid-cols-[2fr_1.5fr_100px_80px_80px_80px_80px_56px] items-center px-4 py-3 hover:bg-muted/40 transition-colors cursor-pointer group">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-7 h-7 bg-primary/10 rounded-md flex items-center justify-center shrink-0">
                           <Building2 className="w-3.5 h-3.5 text-primary" />
@@ -299,6 +318,29 @@ export default function Clients() {
                           <span className="text-xs text-muted-foreground/50">–</span>
                         )}
                       </div>
+                      {/* Hosting */}
+                      <div>
+                        {activeSubSlugs.has(client.clientSlug) ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">–</span>
+                        )}
+                      </div>
+                      {/* Marketing */}
+                      <div>
+                        {campaignSlugs.has(client.clientSlug) ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">–</span>
+                        )}
+                      </div>
+                      {/* Analytics */}
                       <div>
                         <button
                           onClick={(e) => openAnalytics(e, client)}
