@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import { RefreshCw, ExternalLink, Instagram, Facebook } from "lucide-react";
+import { RefreshCw, ExternalLink, Instagram, Facebook, Copy } from "lucide-react";
 
 // --- Railway Status types ---
 type PageStatus = "OPERATIONAL" | "HASISSUES" | "UNDERMAINTENANCE" | "MAJOROUTAGE" | string;
@@ -678,6 +678,15 @@ function LogsViewer() {
         >
           Auto-scroll {autoScroll ? "on" : "off"}
         </button>
+        <Button
+          variant="ghost" size="sm" className="h-6 w-6 p-0" title="Copy logs"
+          onClick={() => {
+            const text = visible.map(e => `[${new Date(e.ts).toISOString()}] [${e.level.toUpperCase()}] ${e.msg}`).join("\n");
+            navigator.clipboard.writeText(text);
+          }}
+        >
+          <Copy className="w-3 h-3" />
+        </Button>
         <Button
           variant="ghost" size="sm" className="h-6 w-6 p-0" title="Refresh"
           onClick={() => { setEntries([]); lastTsRef.current = 0; loadedRef.current = false; setSince(0); refetch(); }}
