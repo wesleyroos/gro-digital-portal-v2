@@ -87,7 +87,7 @@ export default function MarketingCampaignWorkspace() {
   const [assetsExpanded, setAssetsExpanded] = useState(true);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [selectedMailerId, setSelectedMailerId] = useState<number | null>(null);
-  const [mailerTab, setMailerTab] = useState<'edit' | 'preview'>('edit');
+  const [mailerTab, setMailerTab] = useState<'edit' | 'preview'>('preview');
   const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
   const [mailerDirty, setMailerDirty] = useState(false);
   const [showGenerateMailer, setShowGenerateMailer] = useState(false);
@@ -455,7 +455,7 @@ export default function MarketingCampaignWorkspace() {
       notes: mailer.notes ?? '',
     });
     setMailerDirty(false);
-    setMailerTab('edit');
+    setMailerTab('preview');
   }
 
   function saveMailer() {
