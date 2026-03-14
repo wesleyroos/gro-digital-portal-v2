@@ -393,8 +393,8 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
-      const user = await db.getUserByEmail(email.toLowerCase().trim());
-      if (!user || user.role !== "client" || !user.passwordHash) {
+      const user = await db.getClientUserByEmail(email.toLowerCase().trim());
+      if (!user || !user.passwordHash) {
         res.status(401).json({ error: "Invalid email or password" });
         return;
       }

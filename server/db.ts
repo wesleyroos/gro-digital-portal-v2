@@ -1,4 +1,4 @@
-import { eq, inArray, sql, asc, desc } from "drizzle-orm";
+import { eq, inArray, sql, asc, desc, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, outreachProspects, outreachSequences, outreachSequenceSteps, outreachSends, InsertOutreachProspect, InsertOutreachSequence, InsertOutreachSequenceStep, InsertOutreachSend, mediaFiles, InsertMediaFile } from "../drizzle/schema";
@@ -94,6 +94,16 @@ export async function getUserByEmail(email: string) {
   if (!db) return undefined;
 
   const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getClientUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(users)
+    .where(and(eq(users.email, email), eq(users.role, "client")))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
