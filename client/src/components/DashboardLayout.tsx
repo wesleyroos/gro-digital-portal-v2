@@ -11,6 +11,8 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -29,19 +31,39 @@ import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 import TaskTray from "./TaskTray";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/", roles: undefined },
-  { icon: Building2, label: "Clients", path: "/clients", roles: undefined },
-  { icon: Repeat, label: "Subscriptions", path: "/subscriptions", roles: undefined },
-  { icon: FileText, label: "Invoices", path: "/invoices", roles: undefined },
-  { icon: ScrollText, label: "Proposals", path: "/proposals", roles: undefined },
-  { icon: Target, label: "Leads", path: "/leads", roles: undefined },
-  { icon: Rocket, label: "Outreach", path: "/outreach", roles: undefined },
-  { icon: Megaphone, label: "Marketing", path: "/marketing", roles: undefined },
-  { icon: Images, label: "Media", path: "/media", roles: undefined },
-  { icon: Bot, label: "Agents", path: "/agents", roles: undefined },
-  { icon: CheckSquare, label: "Tasks", path: "/tasks", roles: undefined },
-  { icon: CalendarDays, label: "Calendar", path: "/calendar", roles: undefined },
+const menuGroups = [
+  {
+    label: "Clients & Revenue",
+    items: [
+      { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+      { icon: Building2, label: "Clients", path: "/clients" },
+      { icon: FileText, label: "Invoices", path: "/invoices" },
+      { icon: Repeat, label: "Subscriptions", path: "/subscriptions" },
+    ],
+  },
+  {
+    label: "Growth",
+    items: [
+      { icon: Target, label: "Leads", path: "/leads" },
+      { icon: ScrollText, label: "Proposals", path: "/proposals" },
+      { icon: Rocket, label: "Outreach", path: "/outreach" },
+    ],
+  },
+  {
+    label: "Creative",
+    items: [
+      { icon: Megaphone, label: "Marketing", path: "/marketing" },
+      { icon: Images, label: "Media", path: "/media" },
+    ],
+  },
+  {
+    label: "Workspace",
+    items: [
+      { icon: CheckSquare, label: "Tasks", path: "/tasks" },
+      { icon: CalendarDays, label: "Calendar", path: "/calendar" },
+      { icon: Bot, label: "Agents", path: "/agents" },
+    ],
+  },
 ];
 
 const bottomItems = [
@@ -108,7 +130,8 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location || (item.path !== '/' && location.startsWith(item.path)));
+  const allMenuItems = [...menuGroups.flatMap(g => g.items), ...bottomItems];
+  const activeMenuItem = allMenuItems.find(item => item.path === location || (item.path !== '/' && location.startsWith(item.path)));
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -188,26 +211,31 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
-              {menuItems.filter(item => !item.roles || item.roles.includes(user?.role ?? "")).map(item => {
-                const isActive = location === item.path;
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
-                    >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+            {menuGroups.map(group => (
+              <SidebarGroup key={group.label} className="py-0">
+                <SidebarGroupLabel className="px-4 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                  {group.label}
+                </SidebarGroupLabel>
+                <SidebarMenu className="px-2 pb-2">
+                  {group.items.map(item => {
+                    const isActive = location === item.path;
+                    return (
+                      <SidebarMenuItem key={item.path}>
+                        <SidebarMenuButton
+                          isActive={isActive}
+                          onClick={() => setLocation(item.path)}
+                          tooltip={item.label}
+                          className="h-9 transition-all font-normal"
+                        >
+                          <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroup>
+            ))}
           </SidebarContent>
 
           <SidebarFooter className="p-3">
