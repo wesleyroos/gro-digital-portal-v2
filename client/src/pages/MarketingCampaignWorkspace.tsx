@@ -1746,7 +1746,7 @@ export default function MarketingCampaignWorkspace() {
               <Button variant="outline" onClick={() => setShowSendToList(false)}>Cancel</Button>
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-                onClick={() => selectedMailerId && broadcastMutation.mutate({ mailerId: selectedMailerId, clientSlug, scheduledAt: broadcastScheduledAt || undefined })}
+                onClick={() => selectedMailerId && broadcastMutation.mutate({ mailerId: selectedMailerId, clientSlug, scheduledAt: broadcastScheduledAt ? new Date(broadcastScheduledAt).toISOString() : undefined })}
                 disabled={broadcastMutation.isPending || (segmentStatus?.subscriberCount ?? 0) === 0}
               >
                 {broadcastMutation.isPending ? (
