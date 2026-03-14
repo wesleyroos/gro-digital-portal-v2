@@ -14,10 +14,10 @@ export default function Login() {
       link.id = id;
       link.rel = "stylesheet";
       link.href =
-        "https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap";
+        "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap";
       document.head.appendChild(link);
     }
-    const t = setTimeout(() => setReady(true), 50);
+    const t = setTimeout(() => setReady(true), 40);
     return () => clearTimeout(t);
   }, []);
 
@@ -53,247 +53,211 @@ export default function Login() {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .gro-login {
-          font-family: 'Syne', system-ui, sans-serif;
+        .gro-page {
+          font-family: 'Outfit', system-ui, sans-serif;
           min-height: 100vh;
+          background: #f5f7fa;
           display: flex;
-          align-items: stretch;
-          background: #f4f6f9;
-        }
-
-        /* ── left brand panel ── */
-        .gro-left {
-          display: none;
-          width: 44%;
-          flex-shrink: 0;
-          background: #0077c2;
-          position: relative;
-          padding: 56px 60px;
           flex-direction: column;
-          justify-content: space-between;
+          position: relative;
           overflow: hidden;
         }
 
-        @media (min-width: 860px) {
-          .gro-left { display: flex; }
-        }
-
-        /* subtle dot pattern on blue panel */
-        .gro-left::before {
+        /* Subtle dot grid — mirrors their dark site's grid texture */
+        .gro-page::before {
           content: '';
-          position: absolute;
+          position: fixed;
           inset: 0;
-          background-image: radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px);
-          background-size: 28px 28px;
+          background-image: radial-gradient(circle, #d0d8e4 1px, transparent 1px);
+          background-size: 32px 32px;
+          opacity: 0.55;
           pointer-events: none;
         }
 
-        /* bottom-right circle accent */
-        .gro-left::after {
+        /* Blue glow accent — top-left, echoing their hero */
+        .gro-page::after {
           content: '';
-          position: absolute;
-          bottom: -140px;
-          right: -140px;
-          width: 420px;
-          height: 420px;
+          position: fixed;
+          top: -200px;
+          left: -200px;
+          width: 600px;
+          height: 600px;
           border-radius: 50%;
-          background: rgba(0,0,0,0.12);
+          background: radial-gradient(circle, rgba(0,119,194,0.1) 0%, transparent 65%);
           pointer-events: none;
         }
 
-        .gro-wordmark {
-          font-size: 14px;
+        /* ── Top nav bar ── */
+        .gro-nav {
+          position: relative;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          padding: 28px 48px;
+        }
+
+        @media (max-width: 600px) {
+          .gro-nav { padding: 24px 24px; }
+        }
+
+        .gro-logo {
+          font-size: 18px;
           font-weight: 800;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          color: #fff;
+          letter-spacing: -0.01em;
+          color: #0d1117;
+          text-decoration: none;
+          line-height: 1;
+        }
+
+        .gro-logo-accent {
+          color: #0077c2;
+        }
+
+        /* ── Main centered content ── */
+        .gro-main {
           position: relative;
-          z-index: 2;
+          z-index: 10;
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px 24px 64px;
         }
 
-        .gro-wordmark span {
-          color: rgba(255,255,255,0.5);
+        .gro-card {
+          width: 100%;
+          max-width: 460px;
+          opacity: 0;
+          transform: translateY(18px);
+          transition: opacity 0.4s ease, transform 0.4s ease;
         }
 
-        .gro-hero {
-          position: relative;
-          z-index: 2;
+        .gro-card.ready {
+          opacity: 1;
+          transform: translateY(0);
         }
 
-        .gro-hero-eyebrow {
+        /* Eyebrow */
+        .gro-eyebrow {
           font-size: 11px;
           font-weight: 600;
           letter-spacing: 0.2em;
           text-transform: uppercase;
-          color: rgba(255,255,255,0.65);
-          margin-bottom: 20px;
+          color: #0077c2;
+          margin-bottom: 16px;
           display: flex;
           align-items: center;
           gap: 10px;
         }
 
-        .gro-hero-eyebrow::before {
+        .gro-eyebrow::before {
           content: '';
           display: block;
           width: 20px;
           height: 2px;
-          background: rgba(255,255,255,0.65);
+          background: #0077c2;
           flex-shrink: 0;
         }
 
-        .gro-hero-title {
-          font-size: 44px;
-          font-weight: 800;
-          line-height: 1.05;
-          letter-spacing: -0.02em;
-          color: #fff;
-          margin-bottom: 20px;
+        /* Heading — mirrors the big bold hero type from their site */
+        .gro-title {
+          font-size: clamp(40px, 6vw, 56px);
+          font-weight: 900;
+          letter-spacing: -0.03em;
+          line-height: 1.0;
+          color: #0d1117;
+          margin-bottom: 12px;
         }
 
-        .gro-hero-title em {
-          font-style: normal;
-          color: rgba(255,255,255,0.6);
+        .gro-title-accent {
+          color: #0077c2;
         }
 
-        .gro-hero-sub {
-          font-size: 14px;
+        .gro-subtitle {
+          font-size: 15px;
           font-weight: 400;
-          line-height: 1.7;
-          color: rgba(255,255,255,0.6);
-          max-width: 280px;
-        }
-
-        .gro-footer-text {
-          font-size: 11px;
-          color: rgba(255,255,255,0.35);
-          letter-spacing: 0.08em;
-          position: relative;
-          z-index: 2;
-        }
-
-        /* ── right form panel ── */
-        .gro-right {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 48px 32px;
-          background: #fff;
-        }
-
-        .gro-form-box {
-          width: 100%;
-          max-width: 400px;
-          opacity: 0;
-          transform: translateY(14px);
-          transition: opacity 0.4s ease, transform 0.4s ease;
-        }
-
-        .gro-form-box.visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        /* mobile wordmark */
-        .gro-mobile-mark {
-          font-size: 14px;
-          font-weight: 800;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          color: #040810;
+          color: #6b7685;
+          line-height: 1.6;
           margin-bottom: 40px;
-          display: block;
-        }
-        .gro-mobile-mark span { color: #0077c2; }
-
-        @media (min-width: 860px) {
-          .gro-mobile-mark { display: none; }
+          max-width: 340px;
         }
 
-        .gro-heading {
-          font-size: 30px;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-          color: #0a0d14;
-          margin-bottom: 6px;
-        }
-
-        .gro-subheading {
-          font-size: 14px;
-          color: #8a9099;
-          margin-bottom: 36px;
-          line-height: 1.5;
-        }
-
-        .gro-field-wrap {
-          margin-bottom: 18px;
-        }
-
+        /* Form */
         .gro-label {
           display: block;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 700;
-          letter-spacing: 0.16em;
+          letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: #9aa0aa;
+          color: #8a95a3;
           margin-bottom: 7px;
         }
 
         .gro-input {
+          display: block;
           width: 100%;
-          padding: 12px 14px;
-          background: #f7f8fa;
-          border: 1.5px solid #e4e7ec;
-          border-radius: 6px;
-          font-family: 'Syne', system-ui, sans-serif;
+          padding: 13px 16px;
+          background: #ffffff;
+          border: 1.5px solid #dde3ec;
+          border-radius: 8px;
+          font-family: 'Outfit', system-ui, sans-serif;
           font-size: 15px;
-          color: #0a0d14;
+          font-weight: 400;
+          color: #0d1117;
           outline: none;
-          transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+          transition: border-color 0.15s, box-shadow 0.15s;
           -webkit-appearance: none;
+          margin-bottom: 18px;
         }
 
         .gro-input::placeholder {
-          color: #c2c8d0;
+          color: #b8c0cc;
         }
 
         .gro-input:focus {
           border-color: #0077c2;
-          background: #fff;
-          box-shadow: 0 0 0 3px rgba(0,119,194,0.1);
+          box-shadow: 0 0 0 3px rgba(0, 119, 194, 0.12);
+        }
+
+        /* autocomplete dark bg override */
+        .gro-input:-webkit-autofill {
+          -webkit-box-shadow: 0 0 0 1000px #fff inset;
+          -webkit-text-fill-color: #0d1117;
         }
 
         .gro-error {
           padding: 11px 14px;
-          background: #fef2f2;
-          border: 1.5px solid #fecaca;
-          border-radius: 6px;
+          background: #fff1f1;
+          border: 1.5px solid #fca5a5;
+          border-radius: 8px;
           font-size: 13px;
           color: #b91c1c;
-          margin-bottom: 18px;
+          margin-bottom: 16px;
           line-height: 1.5;
         }
 
         .gro-btn {
           width: 100%;
-          padding: 13px 24px;
+          padding: 14px 28px;
           background: #0077c2;
           color: #fff;
           border: none;
-          border-radius: 6px;
-          font-family: 'Syne', system-ui, sans-serif;
-          font-size: 14px;
+          border-radius: 8px;
+          font-family: 'Outfit', system-ui, sans-serif;
+          font-size: 15px;
           font-weight: 700;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.01em;
           cursor: pointer;
-          margin-top: 6px;
-          transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+          transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
         }
 
         .gro-btn:hover:not(:disabled) {
           background: #006aad;
-          box-shadow: 0 4px 16px rgba(0,119,194,0.28);
+          box-shadow: 0 6px 20px rgba(0, 119, 194, 0.3);
         }
 
         .gro-btn:active:not(:disabled) {
@@ -305,96 +269,123 @@ export default function Login() {
           cursor: not-allowed;
         }
 
-        .gro-contact {
-          margin-top: 28px;
-          font-size: 12px;
-          color: #adb4be;
-          text-align: center;
-          line-height: 1.6;
+        .gro-btn-arrow {
+          font-size: 18px;
+          line-height: 1;
+          transition: transform 0.15s;
         }
 
-        .gro-contact a {
+        .gro-btn:hover:not(:disabled) .gro-btn-arrow {
+          transform: translateX(3px);
+        }
+
+        .gro-help {
+          margin-top: 24px;
+          font-size: 13px;
+          color: #9aa3b0;
+          text-align: center;
+        }
+
+        .gro-help a {
           color: #0077c2;
           text-decoration: none;
+          font-weight: 500;
         }
 
-        .gro-contact a:hover {
+        .gro-help a:hover {
           text-decoration: underline;
+        }
+
+        /* ── Decorative rotating ring (mirrors their site's bottom-right element) ── */
+        .gro-ring {
+          position: fixed;
+          bottom: -80px;
+          right: -80px;
+          width: 280px;
+          height: 280px;
+          pointer-events: none;
+          opacity: 0.18;
+          animation: gro-spin 30s linear infinite;
+        }
+
+        @keyframes gro-spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
 
-      <div className="gro-login">
-        {/* ── Left brand panel ── */}
-        <div className="gro-left">
-          <div className="gro-wordmark">
-            GRO<span>*</span>DIGITAL
-          </div>
+      <div className="gro-page">
+        {/* Nav */}
+        <nav className="gro-nav">
+          <span className="gro-logo">
+            Gro<span className="gro-logo-accent">Digital</span>
+          </span>
+        </nav>
 
-          <div className="gro-hero">
-            <p className="gro-hero-eyebrow">Client Portal</p>
-            <h2 className="gro-hero-title">
-              Your brand,<br />
-              <em>amplified.</em>
-            </h2>
-            <p className="gro-hero-sub">
-              Track campaigns, review creative assets, and stay across everything — all in one place.
+        {/* Main */}
+        <main className="gro-main">
+          <div className={`gro-card${ready ? " ready" : ""}`}>
+            <p className="gro-eyebrow">Client Portal</p>
+
+            <h1 className="gro-title">
+              Sign<br />
+              <span className="gro-title-accent">in.</span>
+            </h1>
+
+            <p className="gro-subtitle">
+              Access your campaigns, creative assets, and performance data.
             </p>
-          </div>
-
-          <p className="gro-footer-text">© {new Date().getFullYear()} GRO Digital</p>
-        </div>
-
-        {/* ── Right form panel ── */}
-        <div className="gro-right">
-          <div className={`gro-form-box${ready ? " visible" : ""}`}>
-            <span className="gro-mobile-mark">GRO<span>*</span>DIGITAL</span>
-
-            <h1 className="gro-heading">Sign in</h1>
-            <p className="gro-subheading">Access your client portal.</p>
 
             <form onSubmit={handleSubmit} noValidate>
-              <div className="gro-field-wrap">
-                <label htmlFor="gro-email" className="gro-label">Email address</label>
-                <input
-                  id="gro-email"
-                  className="gro-input"
-                  type="email"
-                  placeholder="you@company.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  autoFocus
-                  autoComplete="email"
-                />
-              </div>
+              <label htmlFor="gro-email" className="gro-label">Email address</label>
+              <input
+                id="gro-email"
+                className="gro-input"
+                type="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoFocus
+                autoComplete="email"
+              />
 
-              <div className="gro-field-wrap">
-                <label htmlFor="gro-password" className="gro-label">Password</label>
-                <input
-                  id="gro-password"
-                  className="gro-input"
-                  type="password"
-                  placeholder="••••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
+              <label htmlFor="gro-password" className="gro-label">Password</label>
+              <input
+                id="gro-password"
+                className="gro-input"
+                type="password"
+                placeholder="••••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
 
               {error && <div className="gro-error">{error}</div>}
 
               <button type="submit" className="gro-btn" disabled={loading}>
-                {loading ? "Signing in…" : "Sign in →"}
+                {loading ? "Signing in…" : <>Sign in <span className="gro-btn-arrow">→</span></>}
               </button>
             </form>
 
-            <p className="gro-contact">
+            <p className="gro-help">
               Need access?{" "}
               <a href="mailto:hello@grodigital.co.za">Contact GRO Digital</a>
             </p>
           </div>
-        </div>
+        </main>
+
+        {/* Decorative ring — mirrors the circular "DIGITAL STUDIO" on their site */}
+        <svg className="gro-ring" viewBox="0 0 280 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="140" cy="140" r="120" stroke="#0077c2" strokeWidth="1" strokeDasharray="4 8" />
+          <circle cx="140" cy="140" r="96" stroke="#0077c2" strokeWidth="1" strokeDasharray="2 6" />
+          <text fill="#0077c2" fontSize="11" fontFamily="Outfit,sans-serif" fontWeight="600" letterSpacing="6">
+            <textPath href="#ring-path">
+              GRO DIGITAL · CLIENT PORTAL · GRO DIGITAL · CLIENT PORTAL ·
+            </textPath>
+          </text>
+          <path id="ring-path" d="M140,20 a120,120 0 1,1 -0.1,0" fill="none" />
+        </svg>
       </div>
     </>
   );
