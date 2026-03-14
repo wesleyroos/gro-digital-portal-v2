@@ -44,9 +44,9 @@ const menuGroups = [
   {
     label: "Growth",
     items: [
+      { icon: Rocket, label: "Outreach", path: "/outreach" },
       { icon: Target, label: "Leads", path: "/leads" },
       { icon: ScrollText, label: "Proposals", path: "/proposals" },
-      { icon: Rocket, label: "Outreach", path: "/outreach" },
     ],
   },
   {
