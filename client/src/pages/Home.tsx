@@ -99,52 +99,52 @@ export default function Home() {
       {metrics && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <Card className="shadow-sm border-blue-200/80 bg-gradient-to-br from-blue-50 to-white">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
                 <Repeat className="w-3.5 h-3.5 text-blue-500" />
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-500">ARR</p>
               </div>
-              <p className="text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.arr)}</p>
+              <p className="text-xl sm:text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.arr)}</p>
               <p className="text-xs text-muted-foreground mt-1.5">annualised recurring revenue</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
                 <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">MRR</p>
               </div>
-              <p className="text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.mrr)}</p>
+              <p className="text-xl sm:text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.mrr)}</p>
               <p className="text-xs text-muted-foreground mt-1.5">monthly subscriptions</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
                 <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Annual</p>
               </div>
-              <p className="text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.annualRecurring)}</p>
+              <p className="text-xl sm:text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.annualRecurring)}</p>
               <p className="text-xs text-muted-foreground mt-1.5">annual subscriptions</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
                 <Wrench className="w-3.5 h-3.5 text-emerald-600" />
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Project Fees</p>
               </div>
-              <p className="text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.projectsCollected + metrics.projectsOutstanding)}</p>
+              <p className="text-xl sm:text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.projectsCollected + metrics.projectsOutstanding)}</p>
               <p className="text-xs text-muted-foreground mt-1.5">Apr {metrics.fyStartYear} – Mar {metrics.fyStartYear + 1}</p>
             </CardContent>
           </Card>
           <Card className={`shadow-sm ${metrics.projectsOutstanding > 0 ? 'border-amber-200/80 bg-gradient-to-br from-amber-50 to-white' : ''}`}>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
                 <AlertCircle className={`w-3.5 h-3.5 ${metrics.projectsOutstanding > 0 ? 'text-amber-500' : 'text-muted-foreground'}`} />
                 <p className={`text-[10px] font-semibold uppercase tracking-wider ${metrics.projectsOutstanding > 0 ? 'text-amber-500' : 'text-muted-foreground'}`}>Outstanding</p>
               </div>
-              <p className={`text-3xl font-bold font-mono tracking-tight ${metrics.projectsOutstanding > 0 ? 'text-amber-600' : 'text-foreground'}`}>{fmt(metrics.projectsOutstanding)}</p>
+              <p className={`text-xl sm:text-3xl font-bold font-mono tracking-tight ${metrics.projectsOutstanding > 0 ? 'text-amber-600' : 'text-foreground'}`}>{fmt(metrics.projectsOutstanding)}</p>
               <p className="text-xs text-muted-foreground mt-1.5">{metrics.projectsOutstanding > 0 ? 'awaiting payment' : 'all invoices paid'}</p>
             </CardContent>
           </Card>
