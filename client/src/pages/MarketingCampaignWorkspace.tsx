@@ -98,6 +98,7 @@ export default function MarketingCampaignWorkspace() {
   const mailerAiBottomRef = useRef<HTMLDivElement>(null);
   const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
   const [mailerDirty, setMailerDirty] = useState(false);
+  const [mailerUndoHtml, setMailerUndoHtml] = useState<string | null>(null);
   const [showGenerateMailer, setShowGenerateMailer] = useState(false);
   const [showSendTest, setShowSendTest] = useState(false);
   const [showSendToList, setShowSendToList] = useState(false);
@@ -149,7 +150,7 @@ export default function MarketingCampaignWorkspace() {
     onError: () => toast.error('Failed to create mailer'),
   });
   const updateMailerMutation = trpc.campaign.mailer.update.useMutation({
-    onSuccess: () => { refetchMailers(); setMailerDirty(false); toast.success('Saved'); },
+    onSuccess: () => { refetchMailers(); setMailerDirty(false); setMailerUndoHtml(null); toast.success('Saved'); },
     onError: () => toast.error('Failed to save mailer'),
   });
   const deleteMailerMutation = trpc.campaign.mailer.delete.useMutation({
@@ -317,6 +318,14 @@ export default function MarketingCampaignWorkspace() {
     setMailerAiHistoryLoaded(null);
     setMailerAiMessages([]);
   }, [selectedMailerId]);
+
+  // Warn on page/tab close if mailer has unsaved changes
+  useEffect(() => {
+    if (!mailerDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [mailerDirty]);
 
   const approveMutation = trpc.campaign.post.approve.useMutation({
     onSuccess: () => refetch(),
@@ -498,6 +507,7 @@ export default function MarketingCampaignWorkspace() {
   }
 
   function selectMailer(mailer: typeof mailers[0]) {
+    if (mailerDirty && !window.confirm('You have unsaved changes. Discard them?')) return;
     setSelectedMailerId(mailer.id);
     setMailerDraft({
       subject: mailer.subject ?? '',
@@ -507,6 +517,7 @@ export default function MarketingCampaignWorkspace() {
       notes: mailer.notes ?? '',
     });
     setMailerDirty(false);
+    setMailerUndoHtml(null);
     setMailerTab('preview');
   }
 
@@ -1549,26 +1560,40 @@ export default function MarketingCampaignWorkspace() {
                                   {textPart || (htmlPart ? '(HTML updated — see preview)' : '')}
                                 </div>
                                 {htmlPart && (
-                                  <button
-                                    onClick={() => {
-                                      setMailerDraft(d => ({ ...d, htmlContent: htmlPart }));
-                                      setMailerDirty(false);
-                                      if (selectedMailerId) {
-                                        updateMailerMutation.mutate({
-                                          id: selectedMailerId,
-                                          subject: mailerDraft.subject,
-                                          previewText: mailerDraft.previewText || null,
-                                          htmlContent: htmlPart,
-                                          scheduledAt: mailerDraft.scheduledAt || null,
-                                          notes: mailerDraft.notes || null,
-                                        });
-                                      }
-                                    }}
-                                    className="flex items-center gap-1.5 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors"
-                                  >
-                                    <Check className="w-3 h-3" />
-                                    Apply changes
-                                  </button>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <button
+                                      onClick={() => {
+                                        setMailerUndoHtml(mailerDraft.htmlContent);
+                                        setMailerDraft(d => ({ ...d, htmlContent: htmlPart }));
+                                        setMailerDirty(true);
+                                      }}
+                                      className="flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors"
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      Apply
+                                    </button>
+                                    {mailerUndoHtml !== null && (
+                                      <button
+                                        onClick={() => {
+                                          setMailerDraft(d => ({ ...d, htmlContent: mailerUndoHtml }));
+                                          setMailerUndoHtml(null);
+                                          setMailerDirty(false);
+                                        }}
+                                        className="flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-colors"
+                                      >
+                                        Undo
+                                      </button>
+                                    )}
+                                    {mailerDirty && (
+                                      <button
+                                        onClick={saveMailer}
+                                        disabled={updateMailerMutation.isPending}
+                                        className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                      >
+                                        {updateMailerMutation.isPending ? 'Saving…' : 'Save'}
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             );
