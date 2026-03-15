@@ -269,7 +269,7 @@ export default function MarketingCampaignWorkspace() {
       const res = await fetch(`/api/mailer-chat/${selectedMailerId}/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: msg, currentHtml: mailerDraft.htmlContent }),
       });
       if (!res.ok) throw new Error('AI request failed');
       const reader = res.body!.getReader();
@@ -1595,19 +1595,25 @@ export default function MarketingCampaignWorkspace() {
                                 </div>
                                 {htmlPart && (
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <button
-                                      disabled={mailerAiStreaming}
-                                      onClick={() => {
-                                        setMailerUndoHtml(mailerDraft.htmlContent);
-                                        setMailerDraft(d => ({ ...d, htmlContent: htmlPart }));
-                                        setMailerDirty(true);
-                                      }}
-                                      className="flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                      <Check className="w-3 h-3" />
-                                      Apply
-                                    </button>
-                                    {mailerUndoHtml !== null && (
+                                    {mailerAiStreaming && i === mailerAiMessages.length - 1 ? (
+                                      <span className="flex items-center gap-1.5 text-[11px] font-medium text-violet-500 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1">
+                                        <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                                        Writing HTML…
+                                      </span>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          setMailerUndoHtml(mailerDraft.htmlContent);
+                                          setMailerDraft(d => ({ ...d, htmlContent: htmlPart }));
+                                          setMailerDirty(true);
+                                        }}
+                                        className="flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors"
+                                      >
+                                        <Check className="w-3 h-3" />
+                                        Apply
+                                      </button>
+                                    )}
+                                    {mailerUndoHtml !== null && !mailerAiStreaming && (
                                       <button
                                         onClick={() => {
                                           setMailerDraft(d => ({ ...d, htmlContent: mailerUndoHtml }));
@@ -1619,7 +1625,7 @@ export default function MarketingCampaignWorkspace() {
                                         Undo
                                       </button>
                                     )}
-                                    {mailerDirty && (
+                                    {mailerDirty && !mailerAiStreaming && (
                                       <button
                                         onClick={saveMailer}
                                         disabled={updateMailerMutation.isPending}

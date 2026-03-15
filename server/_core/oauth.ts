@@ -1155,7 +1155,7 @@ User info: name="${user.name}", role="${user.role}"`;
     const mailerId = parseInt(req.params.mailerId, 10);
     if (isNaN(mailerId)) { res.status(400).json({ error: "Invalid mailerId" }); return; }
 
-    const { message } = req.body as { message: string };
+    const { message, currentHtml } = req.body as { message: string; currentHtml?: string };
     if (!message?.trim()) { res.status(400).json({ error: "Message required" }); return; }
 
     const mailer = await db.getCampaignMailerById(mailerId);
@@ -1219,7 +1219,7 @@ Position: Email ${mailerPosition} of ${totalMailers} in the sequence
 Subject: ${mailer.subject || "(none)"}
 Preview Text: ${mailer.previewText || "(none)"}
 HTML Content:
-${stripBase64(mailer.htmlContent)}
+${stripBase64(currentHtml ?? mailer.htmlContent)}
 
 BRAND GUIDELINES:
 - Primary colour: #2D7AB6 (blue) — CTAs, accents
@@ -1241,6 +1241,7 @@ INSTRUCTIONS:
 - Start your HTML on a new line after any explanation text.
 - Always include the FULL document starting with <!DOCTYPE html> — never partial snippets.
 - IMPORTANT: The HTML above has base64 images replaced with placeholders like __BASE64_0__. Preserve these placeholders exactly as-is in your output — they will be automatically restored.
+- CRITICAL: Do NOT add, insert, or reference any campaign images unless the user explicitly asks you to add an image. If an image is already in the current HTML, keep it. If not, do not add one.
 - You may also answer questions or suggest improvements without outputting HTML.
 - Keep responses concise. 1-3 sentences max before the HTML.`;
 
