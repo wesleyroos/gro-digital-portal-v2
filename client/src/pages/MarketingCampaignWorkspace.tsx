@@ -94,6 +94,7 @@ export default function MarketingCampaignWorkspace() {
   const [mailerAiMessages, setMailerAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [mailerAiInput, setMailerAiInput] = useState('');
   const [mailerAiLoading, setMailerAiLoading] = useState(false);
+  const [mailerAiStreaming, setMailerAiStreaming] = useState(false);
   const [mailerAiHistoryLoaded, setMailerAiHistoryLoaded] = useState<number | null>(null);
   const mailerAiBottomRef = useRef<HTMLDivElement>(null);
   const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
@@ -261,6 +262,7 @@ export default function MarketingCampaignWorkspace() {
     setMailerAiInput('');
     setMailerAiMessages(prev => [...prev, { role: 'user', content: msg }]);
     setMailerAiLoading(true);
+    setMailerAiStreaming(true);
     // Add a placeholder assistant message that we'll stream into
     setMailerAiMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     try {
@@ -300,6 +302,7 @@ export default function MarketingCampaignWorkspace() {
       setMailerAiMessages(prev => prev.slice(0, -1));
     } finally {
       setMailerAiLoading(false);
+      setMailerAiStreaming(false);
     }
   }
 
@@ -1593,12 +1596,13 @@ export default function MarketingCampaignWorkspace() {
                                 {htmlPart && (
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <button
+                                      disabled={mailerAiStreaming}
                                       onClick={() => {
                                         setMailerUndoHtml(mailerDraft.htmlContent);
                                         setMailerDraft(d => ({ ...d, htmlContent: htmlPart }));
                                         setMailerDirty(true);
                                       }}
-                                      className="flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors"
+                                      className="flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                       <Check className="w-3 h-3" />
                                       Apply

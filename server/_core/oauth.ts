@@ -1191,12 +1191,6 @@ User info: name="${user.name}", role="${user.role}"`;
           return `url(__BASE64_${id}__)`;
         });
     }
-    function restoreBase64(html: string): string {
-      return html
-        .replace(/src="__BASE64_(\d+)__"/g, (_m, i) => `src="${base64Map[parseInt(i)] ?? ""}"`)
-        .replace(/url\(__BASE64_(\d+)__\)/g, (_m, i) => `url(${base64Map[parseInt(i)] ?? ""})`);
-    }
-
     const assetsSection = assets.filter(a => a.aiDescription).length > 0
       ? `\n\nBRAND ASSETS:\n${assets.filter(a => a.aiDescription).map((a, i) => `- ${a.label || `Asset ${i + 1}`}: ${a.aiDescription}`).join("\n")}`
       : "";
@@ -1253,8 +1247,18 @@ INSTRUCTIONS:
     // Save user message
     await db.insertMailerChatMessage(mailerId, "user", message);
 
+    // Strip full HTML from previous assistant messages — the current HTML is already
+    // in the system prompt; sending previous HTML versions too bloats the context.
+    function summariseForHistory(role: string, content: string): string {
+      if (role !== "assistant") return content;
+      const htmlIdx = content.toLowerCase().indexOf("<!doctype html");
+      if (htmlIdx === -1) return content;
+      const before = content.slice(0, htmlIdx).trim();
+      return before ? `${before}\n[Full HTML email provided]` : "[Full HTML email provided]";
+    }
+
     const msgs: { role: "user" | "assistant"; content: string }[] = [
-      ...history.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ...history.map(m => ({ role: m.role as "user" | "assistant", content: summariseForHistory(m.role, m.content) })),
       { role: "user", content: message },
     ];
 
@@ -1282,8 +1286,16 @@ INSTRUCTIONS:
         }
       }
 
-      // Restore base64 and save to DB
-      const restored = base64Map.length > 0 ? restoreBase64(fullReply) : fullReply;
+      // Restore base64 placeholders back into the AI's HTML.
+      // Use a belt-and-suspenders approach: first the regex (handles correct quoting),
+      // then a plain string replace to catch any placeholder the AI quoted differently.
+      let restored = fullReply;
+      for (let i = 0; i < base64Map.length; i++) {
+        const placeholder = `__BASE64_${i}__`;
+        if (restored.includes(placeholder)) {
+          restored = restored.split(placeholder).join(base64Map[i]);
+        }
+      }
       await db.insertMailerChatMessage(mailerId, "assistant", restored);
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     } catch (e) {
