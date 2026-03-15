@@ -7,6 +7,8 @@ import { registerGoogleOAuthRoutes } from "../google-oauth";
 import { scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import Anthropic from "@anthropic-ai/sdk";
+import { Resend } from "resend";
+import { ENV } from "./env";
 
 const scryptAsync = promisify(scrypt);
 
@@ -1112,6 +1114,23 @@ User info: name="${user.name}", role="${user.role}"`;
           `${user.name ?? "Unknown"} (${user.role})`,
           { status: input.type, notes: notesWithUrl, priority: "high" },
         );
+
+        // Notify super admin via email (fire-and-forget)
+        if (ENV.resendApiKey && ENV.resendFromEmail && ENV.ownerEmail) {
+          const resend = new Resend(ENV.resendApiKey);
+          const typeLabel = input.type === "bug" ? "Bug Report" : "Feature Request";
+          resend.emails.send({
+            from: ENV.resendFromEmail,
+            to: ENV.ownerEmail,
+            subject: `${prefix} New ${typeLabel}: ${input.title}`,
+            html: `<p><strong>Type:</strong> ${typeLabel}</p>
+<p><strong>Submitted by:</strong> ${user.name ?? "Unknown"} (${user.role})</p>
+<p><strong>Page:</strong> ${currentUrl || "unknown"}</p>
+<p><strong>Description:</strong></p>
+<p style="white-space:pre-wrap">${input.description}</p>`,
+          }).catch(e => console.warn("[FeedbackChat] Email notify failed:", e));
+        }
+
         const textBlock = response.content.find(b => b.type === "text");
         const reply = textBlock?.type === "text" ? textBlock.text : "Got it! I've logged that for the team. Thanks for your feedback!";
         res.json({ reply, submitted: true });
