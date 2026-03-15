@@ -25,7 +25,7 @@ export default function PortalDashboard() {
   const pendingInvoices = invoices.filter(i => i.status === "sent" || i.status === "overdue");
   const totalOutstanding = pendingInvoices.reduce((sum, inv) => sum + parseFloat(String(inv.amountDue ?? 0)), 0);
 
-  const fullName = profile?.name ?? user?.name ?? "";
+  const fullName = user?.name ?? profile?.name ?? "";
   const firstName = fullName.split(" ")[0] || "there";
 
   const today = new Date();
