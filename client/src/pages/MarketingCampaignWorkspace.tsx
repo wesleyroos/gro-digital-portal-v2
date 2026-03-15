@@ -261,12 +261,43 @@ export default function MarketingCampaignWorkspace() {
     setMailerAiInput('');
     setMailerAiMessages(prev => [...prev, { role: 'user', content: msg }]);
     setMailerAiLoading(true);
+    // Add a placeholder assistant message that we'll stream into
+    setMailerAiMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     try {
-      const result = await mailerChatSendMutation.mutateAsync({ mailerId: selectedMailerId, message: msg });
-      setMailerAiMessages(prev => [...prev, { role: 'assistant', content: result.reply }]);
+      const res = await fetch(`/api/mailer-chat/${selectedMailerId}/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg }),
+      });
+      if (!res.ok) throw new Error('AI request failed');
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; error?: string };
+          if (payload.error) throw new Error(payload.error);
+          if (payload.text) {
+            setMailerAiLoading(false); // hide spinner once first token arrives
+            setMailerAiMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: 'assistant', content: updated[updated.length - 1].content + payload.text };
+              return updated;
+            });
+          }
+        }
+      }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'AI request failed';
-      toast.error(msg);
+      const errMsg = e instanceof Error ? e.message : 'AI request failed';
+      toast.error(errMsg);
+      // Remove the empty placeholder on error
+      setMailerAiMessages(prev => prev.slice(0, -1));
     } finally {
       setMailerAiLoading(false);
     }

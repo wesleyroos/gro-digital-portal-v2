@@ -1146,6 +1146,154 @@ User info: name="${user.name}", role="${user.role}"`;
     }
   });
 
+  // Mailer AI chat — streaming SSE endpoint
+  // POST /api/mailer-chat/:mailerId/stream
+  app.post("/api/mailer-chat/:mailerId/stream", async (req: Request, res: Response) => {
+    const user = await sdk.authenticateRequest(req);
+    if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+    const mailerId = parseInt(req.params.mailerId, 10);
+    if (isNaN(mailerId)) { res.status(400).json({ error: "Invalid mailerId" }); return; }
+
+    const { message } = req.body as { message: string };
+    if (!message?.trim()) { res.status(400).json({ error: "Message required" }); return; }
+
+    const mailer = await db.getCampaignMailerById(mailerId);
+    if (!mailer) { res.status(404).json({ error: "Mailer not found" }); return; }
+
+    const [campaign, assets, allMailers, posts, history] = await Promise.all([
+      db.getCampaignById(mailer.campaignId),
+      db.getCampaignAssets(mailer.campaignId),
+      db.getCampaignMailers(mailer.campaignId),
+      db.getPostsByCampaign(mailer.campaignId),
+      db.getMailerChatMessages(mailerId),
+    ]);
+
+    if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+    // Access check: admins/superAdmins can edit any campaign; clients only their own
+    if (user.role === "client" && campaign.clientSlug !== user.clientSlug) {
+      res.status(403).json({ error: "Forbidden" }); return;
+    }
+
+    // Strip base64 data URIs from HTML (replaces with placeholders to restore later)
+    const base64Map: string[] = [];
+    function stripBase64(html: string | null | undefined): string {
+      if (!html) return "(empty)";
+      return html
+        .replace(/src="(data:[^"]{100,})"/g, (_m, data) => {
+          const idx = base64Map.indexOf(data);
+          const id = idx >= 0 ? idx : base64Map.push(data) - 1;
+          return `src="__BASE64_${id}__"`;
+        })
+        .replace(/url\((data:[^)]{100,})\)/g, (_m, data) => {
+          const idx = base64Map.indexOf(data);
+          const id = idx >= 0 ? idx : base64Map.push(data) - 1;
+          return `url(__BASE64_${id}__)`;
+        });
+    }
+    function restoreBase64(html: string): string {
+      return html
+        .replace(/src="__BASE64_(\d+)__"/g, (_m, i) => `src="${base64Map[parseInt(i)] ?? ""}"`)
+        .replace(/url\(__BASE64_(\d+)__\)/g, (_m, i) => `url(${base64Map[parseInt(i)] ?? ""})`);
+    }
+
+    const assetsSection = assets.filter(a => a.aiDescription).length > 0
+      ? `\n\nBRAND ASSETS:\n${assets.filter(a => a.aiDescription).map((a, i) => `- ${a.label || `Asset ${i + 1}`}: ${a.aiDescription}`).join("\n")}`
+      : "";
+    const imagesSection = posts.filter(p => p.imageUrl).length > 0
+      ? `\n\nGENERATED CAMPAIGN IMAGES:\n${posts.filter(p => p.imageUrl).slice(0, 8).map((p, i) => `- Image ${i + 1}${p.theme ? ` (${p.theme})` : ""}: ${p.imageUrl}`).join("\n")}`
+      : "";
+    const otherMailers = allMailers.filter(m => m.id !== mailerId);
+    const mailerPosition = allMailers.findIndex(m => m.id === mailerId) + 1;
+    const totalMailers = allMailers.length;
+    const mailersSection = otherMailers.length > 0
+      ? `\n\nOTHER MAILERS IN SEQUENCE:\n${otherMailers.map((m, i) => `Email ${i + 1}: "${m.subject || "Untitled"}"\n${m.htmlContent ? stripBase64(m.htmlContent).slice(0, 600) + (m.htmlContent.length > 600 ? "..." : "") : "(no content)"}`).join("\n\n")}`
+      : "";
+
+    const systemPrompt = `You are an expert HTML email designer and copywriter embedded inside a marketing portal. You help the admin iteratively improve and redesign email HTML by chatting.
+
+CAMPAIGN CONTEXT:
+Campaign: ${campaign.name}
+Client: ${campaign.clientSlug}
+Brand Voice: ${campaign.brandVoice ?? "Not specified"}
+Target Audience: ${campaign.targetAudience ?? "Not specified"}
+Content Themes: ${campaign.contentThemes ?? "Not specified"}
+Strategy: ${campaign.strategy ? campaign.strategy.slice(0, 1000) : "Not specified"}${assetsSection}${imagesSection}${mailersSection}
+
+CURRENT MAILER BEING EDITED:
+Position: Email ${mailerPosition} of ${totalMailers} in the sequence
+Subject: ${mailer.subject || "(none)"}
+Preview Text: ${mailer.previewText || "(none)"}
+HTML Content:
+${stripBase64(mailer.htmlContent)}
+
+BRAND GUIDELINES:
+- Primary colour: #2D7AB6 (blue) — CTAs, accents
+- Dark: #111111 — headings, dark backgrounds
+- Light background: #f7f9fc — callout boxes
+- Tone: direct, no-fluff. Short sentences. Active voice.
+
+CTA RULES:
+- One primary CTA per email (#2D7AB6 button). Secondary CTAs optional (#111111).
+- "See what's included" → https://www.grodigital.co.za/services/marketing
+- "Book a strategy call" → https://www.grodigital.co.za/contact
+- "Claim your spot" → https://www.grodigital.co.za/contact
+
+EMAIL SEQUENCE FRAMING:
+- Email 1 of 4: Announcement | Email 2 of 4: Education | Email 3 of 4: Urgency | Email 4 of 4: Close
+
+INSTRUCTIONS:
+- When the user asks for changes, respond with the COMPLETE updated HTML document.
+- Start your HTML on a new line after any explanation text.
+- Always include the FULL document starting with <!DOCTYPE html> — never partial snippets.
+- IMPORTANT: The HTML above has base64 images replaced with placeholders like __BASE64_0__. Preserve these placeholders exactly as-is in your output — they will be automatically restored.
+- You may also answer questions or suggest improvements without outputting HTML.
+- Keep responses concise. 1-3 sentences max before the HTML.`;
+
+    // Save user message
+    await db.insertMailerChatMessage(mailerId, "user", message);
+
+    const msgs: { role: "user" | "assistant"; content: string }[] = [
+      ...history.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+      { role: "user", content: message },
+    ];
+
+    // Set up SSE
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
+    let fullReply = "";
+
+    try {
+      const stream = await anthropic.messages.stream({
+        model: "claude-sonnet-4-6",
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: msgs,
+      });
+
+      for await (const chunk of stream) {
+        if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+          fullReply += chunk.delta.text;
+          res.write(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`);
+        }
+      }
+
+      // Restore base64 and save to DB
+      const restored = base64Map.length > 0 ? restoreBase64(fullReply) : fullReply;
+      await db.insertMailerChatMessage(mailerId, "assistant", restored);
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    } catch (e) {
+      console.error("[MailerChatStream] Error:", e);
+      res.write(`data: ${JSON.stringify({ error: "AI request failed" })}\n\n`);
+    } finally {
+      res.end();
+    }
+  });
+
   // Accept proposal — POST /api/proposals/:token/accept
   app.post("/api/proposals/:token/accept", async (req: Request, res: Response) => {
     const { token } = req.params;
