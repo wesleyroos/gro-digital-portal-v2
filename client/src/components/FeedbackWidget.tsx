@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, X, Minimize2, MessageSquarePlus, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ReactMarkdown from "react-markdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -120,13 +121,13 @@ export default function FeedbackWidget() {
                 {messages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                      className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
                         msg.role === "user"
-                          ? "bg-[#3b8dc6] text-white rounded-br-sm"
-                          : "bg-background border border-border text-foreground rounded-bl-sm shadow-sm"
+                          ? "bg-[#3b8dc6] text-white rounded-br-sm whitespace-pre-wrap"
+                          : "bg-background border border-border text-foreground rounded-bl-sm shadow-sm prose prose-sm max-w-none"
                       }`}
                     >
-                      {msg.content}
+                      {msg.role === "user" ? msg.content : <ReactMarkdown>{msg.content}</ReactMarkdown>}
                     </div>
                   </div>
                 ))}
