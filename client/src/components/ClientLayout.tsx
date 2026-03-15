@@ -139,7 +139,7 @@ function ClientLayoutContent({
               </button>
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <img src="https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773510512118-7qummfmnmo2.jpeg" alt="GRO Digital" className="h-7 w-auto object-contain" />
+                  <img src="https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773557375019-ei1drt50gii.png" alt="GRO Digital" className="h-7 w-auto object-contain" />
                 </div>
               )}
             </div>
