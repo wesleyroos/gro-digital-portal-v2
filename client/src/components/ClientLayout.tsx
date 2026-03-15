@@ -31,7 +31,6 @@ const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/portal" },
   { icon: Megaphone, label: "Marketing", path: "/portal/marketing" },
   { icon: FileText, label: "Invoices", path: "/portal/invoices" },
-  { icon: Settings2, label: "Settings", path: "/portal/settings" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "client-sidebar-width";
@@ -167,6 +166,19 @@ function ClientLayoutContent({
           </SidebarContent>
 
           <SidebarFooter className="p-3">
+            <SidebarMenu className="px-0 pb-1">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={location === "/portal/settings"}
+                  onClick={() => setLocation("/portal/settings")}
+                  tooltip="Settings"
+                  className="h-10 transition-all font-normal"
+                >
+                  <Settings2 className={`h-4 w-4 ${location === "/portal/settings" ? "text-primary" : ""}`} />
+                  <span>Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left focus:outline-none">
