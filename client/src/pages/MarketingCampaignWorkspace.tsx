@@ -2092,6 +2092,16 @@ export default function MarketingCampaignWorkspace() {
 
         {/* ── Calendar Tab ─────────────────────────────────────────────── */}
         <TabsContent value="calendar" className="flex-1 overflow-y-auto mt-0">
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Legend:</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#ec4899' }} />Instagram</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#1d4ed8' }} />Facebook</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#f59e0b' }} />Scheduled email</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#10b981' }} />Sent email</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#6366f1' }} />Scheduled post</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#9ca3af' }} />Draft</span>
+          </div>
           {calendarEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
               <CalendarDays className="w-8 h-8 text-muted-foreground/50" />
