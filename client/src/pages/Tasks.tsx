@@ -96,7 +96,7 @@ export default function Tasks() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [triageConfirm, setTriageConfirm] = useState<number | null>(null);
   const [selectedFeedback, setSelectedFeedback] = useState<Task | null>(null);
-  const [resolvedExpanded, setResolvedExpanded] = useState(false);
+  const [resolvedExpanded, setResolvedExpanded] = useState(true);
 
   const createMutation = trpc.task.create.useMutation({
     onSuccess: () => {
