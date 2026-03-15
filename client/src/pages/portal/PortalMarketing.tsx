@@ -1,9 +1,10 @@
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
-import { Megaphone, ArrowRight } from "lucide-react";
+import { Megaphone, ArrowRight, Plus, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
+import { useState } from "react";
 
 const STATUS_LABELS: Record<string, string> = {
   discovery: "Discovery",
@@ -35,12 +36,36 @@ const STATUS_BORDER: Record<string, string> = {
 export default function PortalMarketing() {
   useAuth({ redirectOnUnauthenticated: true, redirectPath: "/login" });
   const [, setLocation] = useLocation();
+  const [showModal, setShowModal] = useState(false);
+  const [campaignName, setCampaignName] = useState("");
+  const [goals, setGoals] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   const { data: campaigns = [], isLoading } = trpc.clientPortal.getCampaigns.useQuery();
+  const requestMutation = trpc.clientPortal.requestCampaign.useMutation({
+    onSuccess: () => setSubmitted(true),
+  });
 
   const activeCampaigns = campaigns.filter(c => c.status === "active");
   const pendingCampaigns = campaigns.filter(c => c.status === "approval");
   const today = new Date();
+
+  function openModal() {
+    setCampaignName("");
+    setGoals("");
+    setSubmitted(false);
+    setShowModal(true);
+  }
+
+  function closeModal() {
+    setShowModal(false);
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!campaignName.trim()) return;
+    requestMutation.mutate({ name: campaignName.trim(), goals: goals.trim() || undefined });
+  }
 
   if (isLoading) {
     return (
@@ -61,7 +86,16 @@ export default function PortalMarketing() {
           <p className="text-xs font-medium uppercase tracking-widest text-[#3b8dc6] mb-1">Marketing</p>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">Your Campaigns</h1>
         </div>
-        <p className="text-sm text-gray-400 font-medium pb-1">{format(today, "EEEE, d MMMM yyyy")}</p>
+        <div className="flex items-center gap-3 pb-1">
+          <p className="text-sm text-gray-400 font-medium">{format(today, "EEEE, d MMMM yyyy")}</p>
+          <button
+            onClick={openModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold shadow-sm hover:bg-[#2d7ab5] transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Request Campaign
+          </button>
+        </div>
       </div>
       <hr className="border-gray-100" />
 
@@ -91,6 +125,13 @@ export default function PortalMarketing() {
           </div>
           <h2 className="text-base font-semibold text-gray-900">No campaigns yet</h2>
           <p className="text-sm text-gray-400 mt-1 max-w-xs mx-auto">Your campaigns will appear here once they've been created.</p>
+          <button
+            onClick={openModal}
+            className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold shadow-sm hover:bg-[#2d7ab5] transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Request a Campaign
+          </button>
         </div>
       ) : (
         <div>
@@ -120,6 +161,85 @@ export default function PortalMarketing() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Request Campaign Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={closeModal}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            {submitted ? (
+              <div className="text-center py-6">
+                <div className="h-12 w-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+                  <svg className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Request sent!</h2>
+                <p className="text-sm text-gray-500">We'll be in touch to discuss your campaign.</p>
+                <button
+                  onClick={closeModal}
+                  className="mt-5 px-5 py-2 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold hover:bg-[#2d7ab5] transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-lg font-bold text-gray-900">Request a Campaign</h2>
+                  <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Campaign name <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={campaignName}
+                      onChange={e => setCampaignName(e.target.value)}
+                      placeholder="e.g. Spring Promotion 2026"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3b8dc6]/30 focus:border-[#3b8dc6]"
+                      autoFocus
+                      maxLength={120}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Goals & details <span className="text-gray-400 font-normal normal-case">(optional)</span>
+                    </label>
+                    <textarea
+                      value={goals}
+                      onChange={e => setGoals(e.target.value)}
+                      placeholder="What are you hoping to achieve? Any specific ideas, platforms, or timeline?"
+                      rows={4}
+                      maxLength={1000}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3b8dc6]/30 focus:border-[#3b8dc6] resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!campaignName.trim() || requestMutation.isPending}
+                      className="flex-1 px-4 py-2 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold hover:bg-[#2d7ab5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {requestMutation.isPending ? "Sending…" : "Send Request"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
