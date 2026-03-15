@@ -1123,7 +1123,7 @@ User info: name="${user.name}", role="${user.role}"`;
             from: ENV.resendFromEmail,
             to: ENV.ownerEmail,
             subject: `${prefix} New ${typeLabel}: ${input.title}`,
-            headers: { 'X-No-Track': '1' },
+
             html: `<p><strong>Type:</strong> ${typeLabel}</p>
 <p><strong>Submitted by:</strong> ${user.name ?? "Unknown"} (${user.role})</p>
 <p><strong>Page:</strong> ${currentUrl || "unknown"}</p>
