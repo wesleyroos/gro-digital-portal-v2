@@ -1552,8 +1552,17 @@ export default function MarketingCampaignWorkspace() {
                                   <button
                                     onClick={() => {
                                       setMailerDraft(d => ({ ...d, htmlContent: htmlPart }));
-                                      setMailerDirty(true);
-                                      toast.success('HTML applied — save to keep changes');
+                                      setMailerDirty(false);
+                                      if (selectedMailerId) {
+                                        updateMailerMutation.mutate({
+                                          id: selectedMailerId,
+                                          subject: mailerDraft.subject,
+                                          previewText: mailerDraft.previewText || null,
+                                          htmlContent: htmlPart,
+                                          scheduledAt: mailerDraft.scheduledAt || null,
+                                          notes: mailerDraft.notes || null,
+                                        });
+                                      }
                                     }}
                                     className="flex items-center gap-1.5 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors"
                                   >
