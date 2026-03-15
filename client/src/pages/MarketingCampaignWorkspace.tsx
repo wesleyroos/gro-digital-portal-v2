@@ -98,6 +98,7 @@ export default function MarketingCampaignWorkspace() {
   const [mailerAiHtmlDisplay, setMailerAiHtmlDisplay] = useState('');
   const mailerAiCodeRef = useRef<HTMLPreElement>(null);
   const [mailerUndoStack, setMailerUndoStack] = useState<string[]>([]);
+  const [mailerRedoStack, setMailerRedoStack] = useState<string[]>([]);
   const [mailerAiHistoryLoaded, setMailerAiHistoryLoaded] = useState<number | null>(null);
   const mailerAiBottomRef = useRef<HTMLDivElement>(null);
   const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
@@ -153,7 +154,7 @@ export default function MarketingCampaignWorkspace() {
     onError: () => toast.error('Failed to create mailer'),
   });
   const updateMailerMutation = trpc.campaign.mailer.update.useMutation({
-    onSuccess: () => { refetchMailers(); setMailerDirty(false); setMailerUndoStack([]); toast.success('Saved'); },
+    onSuccess: () => { refetchMailers(); setMailerDirty(false); setMailerUndoStack([]); setMailerRedoStack([]); toast.success('Saved'); },
     onError: () => toast.error('Failed to save mailer'),
   });
   const deleteMailerMutation = trpc.campaign.mailer.delete.useMutation({
@@ -254,7 +255,7 @@ export default function MarketingCampaignWorkspace() {
   );
   const mailerChatSendMutation = trpc.campaign.mailer.chat.send.useMutation();
   const mailerChatClearMutation = trpc.campaign.mailer.chat.clear.useMutation({
-    onSuccess: () => { setMailerAiMessages([]); setMailerUndoStack([]); /* keep mailerAiHistoryLoaded — prevents effect re-populating from stale query */ },
+    onSuccess: () => { setMailerAiMessages([]); setMailerUndoStack([]); setMailerRedoStack([]); /* keep mailerAiHistoryLoaded — prevents effect re-populating from stale query */ },
     onError: () => toast.error('Failed to clear chat'),
   });
 
@@ -299,8 +300,9 @@ export default function MarketingCampaignWorkspace() {
               for (let i = 0; i < map.length; i++) {
                 restoredHtml = restoredHtml.split(`__BASE64_${i}__`).join(map[i]);
               }
-              // Push current HTML onto undo stack (up to 5 levels) then apply new HTML
+              // Push current HTML onto undo stack (up to 5 levels), clear redo (new branch)
               setMailerUndoStack(prev => [...prev.slice(-4), mailerDraft.htmlContent]);
+              setMailerRedoStack([]);
               setMailerDraft(d => ({ ...d, htmlContent: restoredHtml }));
               setMailerDirty(true);
               // Stamp the local message with [HTML updated] so badge shows immediately (without reload)
@@ -617,6 +619,7 @@ export default function MarketingCampaignWorkspace() {
     });
     setMailerDirty(false);
     setMailerUndoStack([]);
+    setMailerRedoStack([]);
     setMailerTab('preview');
   }
 
@@ -1641,12 +1644,13 @@ export default function MarketingCampaignWorkspace() {
                           >Clear</button>
                         </div>
                         {/* Persistent action bar */}
-                        {(mailerUndoStack.length > 0 || mailerDirty) && (
+                        {(mailerUndoStack.length > 0 || mailerRedoStack.length > 0 || mailerDirty) && (
                           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border shrink-0 bg-muted/30">
                             {mailerUndoStack.length > 0 && (
                               <button
                                 onClick={() => {
                                   const prev = mailerUndoStack[mailerUndoStack.length - 1];
+                                  setMailerRedoStack(s => [...s, mailerDraft.htmlContent]);
                                   setMailerUndoStack(s => s.slice(0, -1));
                                   setMailerDraft(d => ({ ...d, htmlContent: prev }));
                                   setMailerDirty(true);
@@ -1655,6 +1659,21 @@ export default function MarketingCampaignWorkspace() {
                               >
                                 <Undo2 className="w-3 h-3" />
                                 Undo ({mailerUndoStack.length})
+                              </button>
+                            )}
+                            {mailerRedoStack.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  const next = mailerRedoStack[mailerRedoStack.length - 1];
+                                  setMailerUndoStack(s => [...s, mailerDraft.htmlContent]);
+                                  setMailerRedoStack(s => s.slice(0, -1));
+                                  setMailerDraft(d => ({ ...d, htmlContent: next }));
+                                  setMailerDirty(true);
+                                }}
+                                className="flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2 py-0.5 hover:bg-blue-100 transition-colors"
+                              >
+                                <Undo2 className="w-3 h-3 scale-x-[-1]" />
+                                Redo ({mailerRedoStack.length})
                               </button>
                             )}
                             {mailerDirty && (
