@@ -66,8 +66,8 @@ export default function Marketing() {
   useEffect(() => {
     if (isClient && user?.clientSlug) setNewClientSlug(user.clientSlug);
   }, [isClient, user?.clientSlug]);
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sortKey, setSortKey] = useState<SortKey>("status");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [search, setSearch] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
@@ -181,9 +181,10 @@ export default function Marketing() {
 
     return list.sort((a, b) => {
       let cmp = 0;
+      const STATUS_ORDER = ["active", "approval", "generating", "strategy", "discovery", "completed"];
       if (sortKey === "name") cmp = a.name.localeCompare(b.name);
       else if (sortKey === "clientSlug") cmp = (clientNameMap[a.clientSlug] ?? a.clientSlug).localeCompare(clientNameMap[b.clientSlug] ?? b.clientSlug);
-      else if (sortKey === "status") cmp = a.status.localeCompare(b.status);
+      else if (sortKey === "status") cmp = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
       else if (sortKey === "createdAt") cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return sortDir === "asc" ? cmp : -cmp;
     });
