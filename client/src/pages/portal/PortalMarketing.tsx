@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Megaphone, ArrowRight, Plus, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 const STATUS_LABELS: Record<string, string> = {
   discovery: "Discovery",
@@ -38,12 +38,11 @@ export default function PortalMarketing() {
   const [, setLocation] = useLocation();
   const [showModal, setShowModal] = useState(false);
   const [campaignName, setCampaignName] = useState("");
-  const [goals, setGoals] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: campaigns = [], isLoading } = trpc.clientPortal.getCampaigns.useQuery();
-  const requestMutation = trpc.clientPortal.requestCampaign.useMutation({
-    onSuccess: () => setSubmitted(true),
+  const createMutation = trpc.clientPortal.createCampaign.useMutation({
+    onSuccess: ({ id }) => setLocation(`/portal/marketing/${id}`),
   });
 
   const activeCampaigns = campaigns.filter(c => c.status === "active");
@@ -52,9 +51,8 @@ export default function PortalMarketing() {
 
   function openModal() {
     setCampaignName("");
-    setGoals("");
-    setSubmitted(false);
     setShowModal(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   function closeModal() {
@@ -64,7 +62,7 @@ export default function PortalMarketing() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!campaignName.trim()) return;
-    requestMutation.mutate({ name: campaignName.trim(), goals: goals.trim() || undefined });
+    createMutation.mutate({ name: campaignName.trim() });
   }
 
   if (isLoading) {
@@ -130,7 +128,7 @@ export default function PortalMarketing() {
             className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold shadow-sm hover:bg-[#2d7ab5] transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Request a Campaign
+            New Campaign
           </button>
         </div>
       ) : (
@@ -165,81 +163,43 @@ export default function PortalMarketing() {
         </div>
       )}
 
-      {/* Request Campaign Modal */}
+      {/* New Campaign Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={closeModal}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-            {submitted ? (
-              <div className="text-center py-6">
-                <div className="h-12 w-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-                  <svg className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Request sent!</h2>
-                <p className="text-sm text-gray-500">We'll be in touch to discuss your campaign.</p>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-gray-900">New Campaign</h2>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                ref={inputRef}
+                type="text"
+                value={campaignName}
+                onChange={e => setCampaignName(e.target.value)}
+                placeholder="Campaign name"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3b8dc6]/30 focus:border-[#3b8dc6]"
+                maxLength={120}
+              />
+              <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={closeModal}
-                  className="mt-5 px-5 py-2 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold hover:bg-[#2d7ab5] transition-colors"
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
                 >
-                  Close
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!campaignName.trim() || createMutation.isPending}
+                  className="flex-1 px-4 py-2 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold hover:bg-[#2d7ab5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {createMutation.isPending ? "Creating…" : "Create"}
                 </button>
               </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-lg font-bold text-gray-900">Request a Campaign</h2>
-                  <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Campaign name <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={campaignName}
-                      onChange={e => setCampaignName(e.target.value)}
-                      placeholder="e.g. Spring Promotion 2026"
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3b8dc6]/30 focus:border-[#3b8dc6]"
-                      autoFocus
-                      maxLength={120}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Goals & details <span className="text-gray-400 font-normal normal-case">(optional)</span>
-                    </label>
-                    <textarea
-                      value={goals}
-                      onChange={e => setGoals(e.target.value)}
-                      placeholder="What are you hoping to achieve? Any specific ideas, platforms, or timeline?"
-                      rows={4}
-                      maxLength={1000}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3b8dc6]/30 focus:border-[#3b8dc6] resize-none"
-                    />
-                  </div>
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!campaignName.trim() || requestMutation.isPending}
-                      className="flex-1 px-4 py-2 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold hover:bg-[#2d7ab5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {requestMutation.isPending ? "Sending…" : "Send Request"}
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
+            </form>
           </div>
         </div>
       )}

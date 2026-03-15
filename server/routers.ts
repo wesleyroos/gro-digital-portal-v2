@@ -2266,22 +2266,11 @@ Only return JSON.`,
       return getInvoicesByClientSlug(ctx.clientSlug);
     }),
 
-    requestCampaign: clientProcedure
-      .input(z.object({
-        name: z.string().min(1).max(120),
-        goals: z.string().max(1000).optional(),
-      }))
+    createCampaign: clientProcedure
+      .input(z.object({ name: z.string().min(1).max(120) }))
       .mutation(async ({ ctx, input }) => {
-        const profile = await getClientProfile(ctx.clientSlug);
-        const clientName = profile?.name ?? ctx.clientSlug;
-        const notes = input.goals ? `Goals / notes:\n${input.goals}` : undefined;
-        await createTask(
-          `📣 Campaign Request: ${input.name}`,
-          ctx.clientSlug,
-          clientName,
-          { status: "todo", priority: "high", notes },
-        );
-        return { ok: true };
+        const id = await createCampaign({ clientSlug: ctx.clientSlug, name: input.name });
+        return { id };
       }),
   }),
 
