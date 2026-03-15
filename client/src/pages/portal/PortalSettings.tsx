@@ -1,12 +1,12 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { Instagram, Facebook } from "lucide-react";
+import { Instagram, Facebook, Settings2, KeyRound, Share2, LogOut } from "lucide-react";
+import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -210,98 +210,102 @@ export default function PortalSettings() {
   }
 
   return (
-    <div className="space-y-6 max-w-lg">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your account preferences.</p>
-      </div>
+    <div className="max-w-lg space-y-8 pb-12">
 
-      <Card className="shadow-sm">
-        <CardContent className="p-5 space-y-4">
-          <p className="text-sm font-medium">Account Details</p>
+      {/* Header */}
+      <div className="flex items-end justify-between pt-2">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-widest text-[#3b8dc6] mb-1">Account</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Settings</h1>
+        </div>
+        <p className="text-sm text-gray-400 font-medium pb-1">{format(new Date(), "EEEE, d MMMM yyyy")}</p>
+      </div>
+      <hr className="border-gray-100" />
+
+      {/* Account details */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Settings2 className="h-4 w-4 text-[#3b8dc6]" />
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500">Account Details</h2>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 space-y-4">
           <div className="space-y-1">
-            <Label className="text-xs">Name</Label>
+            <Label className="text-xs text-gray-500">Name</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Email</Label>
+            <Label className="text-xs text-gray-500">Email</Label>
             <Input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="your@email.com" />
           </div>
           <Button
+            className="bg-[#3b8dc6] hover:bg-[#3280b8] text-white"
             onClick={() => updateProfile.mutate({ name: name.trim() || undefined, email: email.trim() || undefined })}
             disabled={!profileDirty || updateProfile.isPending}
             size="sm"
           >
             {updateProfile.isPending ? "Saving..." : "Save changes"}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
+      {/* Social connections */}
       {user?.clientSlug && (
-        <Card className="shadow-sm">
-          <CardContent className="p-5 space-y-4">
-            <p className="text-sm font-medium">Social Connections</p>
-            <p className="text-xs text-muted-foreground -mt-2">
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Share2 className="h-4 w-4 text-[#3b8dc6]" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500">Social Connections</h2>
+          </div>
+          <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 space-y-4">
+            <p className="text-xs text-gray-400">
               Connect your social accounts so campaigns can post on your behalf.
             </p>
             <IgCard clientSlug={user.clientSlug} />
-            <div className="border-t border-border" />
+            <div className="border-t border-gray-100" />
             <FbCard clientSlug={user.clientSlug} />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      <Card className="shadow-sm">
-        <CardContent className="p-5">
-          <p className="text-sm font-medium mb-4">Change Password</p>
+      {/* Change password */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <KeyRound className="h-4 w-4 text-[#3b8dc6]" />
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500">Change Password</h2>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
           <form onSubmit={handleChangePassword} className="space-y-3">
             <div className="space-y-1">
-              <Label className="text-xs">Current password</Label>
-              <Input
-                type="password"
-                value={currentPassword}
-                onChange={e => setCurrentPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
+              <Label className="text-xs text-gray-500">Current password</Label>
+              <Input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required autoComplete="current-password" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">New password</Label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                placeholder="Min 8 characters"
-              />
+              <Label className="text-xs text-gray-500">New password</Label>
+              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required autoComplete="new-password" placeholder="Min 8 characters" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Confirm new password</Label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-              />
+              <Label className="text-xs text-gray-500">Confirm new password</Label>
+              <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required autoComplete="new-password" />
             </div>
-            <Button type="submit" disabled={changing} className="w-full">
+            <Button type="submit" disabled={changing} className="w-full bg-[#3b8dc6] hover:bg-[#3280b8] text-white">
               {changing ? "Updating..." : "Update password"}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card className="shadow-sm">
-        <CardContent className="p-5">
-          <p className="text-sm font-medium mb-2">Sign out</p>
-          <p className="text-xs text-muted-foreground mb-4">You'll be redirected to the login page.</p>
+      {/* Sign out */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <LogOut className="h-4 w-4 text-gray-400" />
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500">Sign Out</h2>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
+          <p className="text-xs text-gray-400 mb-4">You'll be redirected to the login page.</p>
           <Button variant="outline" onClick={logout} className="text-destructive border-destructive/30 hover:bg-destructive/5">
             Sign out
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Facebook page selection dialog */}
       <Dialog open={!!fbSelectState && !!pendingPages} onOpenChange={open => { if (!open) { setFbSelectState(null); window.history.replaceState({}, "", window.location.pathname); } }}>
