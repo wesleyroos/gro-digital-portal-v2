@@ -90,6 +90,8 @@ import {
   getMailerChatMessages,
   insertMailerChatMessage,
   clearMailerChatMessages,
+  insertMailerEvent,
+  getMailerAnalytics,
   getMediaFiles,
   insertMediaFile,
   deleteMediaFile,
@@ -131,6 +133,23 @@ import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUse
 import { getFacebookPostInsights, postImageToPage, postVideoToPage } from "./facebook";
 import { getPendingFacebookPages, confirmFacebookPage } from "./facebook-oauth";
 import { getCalendarEvents } from "./calendar";
+
+function instrumentMailerHtml(html: string, mailerId: number, baseUrl: string): string {
+  // Rewrite all http(s) links through our click-tracking redirect, skipping system links
+  const withClicks = html.replace(/href="(https?:\/\/[^"]+)"/g, (_match, url: string) => {
+    if (
+      url.includes('{{{RESEND_UNSUBSCRIBE_URL}}}') ||
+      url.includes('/r?') ||
+      url.includes('/unsubscribe') ||
+      url.includes(`/m/${mailerId}`)
+    ) return `href="${url}"`;
+    const encoded = Buffer.from(url).toString('base64url');
+    return `href="${baseUrl}/r?m=${mailerId}&u=${encoded}"`;
+  });
+  // Inject 1x1 open-tracking pixel before </body>
+  const pixel = `<img src="${baseUrl}/o?m=${mailerId}" width="1" height="1" style="display:block;width:1px;height:1px;border:0;margin:0;padding:0;" alt="" />`;
+  return withClicks.replace(/<\/body>/i, `${pixel}</body>`);
+}
 
 /**
  * Finds <img src="..."> URLs in HTML, fetches each image, compresses to max
@@ -1275,6 +1294,14 @@ export const appRouter = router({
           return getCampaignMailers(input.campaignId);
         }),
 
+      getAnalytics: protectedProcedure
+        .input(z.object({ campaignId: z.number().int() }))
+        .query(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          return getMailerAnalytics(input.campaignId);
+        }),
+
       create: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
         .mutation(async ({ ctx, input }) => {
@@ -1444,8 +1471,9 @@ DESIGN REQUIREMENTS:
           if (mailerCampaign) assertCampaignAccess(ctx.user, mailerCampaign.clientSlug);
           if (!mailer.htmlContent) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Mailer has no HTML content yet' });
 
-          // Compress any large images referenced in the HTML before sending
-          const html = await compressMailerImages(mailer.htmlContent);
+          // Compress any large images referenced in the HTML before sending, then instrument tracking
+          const baseUrl = `${ctx.req.protocol}://${ctx.req.get('host')}`;
+          const html = instrumentMailerHtml(await compressMailerImages(mailer.htmlContent), input.mailerId, baseUrl);
 
           const resend = new Resend(ENV.resendApiKey);
           const results: PromiseSettledResult<unknown>[] = [];
@@ -1781,7 +1809,7 @@ INSTRUCTIONS:
             segmentId,
             from: ENV.resendFromEmail,
             subject: mailer.subject,
-            html: mailer.htmlContent,
+            html: instrumentMailerHtml(mailer.htmlContent, input.mailerId, ENV.portalUrl ?? 'https://app.grodigital.co.za'),
             send: true,
             click_tracking: false,
             ...(input.scheduledAt ? { scheduledAt: input.scheduledAt } : {}),
@@ -1794,6 +1822,13 @@ INSTRUCTIONS:
             status: input.scheduledAt ? 'scheduled' : 'sent',
             sentAt: input.scheduledAt ? null : new Date(),
           });
+
+          // Record how many were sent to
+          try {
+            const countRes = await (resend.contacts as any).list({ segmentId, limit: 1 });
+            const sentCount = countRes?.data?.total ?? countRes?.data?.data?.length ?? 0;
+            await updateCampaignMailer(input.mailerId, { sentCount });
+          } catch { /* best effort */ }
 
           return { broadcastId };
         }),

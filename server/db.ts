@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, outreachProspects, outreachSequences, outreachSequenceSteps, outreachSends, InsertOutreachProspect, InsertOutreachSequence, InsertOutreachSequenceStep, InsertOutreachSend, mediaFiles, InsertMediaFile } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, outreachSequences, outreachSequenceSteps, outreachSends, InsertOutreachProspect, InsertOutreachSequence, InsertOutreachSequenceStep, InsertOutreachSend, mediaFiles, InsertMediaFile } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1315,6 +1315,7 @@ export async function updateCampaignMailer(id: number, data: {
   scheduledAt?: Date | null;
   sentAt?: Date | null;
   notes?: string | null;
+  sentCount?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
@@ -1326,6 +1327,7 @@ export async function updateCampaignMailer(id: number, data: {
   if (data.scheduledAt !== undefined) set.scheduledAt = data.scheduledAt;
   if (data.sentAt !== undefined) set.sentAt = data.sentAt;
   if (data.notes !== undefined) set.notes = data.notes;
+  if (data.sentCount !== undefined) set.sentCount = data.sentCount;
   if (Object.keys(set).length === 0) return;
   await db.update(campaignMailers).set(set).where(eq(campaignMailers.id, id));
 }
@@ -1534,4 +1536,43 @@ export async function deleteMediaFile(id: number) {
   const rows = await db.select().from(mediaFiles).where(eq(mediaFiles.id, id)).limit(1);
   await db.delete(mediaFiles).where(eq(mediaFiles.id, id));
   return rows[0]?.key ?? null;
+}
+
+// ── Mailer events (open/click tracking) ──
+
+export async function insertMailerEvent(mailerId: number, type: 'open' | 'click', url?: string | null) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(mailerEvents).values({ mailerId, type, url: url ?? null });
+}
+
+export async function getMailerAnalytics(campaignId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const mailerRows = await db.select().from(campaignMailers).where(eq(campaignMailers.campaignId, campaignId));
+  if (!mailerRows.length) return [];
+  const ids = mailerRows.map(m => m.id);
+  const events = await db.select().from(mailerEvents).where(inArray(mailerEvents.mailerId, ids));
+  return mailerRows
+    .filter(m => m.status === 'sent' || events.some(e => e.mailerId === m.id))
+    .map(m => {
+      const mEvents = events.filter(e => e.mailerId === m.id);
+      const opens = mEvents.filter(e => e.type === 'open').length;
+      const clicks = mEvents.filter(e => e.type === 'click').length;
+      const urlCounts: Record<string, number> = {};
+      mEvents.filter(e => e.type === 'click' && e.url).forEach(e => {
+        urlCounts[e.url!] = (urlCounts[e.url!] ?? 0) + 1;
+      });
+      const topLinks = Object.entries(urlCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([url, count]) => ({ url, count }));
+      return {
+        mailer: m,
+        sentCount: m.sentCount ?? 0,
+        opens,
+        clicks,
+        topLinks,
+      };
+    });
 }

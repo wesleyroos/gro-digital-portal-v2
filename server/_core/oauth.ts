@@ -1300,6 +1300,36 @@ INSTRUCTIONS:
     }
   });
 
+  // Open tracking pixel — GET /o?m=<mailerId>
+  const TRACKING_PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  app.get('/o', async (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'image/gif');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.end(TRACKING_PIXEL);
+    const mailerId = parseInt(req.query.m as string, 10);
+    if (!isNaN(mailerId)) {
+      db.insertMailerEvent(mailerId, 'open').catch(() => {});
+    }
+  });
+
+  // Click redirect — GET /r?m=<mailerId>&u=<base64url>
+  app.get('/r', async (req: Request, res: Response) => {
+    const urlParam = req.query.u as string;
+    if (!urlParam) { res.redirect(302, '/'); return; }
+    let decoded: string;
+    try {
+      decoded = Buffer.from(urlParam, 'base64url').toString('utf8');
+    } catch {
+      res.redirect(302, '/'); return;
+    }
+    res.redirect(302, decoded);
+    const mailerId = parseInt(req.query.m as string, 10);
+    if (!isNaN(mailerId)) {
+      db.insertMailerEvent(mailerId, 'click', decoded).catch(() => {});
+    }
+  });
+
   // Public view-in-browser — GET /m/:mailerId
   app.get("/m/:mailerId", async (req: Request, res: Response) => {
     const mailerId = parseInt(req.params.mailerId, 10);

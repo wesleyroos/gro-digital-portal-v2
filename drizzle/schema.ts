@@ -325,6 +325,7 @@ export const campaignMailers = mysqlTable('campaignMailers', {
   status: mysqlEnum('status', ['draft', 'scheduled', 'sent']).default('draft').notNull(),
   scheduledAt: timestamp('scheduledAt'),
   sentAt: timestamp('sentAt'),
+  sentCount: int('sentCount').default(0).notNull(),
   notes: text('notes'),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   updatedAt: timestamp('updatedAt').defaultNow().onUpdateNow().notNull(),
@@ -346,6 +347,16 @@ export const mailerChatMessages = mysqlTable('mailerChatMessages', {
 });
 
 export type MailerChatMessage = typeof mailerChatMessages.$inferSelect;
+
+export const mailerEvents = mysqlTable('mailerEvents', {
+  id: int('id').autoincrement().primaryKey(),
+  mailerId: int('mailerId').notNull(),
+  type: mysqlEnum('type', ['open', 'click']).notNull(),
+  url: text('url'),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+});
+
+export type MailerEvent = typeof mailerEvents.$inferSelect;
 
 /**
  * Media library — uploaded images/files stored in R2.

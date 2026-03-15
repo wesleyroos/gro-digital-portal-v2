@@ -83,7 +83,7 @@ export default function MarketingCampaignWorkspace() {
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
-  const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb">("all");
+  const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "mailers">("all");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
@@ -138,6 +138,11 @@ export default function MarketingCampaignWorkspace() {
   const { data: perfData, isLoading: perfLoading } = trpc.campaign.post.getPerformance.useQuery(
     { campaignId },
     { enabled: !!campaignId }
+  );
+
+  const { data: mailerAnalytics, isLoading: mailerAnalyticsLoading } = trpc.campaign.mailer.getAnalytics.useQuery(
+    { campaignId },
+    { enabled: perfPlatform === 'mailers' }
   );
 
   const { data: mailers = [], refetch: refetchMailers } = trpc.campaign.mailer.list.useQuery(
@@ -2130,13 +2135,106 @@ export default function MarketingCampaignWorkspace() {
               <span className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm">Fetching analytics…</span>
             </div>
-          ) : !perfData?.rows.length ? (
+          ) : !perfData?.rows.length && perfPlatform !== 'mailers' ? (
             <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
               <TrendingUp className="w-8 h-8 text-muted-foreground/50" />
               <p className="text-sm text-muted-foreground">No published posts yet — analytics will appear here once posts are live.</p>
             </div>
           ) : (() => {
             const isFbView = perfPlatform === 'fb';
+
+            // ── Mailers analytics view ──
+            if (perfPlatform === 'mailers') {
+              if (mailerAnalyticsLoading) return (
+                <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                  <span className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm">Fetching mailer analytics…</span>
+                </div>
+              );
+              const rows = mailerAnalytics ?? [];
+              const totalSent = rows.reduce((s, r) => s + r.sentCount, 0);
+              const totalOpens = rows.reduce((s, r) => s + r.opens, 0);
+              const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
+              const avgOpenRate = totalSent > 0 ? ((totalOpens / totalSent) * 100).toFixed(1) : null;
+              const avgClickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : null;
+
+              if (!rows.length) return (
+                <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                  <p className="text-sm text-muted-foreground">No sent mailers yet — analytics will appear here once emails have been sent.</p>
+                </div>
+              );
+
+              return (
+                <div className="space-y-4">
+                  {/* Summary cards */}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    {[
+                      { label: 'Sent', value: totalSent.toLocaleString(), color: 'text-foreground' },
+                      { label: 'Opens', value: totalOpens.toLocaleString(), color: 'text-emerald-600' },
+                      { label: 'Open Rate', value: avgOpenRate ? `${avgOpenRate}%` : '—', color: 'text-emerald-600' },
+                      { label: 'Clicks', value: totalClicks.toLocaleString(), color: 'text-blue-600' },
+                      { label: 'Click Rate', value: avgClickRate ? `${avgClickRate}%` : '—', color: 'text-blue-600' },
+                    ].map(c => (
+                      <div key={c.label} className="rounded-xl border bg-card px-3 py-2.5 text-center">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{c.label}</p>
+                        <p className={`text-xl font-bold mt-0.5 ${c.color}`}>{c.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Per-mailer table */}
+                  <div className="rounded-xl border overflow-hidden">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-muted/50 border-b">
+                          <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Subject</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sent</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Opens</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Open Rate</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-blue-600">Clicks</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-blue-600">Click Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map(row => {
+                          const openRate = row.sentCount > 0 ? ((row.opens / row.sentCount) * 100).toFixed(1) : null;
+                          const clickRate = row.sentCount > 0 ? ((row.clicks / row.sentCount) * 100).toFixed(1) : null;
+                          return (
+                            <tr key={row.mailer.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                              <td className="px-3 py-3">
+                                <p className="text-xs font-medium">{row.mailer.subject || '(No subject)'}</p>
+                                {row.mailer.sentAt && (
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {new Date(row.mailer.sentAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  </p>
+                                )}
+                                {row.topLinks.length > 0 && (
+                                  <div className="mt-1.5 space-y-0.5">
+                                    {row.topLinks.map(l => (
+                                      <p key={l.url} className="text-[10px] text-muted-foreground truncate max-w-xs">
+                                        <span className="font-medium text-blue-600">{l.count}×</span> {l.url}
+                                      </p>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-right tabular-nums text-foreground">{row.sentCount > 0 ? row.sentCount.toLocaleString() : '—'}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-emerald-600 font-semibold">{row.opens.toLocaleString()}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-emerald-600">{openRate ? `${openRate}%` : '—'}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-blue-600 font-semibold">{row.clicks.toLocaleString()}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-blue-600">{clickRate ? `${clickRate}%` : '—'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            }
+
+            if (!perfData) return null;
+
             const METRICS: { key: keyof typeof perfData.rows[0]["insights"]; label: string; color: string }[] = [
               { key: "reach",             label: isFbView ? "Reach (imp)" : "Reach",     color: "text-violet-600"  },
               { key: "likes",             label: isFbView ? "Reactions"   : "Likes",     color: "text-pink-600"    },
@@ -2222,23 +2320,22 @@ export default function MarketingCampaignWorkspace() {
                 {/* ── Platform filter ── */}
                 <div className="flex items-center gap-2">
                   {([
-                    { key: "all", label: "All platforms" },
-                    { key: "ig",  label: "Instagram" },
-                    { key: "fb",  label: "Facebook" },
-                  ] as const).map(opt => (
+                    { key: "all" as const, label: "All platforms", activeClass: 'bg-foreground text-background border-foreground' },
+                    { key: "ig" as const,  label: "Instagram",     activeClass: 'bg-pink-500 text-white border-pink-500' },
+                    { key: "fb" as const,  label: "Facebook",      activeClass: 'bg-blue-600 text-white border-blue-600' },
+                    { key: "mailers" as const, label: "Mailers",   activeClass: 'bg-emerald-600 text-white border-emerald-600' },
+                  ]).map(opt => (
                     <button
                       key={opt.key}
                       onClick={() => setPerfPlatform(opt.key)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                         perfPlatform === opt.key
-                          ? opt.key === 'ig' ? 'bg-pink-500 text-white border-pink-500'
-                            : opt.key === 'fb' ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-foreground text-background border-foreground'
+                          ? opt.activeClass
                           : 'bg-card text-muted-foreground border-border hover:border-foreground'
                       }`}
                     >
                       {opt.label}
-                      {opt.key !== 'all' && (
+                      {opt.key !== 'all' && opt.key !== 'mailers' && (
                         <span className="ml-1.5 opacity-70">
                           {opt.key === 'ig'
                             ? perfData.rows.filter(r => r.post.instagramPostId).length
