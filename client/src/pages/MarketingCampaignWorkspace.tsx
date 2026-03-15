@@ -95,6 +95,8 @@ export default function MarketingCampaignWorkspace() {
   const [mailerAiInput, setMailerAiInput] = useState('');
   const [mailerAiState, setMailerAiState] = useState<'idle' | 'thinking' | 'streaming-text' | 'streaming-html'>('idle');
   const mailerAiHtmlBuf = useRef<string>('');
+  const [mailerAiHtmlDisplay, setMailerAiHtmlDisplay] = useState('');
+  const mailerAiCodeRef = useRef<HTMLPreElement>(null);
   const [mailerUndoStack, setMailerUndoStack] = useState<string[]>([]);
   const [mailerAiHistoryLoaded, setMailerAiHistoryLoaded] = useState<number | null>(null);
   const mailerAiBottomRef = useRef<HTMLDivElement>(null);
@@ -263,6 +265,7 @@ export default function MarketingCampaignWorkspace() {
     setMailerAiMessages(prev => [...prev, { role: 'user', content: msg }]);
     setMailerAiState('thinking');
     mailerAiHtmlBuf.current = '';
+    setMailerAiHtmlDisplay('');
     // Add a placeholder assistant message that we'll stream into
     setMailerAiMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     try {
@@ -300,6 +303,18 @@ export default function MarketingCampaignWorkspace() {
               setMailerUndoStack(prev => [...prev.slice(-4), mailerDraft.htmlContent]);
               setMailerDraft(d => ({ ...d, htmlContent: restoredHtml }));
               setMailerDirty(true);
+              // Stamp the local message with [HTML updated] so badge shows immediately (without reload)
+              setMailerAiMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role === 'assistant') {
+                  updated[updated.length - 1] = {
+                    ...last,
+                    content: last.content ? `${last.content}\n[HTML updated]` : '[HTML updated]',
+                  };
+                }
+                return updated;
+              });
             }
             setMailerAiState('idle');
             continue;
@@ -312,7 +327,9 @@ export default function MarketingCampaignWorkspace() {
               if (htmlIdx >= 0) {
                 // Switch to HTML streaming mode — freeze the bubble at text before doctype
                 htmlStarted = true;
-                mailerAiHtmlBuf.current = accumulatedText.slice(htmlIdx);
+                const htmlStart = accumulatedText.slice(htmlIdx);
+                mailerAiHtmlBuf.current = htmlStart;
+                setMailerAiHtmlDisplay(htmlStart);
                 const textBeforeHtml = accumulatedText.slice(0, htmlIdx).trim();
                 // Freeze the bubble with the pre-HTML text
                 setMailerAiMessages(prev => {
@@ -331,8 +348,9 @@ export default function MarketingCampaignWorkspace() {
                 });
               }
             } else {
-              // Accumulate HTML tokens in the ref — no re-renders
+              // Accumulate HTML tokens — update ref (no extra render) + display state (live code view)
               mailerAiHtmlBuf.current += payload.text;
+              setMailerAiHtmlDisplay(prev => prev + payload.text);
             }
           }
         }
@@ -386,6 +404,13 @@ export default function MarketingCampaignWorkspace() {
   useEffect(() => {
     mailerAiBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mailerAiMessages, mailerAiState]);
+
+  // Auto-scroll the live code pane to bottom as HTML tokens stream in
+  useEffect(() => {
+    if (mailerAiCodeRef.current) {
+      mailerAiCodeRef.current.scrollTop = mailerAiCodeRef.current.scrollHeight;
+    }
+  }, [mailerAiHtmlDisplay]);
 
   // Reset AI history loaded flag when switching mailers
   useEffect(() => {
@@ -1586,14 +1611,21 @@ export default function MarketingCampaignWorkspace() {
                   ) : (
                     /* AI Edit — split pane */
                     <div className="flex h-full">
-                      {/* Left: live preview */}
-                      <div className="w-1/2 border-r border-border h-full">
-                        <iframe
-                          srcDoc={mailerDraft.htmlContent || '<p style="font-family:sans-serif;color:#999;padding:2rem">No HTML content yet</p>'}
-                          className="w-full h-full border-0"
-                          sandbox="allow-same-origin"
-                          title="Mailer preview"
-                        />
+                      {/* Left: live code view while streaming, preview otherwise */}
+                      <div className="w-1/2 border-r border-border h-full overflow-hidden">
+                        {mailerAiState === 'streaming-html' ? (
+                          <pre
+                            ref={mailerAiCodeRef}
+                            className="w-full h-full overflow-auto bg-[#1e1e2e] text-[#cdd6f4] text-[11px] leading-relaxed font-mono p-3 m-0 whitespace-pre-wrap break-all"
+                          >{mailerAiHtmlDisplay}</pre>
+                        ) : (
+                          <iframe
+                            srcDoc={mailerDraft.htmlContent || '<p style="font-family:sans-serif;color:#999;padding:2rem">No HTML content yet</p>'}
+                            className="w-full h-full border-0"
+                            sandbox="allow-same-origin"
+                            title="Mailer preview"
+                          />
+                        )}
                       </div>
                       {/* Right: chat */}
                       <div className="w-1/2 flex flex-col h-full bg-background">
