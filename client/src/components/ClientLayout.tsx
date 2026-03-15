@@ -25,6 +25,7 @@ import { LayoutDashboard, LogOut, PanelLeft, Megaphone, FileText, Settings2 } fr
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { Button } from "./ui/button";
+import FeedbackWidget from "./FeedbackWidget";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/portal" },
@@ -209,6 +210,7 @@ function ClientLayoutContent({
         )}
         <main className="flex-1 p-8">{children}</main>
       </SidebarInset>
+      <FeedbackWidget />
     </>
   );
 }

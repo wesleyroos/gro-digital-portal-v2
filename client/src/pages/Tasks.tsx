@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Square, Pencil, Trash2, Plus } from "lucide-react";
+import { CheckSquare, Square, Pencil, Trash2, Plus, Bug, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 function toDateStr(d: Date | string | null | undefined): string {
@@ -68,6 +68,18 @@ function PriorityBadge({ priority }: { priority: string | null }) {
   );
 }
 
+// Extract URL from notes field (appended as "\n\nURL: ...")
+function extractUrl(notes: string | null | undefined): string | null {
+  if (!notes) return null;
+  const match = notes.match(/URL:\s*(\S+)\s*$/m);
+  return match ? match[1] : null;
+}
+
+function stripUrlFromNotes(notes: string | null | undefined): string {
+  if (!notes) return "";
+  return notes.replace(/\n\nURL:\s*\S+\s*$/, "").trim();
+}
+
 export default function Tasks() {
   const utils = trpc.useUtils();
   const { data: tasks = [], isLoading } = trpc.task.list.useQuery();
@@ -75,12 +87,14 @@ export default function Tasks() {
 
   type Task = (typeof tasks)[0];
 
+  const [activeTab, setActiveTab] = useState<"tasks" | "feedback">("tasks");
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [clientFilter, setClientFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [form, setForm] = useState<TaskFormData>(emptyForm());
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [triageConfirm, setTriageConfirm] = useState<number | null>(null);
 
   const createMutation = trpc.task.create.useMutation({
     onSuccess: () => {
@@ -159,9 +173,22 @@ export default function Tasks() {
     setDoneMutation.mutate({ id: task.id, done: !isDone });
   }
 
+  function triage(task: Task) {
+    setDoneMutation.mutate({ id: task.id, done: false });
+    setTriageConfirm(null);
+    toast.success("Moved to Tasks");
+  }
+
   const today = new Date().toISOString().split("T")[0];
 
+  // Separate feedback tasks from normal tasks
+  const feedbackTasks = tasks.filter(t => t.status === "bug" || t.status === "feature");
+  const bugTasks = feedbackTasks.filter(t => t.status === "bug");
+  const featureTasks = feedbackTasks.filter(t => t.status === "feature");
+
   const filtered = tasks.filter(t => {
+    // Exclude feedback tasks from normal task list
+    if (t.status === "bug" || t.status === "feature") return false;
     if (statusFilter === "active") {
       if (t.status !== "todo" && t.status !== "in_progress") return false;
     } else if (statusFilter !== "all" && t.status !== statusFilter) return false;
@@ -169,6 +196,7 @@ export default function Tasks() {
     return true;
   });
 
+  const normalTasks = tasks.filter(t => t.status !== "bug" && t.status !== "feature");
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -178,133 +206,228 @@ export default function Tasks() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {tasks.filter(t => t.status !== "done").length} open
-            {tasks.length > 0 && ` · ${tasks.length} total`}
+            {normalTasks.filter(t => t.status !== "done").length} open
+            {normalTasks.length > 0 && ` · ${normalTasks.length} total`}
           </p>
         </div>
-        <Button onClick={openAdd} size="sm" className="gap-1.5">
-          <Plus className="w-3.5 h-3.5" />
-          Add Task
-        </Button>
-      </div>
-
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-          {[{ key: "all", label: "All" }, { key: "active", label: "Active" }, ...STATUS_OPTIONS.map(s => ({ key: s.key, label: s.label }))].map(s => (
-            <button
-              key={s.key}
-              onClick={() => setStatusFilter(s.key)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                statusFilter === s.key
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        {clients.length > 0 && (
-          <select
-            className="h-8 text-xs rounded-md border border-input bg-background px-2 text-muted-foreground"
-            value={clientFilter}
-            onChange={e => setClientFilter(e.target.value)}
-          >
-            <option value="">All clients</option>
-            {clients.map(c => (
-              <option key={c.clientSlug} value={c.clientSlug}>{c.clientName}</option>
-            ))}
-          </select>
+        {activeTab === "tasks" && (
+          <Button onClick={openAdd} size="sm" className="gap-1.5">
+            <Plus className="w-3.5 h-3.5" />
+            Add Task
+          </Button>
         )}
       </div>
 
-      {/* Task list */}
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-14 rounded-lg bg-muted/40 animate-pulse" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="py-16 text-center text-muted-foreground text-sm">
-          {tasks.length === 0 ? "No tasks yet. Add one to get started." : "No tasks match the current filter."}
-        </div>
-      ) : (
-        <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
-          {filtered.map(task => {
-            const isDone = task.status === "done";
-            const dueDateStr = toDateStr(task.dueDate);
-            const isOverdue = dueDateStr && dueDateStr < today && !isDone;
-            return (
-              <div key={task.id} className="flex items-start gap-3 px-4 py-3 bg-background hover:bg-muted/30 group transition-colors">
-                {/* Checkbox */}
-                <button
-                  className={`mt-0.5 shrink-0 transition-colors ${isDone ? "text-emerald-600 hover:text-muted-foreground" : "text-muted-foreground hover:text-emerald-600"}`}
-                  onClick={() => toggleDone(task)}
-                >
-                  {isDone ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                </button>
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setActiveTab("tasks")}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            activeTab === "tasks"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Tasks
+        </button>
+        <button
+          onClick={() => setActiveTab("feedback")}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
+            activeTab === "feedback"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Feedback
+          {feedbackTasks.length > 0 && (
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
+              {feedbackTasks.length}
+            </span>
+          )}
+        </button>
+      </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <p className={`text-sm font-medium leading-snug ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                    {task.text}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge status={task.status} />
-                    {task.priority && <PriorityBadge priority={task.priority} />}
-                    {dueDateStr && (
-                      <span className={`text-[10px] font-medium ${isOverdue ? "text-red-600" : "text-muted-foreground"}`}>
-                        {isOverdue ? "Overdue · " : ""}{dueDateStr}
-                      </span>
-                    )}
-                    {task.clientName && (
-                      <span className="text-[10px] text-muted-foreground">{task.clientName}</span>
-                    )}
-                    {task.notes && (
-                      <span className="text-[10px] text-muted-foreground italic truncate max-w-[200px]">
-                        {task.notes}
-                      </span>
-                    )}
+      {activeTab === "tasks" ? (
+        <>
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              {[{ key: "all", label: "All" }, { key: "active", label: "Active" }, ...STATUS_OPTIONS.map(s => ({ key: s.key, label: s.label }))].map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setStatusFilter(s.key)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                    statusFilter === s.key
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            {clients.length > 0 && (
+              <select
+                className="h-8 text-xs rounded-md border border-input bg-background px-2 text-muted-foreground"
+                value={clientFilter}
+                onChange={e => setClientFilter(e.target.value)}
+              >
+                <option value="">All clients</option>
+                {clients.map(c => (
+                  <option key={c.clientSlug} value={c.clientSlug}>{c.clientName}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Task list */}
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-14 rounded-lg bg-muted/40 animate-pulse" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground text-sm">
+              {normalTasks.length === 0 ? "No tasks yet. Add one to get started." : "No tasks match the current filter."}
+            </div>
+          ) : (
+            <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+              {filtered.map(task => {
+                const isDone = task.status === "done";
+                const dueDateStr = toDateStr(task.dueDate);
+                const isOverdue = dueDateStr && dueDateStr < today && !isDone;
+                return (
+                  <div key={task.id} className="flex items-start gap-3 px-4 py-3 bg-background hover:bg-muted/30 group transition-colors">
+                    <button
+                      className={`mt-0.5 shrink-0 transition-colors ${isDone ? "text-emerald-600 hover:text-muted-foreground" : "text-muted-foreground hover:text-emerald-600"}`}
+                      onClick={() => toggleDone(task)}
+                    >
+                      {isDone ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                    </button>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p className={`text-sm font-medium leading-snug ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {task.text}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge status={task.status} />
+                        {task.priority && <PriorityBadge priority={task.priority} />}
+                        {dueDateStr && (
+                          <span className={`text-[10px] font-medium ${isOverdue ? "text-red-600" : "text-muted-foreground"}`}>
+                            {isOverdue ? "Overdue · " : ""}{dueDateStr}
+                          </span>
+                        )}
+                        {task.clientName && (
+                          <span className="text-[10px] text-muted-foreground">{task.clientName}</span>
+                        )}
+                        {task.notes && (
+                          <span className="text-[10px] text-muted-foreground italic truncate max-w-[200px]">
+                            {task.notes}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
+                      <button
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => openEdit(task)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      {deleteConfirm === task.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            className="text-[10px] text-red-600 font-semibold hover:text-red-700"
+                            onClick={() => deleteMutation.mutate({ id: task.id })}
+                          >
+                            Delete
+                          </button>
+                          <button
+                            className="text-[10px] text-muted-foreground hover:text-foreground"
+                            onClick={() => setDeleteConfirm(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          onClick={() => setDeleteConfirm(task.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        /* Feedback tab */
+        <div className="space-y-8">
+          {feedbackTasks.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground text-sm">
+              No feedback submitted yet.
+            </div>
+          ) : (
+            <>
+              {/* Bugs section */}
+              {bugTasks.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Bug className="w-4 h-4 text-red-500" />
+                    <h2 className="text-sm font-semibold text-foreground">Bugs</h2>
+                    <span className="text-xs text-muted-foreground">({bugTasks.length})</span>
+                  </div>
+                  <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+                    {bugTasks.map(task => (
+                      <FeedbackRow
+                        key={task.id}
+                        task={task}
+                        triageConfirm={triageConfirm}
+                        deleteConfirm={deleteConfirm}
+                        onTriage={() => triage(task)}
+                        onTriageConfirm={() => setTriageConfirm(task.id)}
+                        onTriageCancel={() => setTriageConfirm(null)}
+                        onDeleteConfirm={() => setDeleteConfirm(task.id)}
+                        onDeleteCancel={() => setDeleteConfirm(null)}
+                        onDelete={() => deleteMutation.mutate({ id: task.id })}
+                      />
+                    ))}
                   </div>
                 </div>
+              )}
 
-                {/* Actions */}
-                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
-                  <button
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => openEdit(task)}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  {deleteConfirm === task.id ? (
-                    <div className="flex items-center gap-1">
-                      <button
-                        className="text-[10px] text-red-600 font-semibold hover:text-red-700"
-                        onClick={() => deleteMutation.mutate({ id: task.id })}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        className="text-[10px] text-muted-foreground hover:text-foreground"
-                        onClick={() => setDeleteConfirm(null)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                      onClick={() => setDeleteConfirm(task.id)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+              {/* Features section */}
+              {featureTasks.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <h2 className="text-sm font-semibold text-foreground">Feature Requests</h2>
+                    <span className="text-xs text-muted-foreground">({featureTasks.length})</span>
+                  </div>
+                  <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+                    {featureTasks.map(task => (
+                      <FeedbackRow
+                        key={task.id}
+                        task={task}
+                        triageConfirm={triageConfirm}
+                        deleteConfirm={deleteConfirm}
+                        onTriage={() => triage(task)}
+                        onTriageConfirm={() => setTriageConfirm(task.id)}
+                        onTriageCancel={() => setTriageConfirm(null)}
+                        onDeleteConfirm={() => setDeleteConfirm(task.id)}
+                        onDeleteCancel={() => setDeleteConfirm(null)}
+                        onDelete={() => deleteMutation.mutate({ id: task.id })}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -406,6 +529,116 @@ export default function Tasks() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+type FeedbackRowProps = {
+  task: { id: number; text: string; notes: string | null; clientName: string | null; createdAt: Date | string | null };
+  triageConfirm: number | null;
+  deleteConfirm: number | null;
+  onTriage: () => void;
+  onTriageConfirm: () => void;
+  onTriageCancel: () => void;
+  onDeleteConfirm: () => void;
+  onDeleteCancel: () => void;
+  onDelete: () => void;
+};
+
+function FeedbackRow({
+  task,
+  triageConfirm,
+  deleteConfirm,
+  onTriage,
+  onTriageConfirm,
+  onTriageCancel,
+  onDeleteConfirm,
+  onDeleteCancel,
+  onDelete,
+}: FeedbackRowProps) {
+  const url = extractUrl(task.notes);
+  const description = stripUrlFromNotes(task.notes);
+  const createdAt = task.createdAt
+    ? new Date(task.createdAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
+    : null;
+
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 bg-background hover:bg-muted/30 group transition-colors">
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <p className="text-sm font-medium leading-snug text-foreground">{task.text}</p>
+        {description && (
+          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{description}</p>
+        )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {task.clientName && (
+            <span className="text-[10px] text-muted-foreground font-medium">{task.clientName}</span>
+          )}
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-primary hover:underline truncate max-w-[200px]"
+              title={url}
+            >
+              {url.replace(/^https?:\/\/[^/]+/, "")}
+            </a>
+          )}
+          {createdAt && (
+            <span className="text-[10px] text-muted-foreground">{createdAt}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
+        {triageConfirm === task.id ? (
+          <div className="flex items-center gap-1">
+            <button
+              className="text-[10px] text-primary font-semibold hover:text-primary/80"
+              onClick={onTriage}
+            >
+              Move
+            </button>
+            <button
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={onTriageCancel}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            className="text-muted-foreground hover:text-primary transition-colors"
+            title="Move to Tasks"
+            onClick={onTriageConfirm}
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {deleteConfirm === task.id ? (
+          <div className="flex items-center gap-1">
+            <button
+              className="text-[10px] text-red-600 font-semibold hover:text-red-700"
+              onClick={onDelete}
+            >
+              Delete
+            </button>
+            <button
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={onDeleteCancel}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            className="text-muted-foreground hover:text-destructive transition-colors"
+            onClick={onDeleteConfirm}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -63,7 +63,7 @@ export default function HenryWidget() {
     <>
       {/* Chat window */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-[370px] max-w-[calc(100vw-32px)] flex flex-col rounded-2xl border border-border bg-background shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-24 right-20 z-50 w-[370px] max-w-[calc(100vw-32px)] flex flex-col rounded-2xl border border-border bg-background shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground">
             <div className="flex items-center gap-2.5">
@@ -152,7 +152,7 @@ export default function HenryWidget() {
       {/* Bubble */}
       <button
         onClick={() => setOpen(v => !v)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+        className="fixed bottom-4 right-20 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
         aria-label={open ? "Close Henry" : "Chat with Henry"}
       >
         {open ? <X className="w-6 h-6" /> : <Bot className="w-6 h-6" />}

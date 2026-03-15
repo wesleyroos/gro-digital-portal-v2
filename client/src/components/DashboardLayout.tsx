@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import HenryWidget from "@/components/HenryWidget";
+import FeedbackWidget from "@/components/FeedbackWidget";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -315,6 +316,7 @@ function DashboardLayoutContent({
         <main className="flex-1 p-8">{children}</main>
       </SidebarInset>
       <HenryWidget />
+      <FeedbackWidget />
     </>
   );
 }

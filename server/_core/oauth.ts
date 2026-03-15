@@ -6,6 +6,7 @@ import { sdk } from "./sdk";
 import { registerGoogleOAuthRoutes } from "../google-oauth";
 import { scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import Anthropic from "@anthropic-ai/sdk";
 
 const scryptAsync = promisify(scrypt);
 
@@ -1036,6 +1037,93 @@ Guidelines:
     } catch (e) {
       console.error("[Ops] Relay error:", e);
       res.status(502).json({ error: "Ops agent unavailable" });
+    }
+  });
+
+  // Feedback chat — collects bug reports / feature requests from any logged-in user via Claude
+  app.post("/api/feedback-chat", async (req: Request, res: Response) => {
+    let user: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
+    try {
+      user = await sdk.authenticateRequest(req);
+    } catch {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { messages, currentUrl } = req.body as {
+      messages: { role: "user" | "assistant"; content: string }[];
+      currentUrl: string;
+    };
+
+    if (!Array.isArray(messages)) {
+      res.status(400).json({ error: "messages array required" });
+      return;
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ error: "AI not configured" });
+      return;
+    }
+
+    try {
+      const anthropic = new Anthropic({ apiKey });
+
+      const tools: Anthropic.Tool[] = [{
+        name: "submit_feedback",
+        description: "Call this when you have enough information to log the feedback as a task.",
+        input_schema: {
+          type: "object" as const,
+          properties: {
+            type: { type: "string", enum: ["bug", "feature"], description: "Bug report or feature request" },
+            title: { type: "string", description: "Short one-line summary (max 80 chars)" },
+            description: { type: "string", description: "Full details of the issue or request" },
+          },
+          required: ["type", "title", "description"],
+        },
+      }];
+
+      const systemPrompt = `You are a helpful feedback assistant for the GRO Digital portal.
+Your role: collect bug reports and feature requests clearly and concisely.
+- Greet the user briefly and ask what they need help with if they haven't explained yet.
+- Ask 1–2 short clarifying questions until the problem/request is clear.
+- Once you have enough info, call submit_feedback. Don't ask more than needed.
+- For bugs: understand what happened vs. what was expected. The URL is captured automatically.
+- For features: understand what they want and why.
+- Keep tone warm and professional. Be brief.
+User info: name="${user.name}", role="${user.role}"`;
+
+      const response = await anthropic.messages.create({
+        model: "claude-opus-4-6",
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools,
+        messages,
+      });
+
+      const toolUse = response.content.find(b => b.type === "tool_use" && b.name === "submit_feedback");
+      if (toolUse && toolUse.type === "tool_use") {
+        const input = toolUse.input as { type: "bug" | "feature"; title: string; description: string };
+        const prefix = input.type === "bug" ? "🐛" : "✨";
+        const notesWithUrl = `${input.description}\n\nURL: ${currentUrl || "unknown"}`;
+        await db.createTask(
+          `${prefix} ${input.title}`,
+          user.role === "client" ? (user.clientSlug ?? null) : null,
+          `${user.name ?? "Unknown"} (${user.role})`,
+          { status: input.type, notes: notesWithUrl, priority: "high" },
+        );
+        const textBlock = response.content.find(b => b.type === "text");
+        const reply = textBlock?.type === "text" ? textBlock.text : "Got it! I've logged that for the team. Thanks for your feedback!";
+        res.json({ reply, submitted: true });
+        return;
+      }
+
+      const textBlock = response.content.find(b => b.type === "text");
+      const reply = textBlock?.type === "text" ? textBlock.text : "Sorry, I didn't catch that. Could you try again?";
+      res.json({ reply, submitted: false });
+    } catch (e) {
+      console.error("[FeedbackChat] Error:", e);
+      res.status(500).json({ error: "Something went wrong" });
     }
   });
 
