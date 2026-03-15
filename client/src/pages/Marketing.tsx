@@ -283,6 +283,7 @@ export default function Marketing() {
                     { key: "createdAt", label: "Created" },
                     ...(isSuperAdmin ? [{ key: "createdBy" as SortKey, label: "Set up by" }] : []),
                     { key: "firstPostDate" as SortKey, label: "Date Range" },
+                    { key: "firstPostDate" as SortKey, label: "Duration" },
                   ] as { key: SortKey; label: string }[]).map(col => (
                     <th key={col.key} className="text-left px-4 py-3">
                       <button
@@ -345,6 +346,13 @@ export default function Marketing() {
                         {c.firstPostDate && c.lastPostDate ? (
                           `${new Date(c.firstPostDate).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })} – ${new Date(c.lastPostDate).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}`
                         ) : <span className="opacity-40">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums whitespace-nowrap">
+                        {c.firstPostDate && c.lastPostDate ? (() => {
+                          const days = Math.round((new Date(c.lastPostDate).getTime() - new Date(c.firstPostDate).getTime()) / 86400000);
+                          const weeks = Math.round(days / 7);
+                          return weeks >= 2 ? `${weeks} weeks` : `${days} days`;
+                        })() : <span className="opacity-40">—</span>}
                       </td>
                       {!isClient && (
                         <td className="px-4 py-3">

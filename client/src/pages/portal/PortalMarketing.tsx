@@ -142,6 +142,7 @@ export default function PortalMarketing() {
                   { label: "Created" },
                   { label: "Set up by" },
                   { label: "Date Range" },
+                  { label: "Duration" },
                 ].map(col => (
                   <th key={col.label} className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                     {col.label}
@@ -175,6 +176,13 @@ export default function PortalMarketing() {
                     {campaign.firstPostDate && campaign.lastPostDate
                       ? `${format(new Date(campaign.firstPostDate), "dd MMM yyyy")} – ${format(new Date(campaign.lastPostDate), "dd MMM yyyy")}`
                       : <span className="opacity-40">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-xs tabular-nums whitespace-nowrap">
+                    {campaign.firstPostDate && campaign.lastPostDate ? (() => {
+                      const days = Math.round((new Date(campaign.lastPostDate).getTime() - new Date(campaign.firstPostDate).getTime()) / 86400000);
+                      const weeks = Math.round(days / 7);
+                      return weeks >= 2 ? `${weeks} weeks` : `${days} days`;
+                    })() : <span className="opacity-40">—</span>}
                   </td>
                   <td className="px-4 py-3">
                     <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-[#3b8dc6] transition-colors" />
