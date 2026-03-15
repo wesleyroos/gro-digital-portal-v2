@@ -31,7 +31,7 @@ export default function PortalDashboard() {
   const today = new Date();
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-12">
+    <div className="max-w-3xl space-y-8 pb-12">
 
       {/* Header */}
       <div className="flex items-end justify-between pt-2">
