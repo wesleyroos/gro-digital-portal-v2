@@ -1243,6 +1243,7 @@ INSTRUCTIONS:
 - Always include the FULL document starting with <!DOCTYPE html> — never partial snippets.
 - IMPORTANT: The HTML above has base64 images replaced with placeholders like __BASE64_0__. Preserve these placeholders exactly as-is in your output — they will be automatically restored.
 - CRITICAL: Do NOT add, insert, or reference any campaign images unless the user explicitly asks you to add an image. If an image is already in the current HTML, keep it. If not, do not add one.
+- UNSUBSCRIBE LINK: The footer must always contain an unsubscribe link with href="{{{RESEND_UNSUBSCRIBE_URL}}}" — use this exact placeholder, never "#" or any other URL. This placeholder is automatically replaced per recipient when the email is sent.
 - You may also answer questions or suggest improvements without outputting HTML.
 - Keep responses concise. 1-3 sentences max before the HTML.`;
 
@@ -1297,6 +1298,52 @@ INSTRUCTIONS:
     } finally {
       res.end();
     }
+  });
+
+  // Public unsubscribe — GET /unsubscribe?e=<email>&s=<clientSlug>
+  // Used as fallback when {{{RESEND_UNSUBSCRIBE_URL}}} is not replaced (e.g. test sends).
+  app.get("/unsubscribe", async (req: Request, res: Response) => {
+    const email = typeof req.query.e === "string" ? req.query.e.trim() : null;
+    const clientSlug = typeof req.query.s === "string" ? req.query.s.trim() : null;
+
+    if (!email) {
+      res.status(400).send("<p>Missing email parameter.</p>");
+      return;
+    }
+
+    // Try to unsubscribe from Resend audience if clientSlug provided
+    if (clientSlug && ENV.resendApiKey) {
+      try {
+        const resend = new Resend(ENV.resendApiKey);
+        const segmentId = await db.getResendSegmentId(clientSlug);
+        if (segmentId) {
+          await (resend.contacts.segments as any).remove({ email, segmentId });
+        }
+      } catch (e) {
+        console.warn("[Unsubscribe] Resend update failed:", e);
+      }
+    }
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unsubscribed</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8f8f8; color: #111; }
+    .card { background: #fff; border-radius: 12px; padding: 48px 40px; max-width: 440px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    h1 { font-size: 22px; font-weight: 700; margin: 0 0 12px; }
+    p { font-size: 15px; color: #555; line-height: 1.6; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>You've been unsubscribed</h1>
+    <p>You will no longer receive marketing emails from us. If this was a mistake, please contact us directly.</p>
+  </div>
+</body>
+</html>`);
   });
 
   // Accept proposal — POST /api/proposals/:token/accept
