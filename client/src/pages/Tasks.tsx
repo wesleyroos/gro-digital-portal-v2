@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Square, Pencil, Trash2, Plus, Bug, Sparkles, ArrowRight } from "lucide-react";
+import { CheckSquare, Square, Pencil, Trash2, Plus, Bug, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 function toDateStr(d: Date | string | null | undefined): string {
@@ -390,6 +390,7 @@ export default function Tasks() {
                         triageConfirm={triageConfirm}
                         deleteConfirm={deleteConfirm}
                         onOpen={() => setSelectedFeedback(task)}
+                        onResolve={() => { setDoneMutation.mutate({ id: task.id, done: true }); toast.success("Marked as resolved"); }}
                         onTriage={() => triage(task)}
                         onTriageConfirm={() => setTriageConfirm(task.id)}
                         onTriageCancel={() => setTriageConfirm(null)}
@@ -418,6 +419,7 @@ export default function Tasks() {
                         triageConfirm={triageConfirm}
                         deleteConfirm={deleteConfirm}
                         onOpen={() => setSelectedFeedback(task)}
+                        onResolve={() => { setDoneMutation.mutate({ id: task.id, done: true }); toast.success("Marked as resolved"); }}
                         onTriage={() => triage(task)}
                         onTriageConfirm={() => setTriageConfirm(task.id)}
                         onTriageCancel={() => setTriageConfirm(null)}
@@ -439,6 +441,7 @@ export default function Tasks() {
         <FeedbackDetailModal
           task={selectedFeedback}
           onClose={() => setSelectedFeedback(null)}
+          onResolve={() => { setDoneMutation.mutate({ id: selectedFeedback.id, done: true }); setSelectedFeedback(null); toast.success("Marked as resolved"); }}
           onTriage={() => { triage(selectedFeedback); setSelectedFeedback(null); }}
           onDelete={() => { deleteMutation.mutate({ id: selectedFeedback.id }); setSelectedFeedback(null); }}
         />
@@ -559,6 +562,7 @@ type FeedbackRowProps = {
   triageConfirm: number | null;
   deleteConfirm: number | null;
   onOpen: () => void;
+  onResolve: () => void;
   onTriage: () => void;
   onTriageConfirm: () => void;
   onTriageCancel: () => void;
@@ -572,6 +576,7 @@ function FeedbackRow({
   triageConfirm,
   deleteConfirm,
   onOpen,
+  onResolve,
   onTriage,
   onTriageConfirm,
   onTriageCancel,
@@ -609,6 +614,13 @@ function FeedbackRow({
       </div>
 
       <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
+        <button
+          className="text-muted-foreground hover:text-emerald-600 transition-colors"
+          title="Mark as resolved"
+          onClick={e => { e.stopPropagation(); onResolve(); }}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+        </button>
         {triageConfirm === task.id ? (
           <div className="flex items-center gap-1">
             <button
@@ -664,11 +676,12 @@ function FeedbackRow({
 type FeedbackDetailModalProps = {
   task: { id: number; text: string; status: string; notes: string | null; clientName: string | null; createdAt: Date | string | null };
   onClose: () => void;
+  onResolve: () => void;
   onTriage: () => void;
   onDelete: () => void;
 };
 
-function FeedbackDetailModal({ task, onClose, onTriage, onDelete }: FeedbackDetailModalProps) {
+function FeedbackDetailModal({ task, onClose, onResolve, onTriage, onDelete }: FeedbackDetailModalProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const url = extractUrl(task.notes);
   const description = stripUrlFromNotes(task.notes);
@@ -743,6 +756,10 @@ function FeedbackDetailModal({ task, onClose, onTriage, onDelete }: FeedbackDeta
           )}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+            <Button variant="outline" size="sm" className="text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={onResolve}>
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+              Mark as Resolved
+            </Button>
             <Button size="sm" onClick={onTriage}>
               <ArrowRight className="w-3.5 h-3.5 mr-1.5" />
               Move to Tasks
