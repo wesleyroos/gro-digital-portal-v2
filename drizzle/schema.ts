@@ -340,7 +340,7 @@ export const mailerChatMessages = mysqlTable('mailerChatMessages', {
   id: int('id').autoincrement().primaryKey(),
   mailerId: int('mailerId').notNull(),
   role: mysqlEnum('role', ['user', 'assistant']).notNull(),
-  content: text('content').notNull(),
+  content: mediumtext('content').notNull(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 });
 
