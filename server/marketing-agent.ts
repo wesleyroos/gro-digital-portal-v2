@@ -157,13 +157,21 @@ export function registerCampaignAgentRoutes(app: Express) {
     let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
     try {
       authedUser = await sdk.authenticateRequest(req);
-      if (authedUser.role !== 'admin' && authedUser.role !== 'superAdmin') { res.status(403).json({ error: 'Forbidden' }); return; }
+      if (!authedUser) { res.status(401).json({ error: 'Unauthorized' }); return; }
     } catch {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
     const campaignId = parseInt(req.params.campaignId, 10);
     if (isNaN(campaignId)) { res.status(400).json({ error: 'Invalid campaignId' }); return; }
+
+    // Clients can only access their own campaigns
+    if (authedUser.role === 'client') {
+      const campaign = await db.getCampaignById(campaignId);
+      if (!campaign || campaign.clientSlug !== authedUser.clientSlug) {
+        res.status(403).json({ error: 'Forbidden' }); return;
+      }
+    }
 
     const gatewayUrl = process.env.HENRY_GATEWAY_URL?.trim();
     const gatewayToken = process.env.HENRY_GATEWAY_TOKEN?.trim();
@@ -256,13 +264,21 @@ export function registerCampaignAgentRoutes(app: Express) {
     let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
     try {
       authedUser = await sdk.authenticateRequest(req);
-      if (authedUser.role !== 'admin' && authedUser.role !== 'superAdmin') { res.status(403).json({ error: 'Forbidden' }); return; }
+      if (!authedUser) { res.status(401).json({ error: 'Unauthorized' }); return; }
     } catch {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
     const campaignId = parseInt(req.params.campaignId, 10);
     if (isNaN(campaignId)) { res.status(400).json({ error: 'Invalid campaignId' }); return; }
+
+    // Clients can only access their own campaigns
+    if (authedUser.role === 'client') {
+      const campaign = await db.getCampaignById(campaignId);
+      if (!campaign || campaign.clientSlug !== authedUser.clientSlug) {
+        res.status(403).json({ error: 'Forbidden' }); return;
+      }
+    }
 
     const gatewayUrl = process.env.HENRY_GATEWAY_URL?.trim();
     const gatewayToken = process.env.HENRY_GATEWAY_TOKEN?.trim();
