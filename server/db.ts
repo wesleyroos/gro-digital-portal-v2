@@ -606,6 +606,7 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
     from: 'Gro Digital <invoices@grodigital.co.za>',
     to: recipientEmail,
     subject: `Invoice ${invoice.invoiceNumber} from Gro Digital`,
+    headers: { 'X-No-Track': '1' },
     html: `
       <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; color: #111;">
         <div style="margin-bottom: 32px;">

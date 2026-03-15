@@ -1454,6 +1454,7 @@ DESIGN REQUIREMENTS:
                 to: email,
                 subject: `[TEST] ${mailer.subject || 'Email preview'}`,
                 html,
+                headers: { 'X-No-Track': '1' },
               })
             ).then(r => ({ status: 'fulfilled' as const, value: r })).catch(e => ({ status: 'rejected' as const, reason: e })));
             if (input.emails.indexOf(email) < input.emails.length - 1) {
@@ -1780,6 +1781,7 @@ INSTRUCTIONS:
             subject: mailer.subject,
             html: mailer.htmlContent,
             send: true,
+            click_tracking: false,
             ...(input.scheduledAt ? { scheduledAt: input.scheduledAt } : {}),
           });
 
@@ -2188,6 +2190,7 @@ Only return JSON.`,
             to: [prospect.contactEmail],
             subject: send.subject ?? '(No subject)',
             html: `<p>${(send.message ?? '').replace(/\n/g, '<br>')}</p>`,
+            headers: { 'X-No-Track': '1' },
           });
 
           if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
