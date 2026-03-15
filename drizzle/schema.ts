@@ -251,6 +251,7 @@ export const marketingCampaigns = mysqlTable("marketing_campaigns", {
   sharePassword: varchar("sharePassword", { length: 255 }),
   postToInstagram: boolean("postToInstagram").default(true).notNull(),
   postToFacebook: boolean("postToFacebook").default(false).notNull(),
+  createdBy: varchar("createdBy", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

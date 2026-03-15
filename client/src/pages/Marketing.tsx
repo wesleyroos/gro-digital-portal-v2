@@ -56,6 +56,7 @@ export default function Marketing() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const isClient = user?.role === "client";
+  const isSuperAdmin = user?.role === "superAdmin";
 
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState("");
@@ -279,6 +280,7 @@ export default function Marketing() {
                     ...(isClient ? [] : [{ key: "clientSlug" as SortKey, label: "Client" }]),
                     { key: "status", label: "Status" },
                     { key: "createdAt", label: "Created" },
+                    ...(isSuperAdmin ? [{ key: "createdBy" as SortKey, label: "Set up by" }] : []),
                   ] as { key: SortKey; label: string }[]).map(col => (
                     <th key={col.key} className="text-left px-4 py-3">
                       <button
@@ -332,6 +334,11 @@ export default function Marketing() {
                       <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
                         {new Date(c.createdAt).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}
                       </td>
+                      {isSuperAdmin && (
+                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                          {c.createdBy ?? <span className="opacity-40">—</span>}
+                        </td>
+                      )}
                       {!isClient && (
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">

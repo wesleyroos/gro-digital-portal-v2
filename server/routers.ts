@@ -781,7 +781,7 @@ export const appRouter = router({
       .input(z.object({ clientSlug: z.string().min(1), name: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
         const clientSlug = ctx.user.role === 'client' ? ctx.user.clientSlug! : input.clientSlug;
-        const id = await createCampaign({ clientSlug, name: input.name });
+        const id = await createCampaign({ clientSlug, name: input.name, createdBy: ctx.user.name ?? ctx.user.email ?? null });
         return { id };
       }),
 

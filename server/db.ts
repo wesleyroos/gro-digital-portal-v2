@@ -1015,13 +1015,14 @@ export async function getCampaignById(id: number) {
   return result[0] ?? null;
 }
 
-export async function createCampaign(data: { clientSlug: string; name: string }) {
+export async function createCampaign(data: { clientSlug: string; name: string; createdBy?: string }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
   const result = await db.insert(marketingCampaigns).values({
     clientSlug: data.clientSlug,
     name: data.name,
     status: 'discovery',
+    createdBy: data.createdBy ?? null,
   }).$returningId();
   return result[0].id;
 }
