@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Square, Pencil, Trash2, Plus, Bug, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
+import { CheckSquare, Square, Pencil, Trash2, Plus, Bug, Sparkles, ArrowRight, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 function toDateStr(d: Date | string | null | undefined): string {
@@ -96,6 +96,7 @@ export default function Tasks() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [triageConfirm, setTriageConfirm] = useState<number | null>(null);
   const [selectedFeedback, setSelectedFeedback] = useState<Task | null>(null);
+  const [resolvedExpanded, setResolvedExpanded] = useState(false);
 
   const createMutation = trpc.task.create.useMutation({
     onSuccess: () => {
@@ -180,16 +181,31 @@ export default function Tasks() {
     toast.success("Moved to Tasks");
   }
 
+  function resolve(task: Task) {
+    updateMutation.mutate({
+      id: task.id,
+      text: task.text,
+      clientSlug: task.clientSlug ?? null,
+      clientName: task.clientName ?? null,
+      status: "resolved",
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : null,
+      priority: task.priority ?? null,
+      notes: task.notes ?? null,
+    });
+    toast.success("Marked as resolved");
+  }
+
   const today = new Date().toISOString().split("T")[0];
 
   // Separate feedback tasks from normal tasks
-  const feedbackTasks = tasks.filter(t => t.status === "bug" || t.status === "feature");
+  const feedbackTasks = tasks.filter(t => t.status === "bug" || t.status === "feature" || t.status === "resolved");
   const bugTasks = feedbackTasks.filter(t => t.status === "bug");
   const featureTasks = feedbackTasks.filter(t => t.status === "feature");
+  const resolvedTasks = feedbackTasks.filter(t => t.status === "resolved");
 
   const filtered = tasks.filter(t => {
     // Exclude feedback tasks from normal task list
-    if (t.status === "bug" || t.status === "feature") return false;
+    if (t.status === "bug" || t.status === "feature" || t.status === "resolved") return false;
     if (statusFilter === "active") {
       if (t.status !== "todo" && t.status !== "in_progress") return false;
     } else if (statusFilter !== "all" && t.status !== statusFilter) return false;
@@ -240,9 +256,9 @@ export default function Tasks() {
           }`}
         >
           Feedback
-          {feedbackTasks.length > 0 && (
+          {(bugTasks.length + featureTasks.length) > 0 && (
             <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold">
-              {feedbackTasks.length}
+              {bugTasks.length + featureTasks.length}
             </span>
           )}
         </button>
@@ -390,7 +406,7 @@ export default function Tasks() {
                         triageConfirm={triageConfirm}
                         deleteConfirm={deleteConfirm}
                         onOpen={() => setSelectedFeedback(task)}
-                        onResolve={() => { setDoneMutation.mutate({ id: task.id, done: true }); toast.success("Marked as resolved"); }}
+                        onResolve={() => resolve(task)}
                         onTriage={() => triage(task)}
                         onTriageConfirm={() => setTriageConfirm(task.id)}
                         onTriageCancel={() => setTriageConfirm(null)}
@@ -419,7 +435,7 @@ export default function Tasks() {
                         triageConfirm={triageConfirm}
                         deleteConfirm={deleteConfirm}
                         onOpen={() => setSelectedFeedback(task)}
-                        onResolve={() => { setDoneMutation.mutate({ id: task.id, done: true }); toast.success("Marked as resolved"); }}
+                        onResolve={() => resolve(task)}
                         onTriage={() => triage(task)}
                         onTriageConfirm={() => setTriageConfirm(task.id)}
                         onTriageCancel={() => setTriageConfirm(null)}
@@ -429,6 +445,42 @@ export default function Tasks() {
                       />
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Resolved section */}
+              {resolvedTasks.length > 0 && (
+                <div>
+                  <button
+                    className="flex items-center gap-2 mb-3 w-full text-left group"
+                    onClick={() => setResolvedExpanded(v => !v)}
+                  >
+                    {resolvedExpanded
+                      ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                      : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                    <h2 className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">Resolved</h2>
+                    <span className="text-xs text-muted-foreground">({resolvedTasks.length})</span>
+                  </button>
+                  {resolvedExpanded && (
+                    <div className="divide-y divide-border border border-border rounded-lg overflow-hidden opacity-75">
+                      {resolvedTasks.map(task => (
+                        <FeedbackRow
+                          key={task.id}
+                          task={task}
+                          triageConfirm={triageConfirm}
+                          deleteConfirm={deleteConfirm}
+                          onOpen={() => setSelectedFeedback(task)}
+                          onResolve={() => resolve(task)}
+                          onTriage={() => triage(task)}
+                          onTriageConfirm={() => setTriageConfirm(task.id)}
+                          onTriageCancel={() => setTriageConfirm(null)}
+                          onDeleteConfirm={() => setDeleteConfirm(task.id)}
+                          onDeleteCancel={() => setDeleteConfirm(null)}
+                          onDelete={() => deleteMutation.mutate({ id: task.id })}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -441,7 +493,7 @@ export default function Tasks() {
         <FeedbackDetailModal
           task={selectedFeedback}
           onClose={() => setSelectedFeedback(null)}
-          onResolve={() => { setDoneMutation.mutate({ id: selectedFeedback.id, done: true }); setSelectedFeedback(null); toast.success("Marked as resolved"); }}
+          onResolve={() => { resolve(selectedFeedback); setSelectedFeedback(null); }}
           onTriage={() => { triage(selectedFeedback); setSelectedFeedback(null); }}
           onDelete={() => { deleteMutation.mutate({ id: selectedFeedback.id }); setSelectedFeedback(null); }}
         />
@@ -687,17 +739,20 @@ function FeedbackDetailModal({ task, onClose, onResolve, onTriage, onDelete }: F
   const description = stripUrlFromNotes(task.notes);
   const timestamp = formatTimestamp(task.createdAt);
   const isBug = task.status === "bug";
+  const isResolved = task.status === "resolved";
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
-            {isBug
+            {isResolved
+              ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              : isBug
               ? <Bug className="w-4 h-4 text-red-500 shrink-0" />
               : <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />}
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {isBug ? "Bug Report" : "Feature Request"}
+              {isResolved ? "Resolved" : isBug ? "Bug Report" : "Feature Request"}
             </span>
           </div>
           <DialogTitle className="text-base leading-snug">{task.text}</DialogTitle>
@@ -756,10 +811,12 @@ function FeedbackDetailModal({ task, onClose, onResolve, onTriage, onDelete }: F
           )}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
-            <Button variant="outline" size="sm" className="text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={onResolve}>
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-              Mark as Resolved
-            </Button>
+            {!isResolved && (
+              <Button variant="outline" size="sm" className="text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={onResolve}>
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                Mark as Resolved
+              </Button>
+            )}
             <Button size="sm" onClick={onTriage}>
               <ArrowRight className="w-3.5 h-3.5 mr-1.5" />
               Move to Tasks

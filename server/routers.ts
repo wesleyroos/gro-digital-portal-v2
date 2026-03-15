@@ -1628,6 +1628,29 @@ DESIGN REQUIREMENTS:
             if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
             assertCampaignAccess(ctx.user, campaign.clientSlug);
 
+            // Strip base64 data URIs from HTML before including in context (they bloat the prompt massively).
+            // Stores originals so they can be re-injected into the AI's response.
+            const base64Map: string[] = [];
+            function stripBase64(html: string | null | undefined): string {
+              if (!html) return '(empty)';
+              return html
+                .replace(/src="(data:[^"]{100,})"/g, (_match, data) => {
+                  const idx = base64Map.indexOf(data);
+                  const id = idx >= 0 ? idx : base64Map.push(data) - 1;
+                  return `src="__BASE64_${id}__"`;
+                })
+                .replace(/url\((data:[^)]{100,})\)/g, (_match, data) => {
+                  const idx = base64Map.indexOf(data);
+                  const id = idx >= 0 ? idx : base64Map.push(data) - 1;
+                  return `url(__BASE64_${id}__)`;
+                });
+            }
+            function restoreBase64(html: string): string {
+              return html
+                .replace(/src="__BASE64_(\d+)__"/g, (_m, i) => `src="${base64Map[parseInt(i)] ?? ''}"`)
+                .replace(/url\(__BASE64_(\d+)__\)/g, (_m, i) => `url(${base64Map[parseInt(i)] ?? ''})`);
+            }
+
             // Build rich context for the system prompt
             const assetsSection = assets.filter(a => a.aiDescription).length > 0
               ? `\n\nBRAND ASSETS:\n${assets.filter(a => a.aiDescription).map((a, i) => `- ${a.label || `Asset ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
@@ -1641,7 +1664,7 @@ DESIGN REQUIREMENTS:
             const mailerPosition = allMailers.findIndex(m => m.id === input.mailerId) + 1;
             const totalMailers = allMailers.length;
             const mailersSection = otherMailers.length > 0
-              ? `\n\nOTHER MAILERS IN THIS SEQUENCE:\n${otherMailers.map((m, i) => `Email ${i + 1}: "${m.subject || 'Untitled'}"\n${m.htmlContent ? m.htmlContent.slice(0, 600) + (m.htmlContent.length > 600 ? '...' : '') : '(no content)'}`).join('\n\n')}`
+              ? `\n\nOTHER MAILERS IN THIS SEQUENCE:\n${otherMailers.map((m, i) => `Email ${i + 1}: "${m.subject || 'Untitled'}"\n${m.htmlContent ? stripBase64(m.htmlContent).slice(0, 600) + (m.htmlContent.length > 600 ? '...' : '') : '(no content)'}`).join('\n\n')}`
               : '';
 
             const systemPrompt = `You are an expert HTML email designer and copywriter embedded inside a marketing portal. You help the admin iteratively improve and redesign email HTML by chatting.
@@ -1659,7 +1682,7 @@ Position: Email ${mailerPosition} of ${totalMailers} in the sequence
 Subject: ${mailer.subject || '(none)'}
 Preview Text: ${mailer.previewText || '(none)'}
 HTML Content:
-${mailer.htmlContent || '(empty)'}
+${stripBase64(mailer.htmlContent)}
 
 BRAND GUIDELINES (apply to all output):
 - Primary colour: #2D7AB6 (blue) — use for primary CTAs, accents, labels
@@ -1685,6 +1708,7 @@ INSTRUCTIONS:
 - When the user asks for changes to the email, respond with the COMPLETE updated HTML document.
 - Start your HTML response on a new line after any explanation text.
 - If providing HTML, always include the FULL document starting with <!DOCTYPE html> — never partial snippets.
+- IMPORTANT: The HTML shown above has base64 images replaced with placeholders like __BASE64_0__. When outputting updated HTML, preserve these placeholders exactly as-is (e.g. src="__BASE64_0__"). They will be automatically substituted back with the real image data.
 - You may also answer questions, explain choices, or suggest improvements without outputting HTML.
 - Keep responses concise. If outputting HTML, provide it after a brief explanation (1-3 sentences max before the code).`;
 
@@ -1707,7 +1731,9 @@ INSTRUCTIONS:
               messages: msgs,
             });
 
-            const replyText = response.content[0]?.type === 'text' ? response.content[0].text : '';
+            const rawReply = response.content[0]?.type === 'text' ? response.content[0].text : '';
+            // Restore any base64 placeholders that Claude echoed back
+            const replyText = base64Map.length > 0 ? restoreBase64(rawReply) : rawReply;
 
             // Save assistant reply
             await insertMailerChatMessage(input.mailerId, 'assistant', replyText);
