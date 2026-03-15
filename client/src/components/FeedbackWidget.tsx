@@ -75,9 +75,9 @@ export default function FeedbackWidget() {
       {open && (
         <div className="fixed bottom-24 right-4 z-50 w-[340px] max-w-[calc(100vw-32px)] flex flex-col rounded-2xl border border-border bg-background shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-secondary text-secondary-foreground">
+          <div className="flex items-center justify-between px-4 py-3 bg-[#3b8dc6] text-white">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-secondary-foreground/15 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                 <MessageSquarePlus className="w-4 h-4" />
               </div>
               <div>
@@ -88,7 +88,7 @@ export default function FeedbackWidget() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-secondary-foreground/80 hover:text-secondary-foreground hover:bg-secondary-foreground/10"
+              className="h-7 w-7 p-0 text-white/80 hover:text-white hover:bg-white/10"
               onClick={() => setOpen(false)}
             >
               <Minimize2 className="w-4 h-4" />
@@ -110,8 +110,8 @@ export default function FeedbackWidget() {
               <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[260px] max-h-[340px] bg-muted/20">
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full py-8 text-center">
-                    <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center mb-3">
-                      <MessageSquarePlus className="w-6 h-6 text-secondary-foreground/60" />
+                    <div className="w-12 h-12 rounded-full bg-[#3b8dc6]/10 flex items-center justify-center mb-3">
+                      <MessageSquarePlus className="w-6 h-6 text-[#3b8dc6]" />
                     </div>
                     <p className="text-sm font-medium text-foreground">Got feedback?</p>
                     <p className="text-xs text-muted-foreground mt-1">Tell us about a bug or request a feature.</p>
@@ -122,7 +122,7 @@ export default function FeedbackWidget() {
                     <div
                       className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                         msg.role === "user"
-                          ? "bg-secondary text-secondary-foreground rounded-br-sm"
+                          ? "bg-[#3b8dc6] text-white rounded-br-sm"
                           : "bg-background border border-border text-foreground rounded-bl-sm shadow-sm"
                       }`}
                     >
@@ -172,7 +172,7 @@ export default function FeedbackWidget() {
       {/* Bubble */}
       <button
         onClick={handleOpen}
-        className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-secondary text-secondary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+        className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-[#3b8dc6] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
         aria-label={open ? "Close feedback" : "Send feedback"}
       >
         {open ? (
@@ -181,7 +181,7 @@ export default function FeedbackWidget() {
           <div className="relative">
             <MessageSquarePlus className="w-5 h-5" />
             {!hasOpened && (
-              <span className="absolute -top-1.5 -right-1.5 w-2 h-2 bg-emerald-400 rounded-full border border-secondary" />
+              <span className="absolute -top-1.5 -right-1.5 w-2 h-2 bg-emerald-400 rounded-full border border-[#3b8dc6]" />
             )}
           </div>
         )}

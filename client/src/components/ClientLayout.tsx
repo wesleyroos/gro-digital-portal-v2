@@ -139,9 +139,7 @@ function ClientLayoutContent({
               </button>
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span className="font-bold tracking-tight truncate">
-                    GRO<span className="font-light">digital</span>
-                  </span>
+                  <img src="/logo.jpg" alt="GRO Digital" className="h-7 w-auto object-contain" />
                 </div>
               )}
             </div>
