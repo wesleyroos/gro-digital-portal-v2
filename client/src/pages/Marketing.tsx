@@ -199,7 +199,7 @@ export default function Marketing() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight leading-none">Marketing Campaigns</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">AI-powered Instagram content automation</p>
+            <p className="text-sm text-muted-foreground mt-0.5">AI-powered social media content automation</p>
           </div>
         </div>
         <Button onClick={() => setShowNew(true)} size="sm" className="gap-2">
