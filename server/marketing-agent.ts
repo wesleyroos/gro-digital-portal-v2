@@ -157,7 +157,7 @@ export function registerCampaignAgentRoutes(app: Express) {
     let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
     try {
       authedUser = await sdk.authenticateRequest(req);
-      if (authedUser.role !== 'admin') { res.status(403).json({ error: 'Forbidden' }); return; }
+      if (authedUser.role !== 'admin' && authedUser.role !== 'superAdmin') { res.status(403).json({ error: 'Forbidden' }); return; }
     } catch {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
@@ -256,7 +256,7 @@ export function registerCampaignAgentRoutes(app: Express) {
     let authedUser: Awaited<ReturnType<typeof sdk.authenticateRequest>>;
     try {
       authedUser = await sdk.authenticateRequest(req);
-      if (authedUser.role !== 'admin') { res.status(403).json({ error: 'Forbidden' }); return; }
+      if (authedUser.role !== 'admin' && authedUser.role !== 'superAdmin') { res.status(403).json({ error: 'Forbidden' }); return; }
     } catch {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
