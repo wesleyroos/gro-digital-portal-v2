@@ -95,6 +95,7 @@ export default function Tasks() {
   const [form, setForm] = useState<TaskFormData>(emptyForm());
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [triageConfirm, setTriageConfirm] = useState<number | null>(null);
+  const [selectedFeedback, setSelectedFeedback] = useState<Task | null>(null);
 
   const createMutation = trpc.task.create.useMutation({
     onSuccess: () => {
@@ -388,6 +389,7 @@ export default function Tasks() {
                         task={task}
                         triageConfirm={triageConfirm}
                         deleteConfirm={deleteConfirm}
+                        onOpen={() => setSelectedFeedback(task)}
                         onTriage={() => triage(task)}
                         onTriageConfirm={() => setTriageConfirm(task.id)}
                         onTriageCancel={() => setTriageConfirm(null)}
@@ -415,6 +417,7 @@ export default function Tasks() {
                         task={task}
                         triageConfirm={triageConfirm}
                         deleteConfirm={deleteConfirm}
+                        onOpen={() => setSelectedFeedback(task)}
                         onTriage={() => triage(task)}
                         onTriageConfirm={() => setTriageConfirm(task.id)}
                         onTriageCancel={() => setTriageConfirm(null)}
@@ -429,6 +432,16 @@ export default function Tasks() {
             </>
           )}
         </div>
+      )}
+
+      {/* Feedback detail modal */}
+      {selectedFeedback && (
+        <FeedbackDetailModal
+          task={selectedFeedback}
+          onClose={() => setSelectedFeedback(null)}
+          onTriage={() => { triage(selectedFeedback); setSelectedFeedback(null); }}
+          onDelete={() => { deleteMutation.mutate({ id: selectedFeedback.id }); setSelectedFeedback(null); }}
+        />
       )}
 
       {/* Add / Edit dialog */}
@@ -533,10 +546,19 @@ export default function Tasks() {
   );
 }
 
+function formatTimestamp(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  return new Date(d).toLocaleString("en-ZA", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
 type FeedbackRowProps = {
-  task: { id: number; text: string; notes: string | null; clientName: string | null; createdAt: Date | string | null };
+  task: { id: number; text: string; status: string; notes: string | null; clientName: string | null; createdAt: Date | string | null };
   triageConfirm: number | null;
   deleteConfirm: number | null;
+  onOpen: () => void;
   onTriage: () => void;
   onTriageConfirm: () => void;
   onTriageCancel: () => void;
@@ -549,6 +571,7 @@ function FeedbackRow({
   task,
   triageConfirm,
   deleteConfirm,
+  onOpen,
   onTriage,
   onTriageConfirm,
   onTriageCancel,
@@ -558,12 +581,13 @@ function FeedbackRow({
 }: FeedbackRowProps) {
   const url = extractUrl(task.notes);
   const description = stripUrlFromNotes(task.notes);
-  const createdAt = task.createdAt
-    ? new Date(task.createdAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
-    : null;
+  const timestamp = formatTimestamp(task.createdAt);
 
   return (
-    <div className="flex items-start gap-3 px-4 py-3 bg-background hover:bg-muted/30 group transition-colors">
+    <div
+      className="flex items-start gap-3 px-4 py-3 bg-background hover:bg-muted/30 group transition-colors cursor-pointer"
+      onClick={onOpen}
+    >
       <div className="flex-1 min-w-0 space-y-1.5">
         <p className="text-sm font-medium leading-snug text-foreground">{task.text}</p>
         {description && (
@@ -574,18 +598,12 @@ function FeedbackRow({
             <span className="text-[10px] text-muted-foreground font-medium">{task.clientName}</span>
           )}
           {url && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] text-primary hover:underline truncate max-w-[200px]"
-              title={url}
-            >
-              {url.replace(/^https?:\/\/[^/]+/, "")}
-            </a>
+            <span className="text-[10px] text-primary truncate max-w-[200px]" title={url}>
+              {url.replace(/^https?:\/\/[^/]+/, "") || url}
+            </span>
           )}
-          {createdAt && (
-            <span className="text-[10px] text-muted-foreground">{createdAt}</span>
+          {timestamp && (
+            <span className="text-[10px] text-muted-foreground">{timestamp}</span>
           )}
         </div>
       </div>
@@ -595,13 +613,13 @@ function FeedbackRow({
           <div className="flex items-center gap-1">
             <button
               className="text-[10px] text-primary font-semibold hover:text-primary/80"
-              onClick={onTriage}
+              onClick={e => { e.stopPropagation(); onTriage(); }}
             >
               Move
             </button>
             <button
               className="text-[10px] text-muted-foreground hover:text-foreground"
-              onClick={onTriageCancel}
+              onClick={e => { e.stopPropagation(); onTriageCancel(); }}
             >
               Cancel
             </button>
@@ -610,7 +628,7 @@ function FeedbackRow({
           <button
             className="text-muted-foreground hover:text-primary transition-colors"
             title="Move to Tasks"
-            onClick={onTriageConfirm}
+            onClick={e => { e.stopPropagation(); onTriageConfirm(); }}
           >
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -619,13 +637,13 @@ function FeedbackRow({
           <div className="flex items-center gap-1">
             <button
               className="text-[10px] text-red-600 font-semibold hover:text-red-700"
-              onClick={onDelete}
+              onClick={e => { e.stopPropagation(); onDelete(); }}
             >
               Delete
             </button>
             <button
               className="text-[10px] text-muted-foreground hover:text-foreground"
-              onClick={onDeleteCancel}
+              onClick={e => { e.stopPropagation(); onDeleteCancel(); }}
             >
               Cancel
             </button>
@@ -633,12 +651,105 @@ function FeedbackRow({
         ) : (
           <button
             className="text-muted-foreground hover:text-destructive transition-colors"
-            onClick={onDeleteConfirm}
+            onClick={e => { e.stopPropagation(); onDeleteConfirm(); }}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
     </div>
+  );
+}
+
+type FeedbackDetailModalProps = {
+  task: { id: number; text: string; status: string; notes: string | null; clientName: string | null; createdAt: Date | string | null };
+  onClose: () => void;
+  onTriage: () => void;
+  onDelete: () => void;
+};
+
+function FeedbackDetailModal({ task, onClose, onTriage, onDelete }: FeedbackDetailModalProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const url = extractUrl(task.notes);
+  const description = stripUrlFromNotes(task.notes);
+  const timestamp = formatTimestamp(task.createdAt);
+  const isBug = task.status === "bug";
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <div className="flex items-center gap-2 mb-1">
+            {isBug
+              ? <Bug className="w-4 h-4 text-red-500 shrink-0" />
+              : <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />}
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {isBug ? "Bug Report" : "Feature Request"}
+            </span>
+          </div>
+          <DialogTitle className="text-base leading-snug">{task.text}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-1">
+          {description && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{description}</p>
+            </div>
+          )}
+
+          {url && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Page URL</p>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline break-all"
+              >
+                {url}
+              </a>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-x-6 gap-y-2 pt-1 border-t border-border">
+            {task.clientName && (
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Submitted by</p>
+                <p className="text-xs text-foreground mt-0.5">{task.clientName}</p>
+              </div>
+            )}
+            {timestamp && (
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Submitted at</p>
+                <p className="text-xs text-foreground mt-0.5">{timestamp}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          {confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Delete this item?</span>
+              <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            </div>
+          ) : (
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              Delete
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+            <Button size="sm" onClick={onTriage}>
+              <ArrowRight className="w-3.5 h-3.5 mr-1.5" />
+              Move to Tasks
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
