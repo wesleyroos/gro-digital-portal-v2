@@ -65,7 +65,7 @@ function Router() {
             <Route path={"/portal/marketing"}>
               {() => (
                 <ClientLayout>
-                  <Marketing />
+                  <PortalMarketing />
                 </ClientLayout>
               )}
             </Route>
