@@ -1536,7 +1536,7 @@ export default function MarketingCampaignWorkspace() {
                   <Button
                     size="sm"
                     className="gap-1.5 text-xs h-7 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => setShowSendToList(true)}
+                    onClick={() => { setBroadcastScheduledAt(mailerDraft.scheduledAt); setShowSendToList(true); }}
                     disabled={!mailerDraft.htmlContent || !mailerDraft.subject || !segmentStatus?.segmentId}
                   >
                     <Send className="w-3 h-3" />
