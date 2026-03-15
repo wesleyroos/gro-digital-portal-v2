@@ -252,7 +252,7 @@ export default function MarketingCampaignWorkspace() {
   );
   const mailerChatSendMutation = trpc.campaign.mailer.chat.send.useMutation();
   const mailerChatClearMutation = trpc.campaign.mailer.chat.clear.useMutation({
-    onSuccess: () => { setMailerAiMessages([]); setMailerAiHistoryLoaded(null); setMailerUndoStack([]); },
+    onSuccess: () => { setMailerAiMessages([]); setMailerUndoStack([]); /* keep mailerAiHistoryLoaded — prevents effect re-populating from stale query */ },
     onError: () => toast.error('Failed to clear chat'),
   });
 
@@ -1651,11 +1651,15 @@ export default function MarketingCampaignWorkspace() {
                           {mailerAiMessages.map((msg, i) => {
                             const isLastAssistant = msg.role === 'assistant' && i === mailerAiMessages.length - 1;
                             const isStreaming = isLastAssistant && (mailerAiState === 'streaming-text' || mailerAiState === 'streaming-html' || mailerAiState === 'thinking');
-                            // Check for [HTML updated] marker in completed assistant messages
+                            // Check for [HTML updated] marker (new format) or raw HTML (old DB format)
                             const hasHtmlMarker = msg.role === 'assistant' && msg.content.endsWith('\n[HTML updated]');
+                            const hasOldHtml = !hasHtmlMarker && msg.role === 'assistant' && /<!doctype html/i.test(msg.content);
+                            const showAppliedBadge = hasHtmlMarker || hasOldHtml;
                             const displayText = hasHtmlMarker
                               ? msg.content.slice(0, -'\n[HTML updated]'.length).trim() || '(HTML updated — see preview)'
-                              : msg.content;
+                              : hasOldHtml
+                                ? msg.content.slice(0, msg.content.toLowerCase().indexOf('<!doctype html')).trim() || '(HTML updated — see preview)'
+                                : msg.content;
                             return (
                               <div key={i} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                 <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
@@ -1678,7 +1682,7 @@ export default function MarketingCampaignWorkspace() {
                                   </span>
                                 )}
                                 {/* Applied badge for completed HTML messages */}
-                                {!isStreaming && hasHtmlMarker && (
+                                {!isStreaming && showAppliedBadge && (
                                   <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1">
                                     <Check className="w-3 h-3" />
                                     Applied to preview
