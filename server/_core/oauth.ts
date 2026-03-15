@@ -1248,18 +1248,10 @@ INSTRUCTIONS:
     // Save user message
     await db.insertMailerChatMessage(mailerId, "user", message);
 
-    // Strip full HTML from previous assistant messages — the current HTML is already
-    // in the system prompt; sending previous HTML versions too bloats the context.
-    function summariseForHistory(role: string, content: string): string {
-      if (role !== "assistant") return content;
-      const htmlIdx = content.toLowerCase().indexOf("<!doctype html");
-      if (htmlIdx === -1) return content;
-      const before = content.slice(0, htmlIdx).trim();
-      return before ? `${before}\n[Full HTML email provided]` : "[Full HTML email provided]";
-    }
-
+    // Build history — messages now contain only text (no HTML), so no stripping needed.
+    // The current HTML is always provided fresh via currentHtml in the system prompt.
     const msgs: { role: "user" | "assistant"; content: string }[] = [
-      ...history.map(m => ({ role: m.role as "user" | "assistant", content: summariseForHistory(m.role, m.content) })),
+      ...history.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
       { role: "user", content: message },
     ];
 
@@ -1287,18 +1279,17 @@ INSTRUCTIONS:
         }
       }
 
-      // Restore base64 placeholders back into the AI's HTML.
-      // Use a belt-and-suspenders approach: first the regex (handles correct quoting),
-      // then a plain string replace to catch any placeholder the AI quoted differently.
-      let restored = fullReply;
-      for (let i = 0; i < base64Map.length; i++) {
-        const placeholder = `__BASE64_${i}__`;
-        if (restored.includes(placeholder)) {
-          restored = restored.split(placeholder).join(base64Map[i]);
-        }
-      }
-      await db.insertMailerChatMessage(mailerId, "assistant", restored);
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      // Split text from HTML — save only the text part to DB.
+      // The frontend will restore base64 placeholders locally from the base64Map we send.
+      const htmlIdx = fullReply.toLowerCase().indexOf("<!doctype html");
+      const hasHtml = htmlIdx >= 0;
+      const textPart = hasHtml ? fullReply.slice(0, htmlIdx).trim() : fullReply;
+      const toSave = hasHtml
+        ? (textPart ? `${textPart}\n[HTML updated]` : "[HTML updated]")
+        : textPart;
+      await db.insertMailerChatMessage(mailerId, "assistant", toSave);
+      // Send base64Map so client can restore placeholders locally (no server-side restore needed)
+      res.write(`data: ${JSON.stringify({ done: true, hasHtml, base64Map })}\n\n`);
     } catch (e) {
       console.error("[MailerChatStream] Error:", e);
       res.write(`data: ${JSON.stringify({ error: "AI request failed" })}\n\n`);

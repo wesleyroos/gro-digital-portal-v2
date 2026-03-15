@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronRight, Mail } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronRight, Mail, Undo2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -93,13 +93,13 @@ export default function MarketingCampaignWorkspace() {
   const [mailerTab, setMailerTab] = useState<'edit' | 'preview' | 'ai'>('preview');
   const [mailerAiMessages, setMailerAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [mailerAiInput, setMailerAiInput] = useState('');
-  const [mailerAiLoading, setMailerAiLoading] = useState(false);
-  const [mailerAiStreaming, setMailerAiStreaming] = useState(false);
+  const [mailerAiState, setMailerAiState] = useState<'idle' | 'thinking' | 'streaming-text' | 'streaming-html'>('idle');
+  const mailerAiHtmlBuf = useRef<string>('');
+  const [mailerUndoStack, setMailerUndoStack] = useState<string[]>([]);
   const [mailerAiHistoryLoaded, setMailerAiHistoryLoaded] = useState<number | null>(null);
   const mailerAiBottomRef = useRef<HTMLDivElement>(null);
   const [mailerDraft, setMailerDraft] = useState({ subject: '', previewText: '', htmlContent: '', scheduledAt: '', notes: '' });
   const [mailerDirty, setMailerDirty] = useState(false);
-  const [mailerUndoHtml, setMailerUndoHtml] = useState<string | null>(null);
   const [showGenerateMailer, setShowGenerateMailer] = useState(false);
   const [showSendTest, setShowSendTest] = useState(false);
   const [showSendToList, setShowSendToList] = useState(false);
@@ -151,7 +151,7 @@ export default function MarketingCampaignWorkspace() {
     onError: () => toast.error('Failed to create mailer'),
   });
   const updateMailerMutation = trpc.campaign.mailer.update.useMutation({
-    onSuccess: () => { refetchMailers(); setMailerDirty(false); setMailerUndoHtml(null); toast.success('Saved'); },
+    onSuccess: () => { refetchMailers(); setMailerDirty(false); setMailerUndoStack([]); toast.success('Saved'); },
     onError: () => toast.error('Failed to save mailer'),
   });
   const deleteMailerMutation = trpc.campaign.mailer.delete.useMutation({
@@ -252,17 +252,17 @@ export default function MarketingCampaignWorkspace() {
   );
   const mailerChatSendMutation = trpc.campaign.mailer.chat.send.useMutation();
   const mailerChatClearMutation = trpc.campaign.mailer.chat.clear.useMutation({
-    onSuccess: () => { setMailerAiMessages([]); setMailerAiHistoryLoaded(null); },
+    onSuccess: () => { setMailerAiMessages([]); setMailerAiHistoryLoaded(null); setMailerUndoStack([]); },
     onError: () => toast.error('Failed to clear chat'),
   });
 
   async function sendMailerAiMessage() {
     const msg = mailerAiInput.trim();
-    if (!msg || mailerAiLoading || !selectedMailerId) return;
+    if (!msg || mailerAiState !== 'idle' || !selectedMailerId) return;
     setMailerAiInput('');
     setMailerAiMessages(prev => [...prev, { role: 'user', content: msg }]);
-    setMailerAiLoading(true);
-    setMailerAiStreaming(true);
+    setMailerAiState('thinking');
+    mailerAiHtmlBuf.current = '';
     // Add a placeholder assistant message that we'll stream into
     setMailerAiMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     try {
@@ -275,6 +275,9 @@ export default function MarketingCampaignWorkspace() {
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let htmlStarted = false;
+      let textStreamingStarted = false;
+      let accumulatedText = '';
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -283,15 +286,54 @@ export default function MarketingCampaignWorkspace() {
         buffer = lines.pop() ?? '';
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
-          const payload = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; error?: string };
+          const payload = JSON.parse(line.slice(6)) as { text?: string; done?: boolean; hasHtml?: boolean; base64Map?: string[]; error?: string };
           if (payload.error) throw new Error(payload.error);
+          if (payload.done) {
+            if (payload.hasHtml) {
+              // Restore base64 placeholders locally
+              let restoredHtml = mailerAiHtmlBuf.current;
+              const map = payload.base64Map ?? [];
+              for (let i = 0; i < map.length; i++) {
+                restoredHtml = restoredHtml.split(`__BASE64_${i}__`).join(map[i]);
+              }
+              // Push current HTML onto undo stack (up to 5 levels) then apply new HTML
+              setMailerUndoStack(prev => [...prev.slice(-4), mailerDraft.htmlContent]);
+              setMailerDraft(d => ({ ...d, htmlContent: restoredHtml }));
+              setMailerDirty(true);
+            }
+            setMailerAiState('idle');
+            continue;
+          }
           if (payload.text) {
-            setMailerAiLoading(false); // hide spinner once first token arrives
-            setMailerAiMessages(prev => {
-              const updated = [...prev];
-              updated[updated.length - 1] = { role: 'assistant', content: updated[updated.length - 1].content + payload.text };
-              return updated;
-            });
+            if (!htmlStarted) {
+              // Check if the accumulated stream has reached <!DOCTYPE html
+              accumulatedText += payload.text;
+              const htmlIdx = accumulatedText.toLowerCase().indexOf('<!doctype html');
+              if (htmlIdx >= 0) {
+                // Switch to HTML streaming mode — freeze the bubble at text before doctype
+                htmlStarted = true;
+                mailerAiHtmlBuf.current = accumulatedText.slice(htmlIdx);
+                const textBeforeHtml = accumulatedText.slice(0, htmlIdx).trim();
+                // Freeze the bubble with the pre-HTML text
+                setMailerAiMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { role: 'assistant', content: textBeforeHtml };
+                  return updated;
+                });
+                setMailerAiState('streaming-html');
+              } else {
+                // Still in text phase
+                if (!textStreamingStarted) { textStreamingStarted = true; setMailerAiState('streaming-text'); }
+                setMailerAiMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { role: 'assistant', content: accumulatedText };
+                  return updated;
+                });
+              }
+            } else {
+              // Accumulate HTML tokens in the ref — no re-renders
+              mailerAiHtmlBuf.current += payload.text;
+            }
           }
         }
       }
@@ -300,9 +342,7 @@ export default function MarketingCampaignWorkspace() {
       toast.error(errMsg);
       // Remove the empty placeholder on error
       setMailerAiMessages(prev => prev.slice(0, -1));
-    } finally {
-      setMailerAiLoading(false);
-      setMailerAiStreaming(false);
+      setMailerAiState('idle');
     }
   }
 
@@ -345,7 +385,7 @@ export default function MarketingCampaignWorkspace() {
 
   useEffect(() => {
     mailerAiBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [mailerAiMessages, mailerAiLoading]);
+  }, [mailerAiMessages, mailerAiState]);
 
   // Reset AI history loaded flag when switching mailers
   useEffect(() => {
@@ -551,7 +591,7 @@ export default function MarketingCampaignWorkspace() {
       notes: mailer.notes ?? '',
     });
     setMailerDirty(false);
-    setMailerUndoHtml(null);
+    setMailerUndoStack([]);
     setMailerTab('preview');
   }
 
@@ -1568,9 +1608,40 @@ export default function MarketingCampaignWorkspace() {
                             className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
                           >Clear</button>
                         </div>
+                        {/* Persistent action bar */}
+                        {(mailerUndoStack.length > 0 || mailerDirty) && (
+                          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border shrink-0 bg-muted/30">
+                            {mailerUndoStack.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  const prev = mailerUndoStack[mailerUndoStack.length - 1];
+                                  setMailerUndoStack(s => s.slice(0, -1));
+                                  setMailerDraft(d => ({ ...d, htmlContent: prev }));
+                                  setMailerDirty(true);
+                                }}
+                                className="flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-0.5 hover:bg-amber-100 transition-colors"
+                              >
+                                <Undo2 className="w-3 h-3" />
+                                Undo ({mailerUndoStack.length})
+                              </button>
+                            )}
+                            {mailerDirty && (
+                              <span className="text-[11px] text-muted-foreground">· Unsaved changes</span>
+                            )}
+                            {mailerDirty && (
+                              <button
+                                onClick={saveMailer}
+                                disabled={updateMailerMutation.isPending}
+                                className="ml-auto flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                              >
+                                {updateMailerMutation.isPending ? 'Saving…' : 'Save'}
+                              </button>
+                            )}
+                          </div>
+                        )}
                         {/* Messages */}
                         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
-                          {mailerAiMessages.length === 0 && !mailerAiLoading && (
+                          {mailerAiMessages.length === 0 && mailerAiState === 'idle' && (
                             <div className="text-xs text-muted-foreground text-center py-8">
                               <Bot className="w-8 h-8 mx-auto mb-2 text-violet-300" />
                               <p className="font-medium mb-1">AI has full context of this campaign</p>
@@ -1578,12 +1649,13 @@ export default function MarketingCampaignWorkspace() {
                             </div>
                           )}
                           {mailerAiMessages.map((msg, i) => {
-                            // Detect if assistant message contains HTML
-                            const hasHtml = msg.role === 'assistant' && /<!DOCTYPE html/i.test(msg.content);
-                            // Split text from HTML if both present
-                            const htmlMatch = hasHtml ? msg.content.match(/(<!DOCTYPE html[\s\S]*)/i) : null;
-                            const textPart = hasHtml && htmlMatch ? msg.content.slice(0, htmlMatch.index).trim() : msg.content;
-                            const htmlPart = htmlMatch ? htmlMatch[1] : null;
+                            const isLastAssistant = msg.role === 'assistant' && i === mailerAiMessages.length - 1;
+                            const isStreaming = isLastAssistant && (mailerAiState === 'streaming-text' || mailerAiState === 'streaming-html' || mailerAiState === 'thinking');
+                            // Check for [HTML updated] marker in completed assistant messages
+                            const hasHtmlMarker = msg.role === 'assistant' && msg.content.endsWith('\n[HTML updated]');
+                            const displayText = hasHtmlMarker
+                              ? msg.content.slice(0, -'\n[HTML updated]'.length).trim() || '(HTML updated — see preview)'
+                              : msg.content;
                             return (
                               <div key={i} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                 <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
@@ -1591,62 +1663,30 @@ export default function MarketingCampaignWorkspace() {
                                     ? 'bg-violet-600 text-white rounded-br-sm'
                                     : 'bg-muted text-foreground rounded-bl-sm'
                                 }`}>
-                                  {textPart || (htmlPart ? '(HTML updated — see preview)' : '')}
+                                  {mailerAiState === 'thinking' && isStreaming ? (
+                                    <span className="flex items-center gap-2 text-muted-foreground">
+                                      <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                                      Thinking…
+                                    </span>
+                                  ) : displayText || '\u00A0'}
                                 </div>
-                                {htmlPart && (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {mailerAiStreaming && i === mailerAiMessages.length - 1 ? (
-                                      <span className="flex items-center gap-1.5 text-[11px] font-medium text-violet-500 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1">
-                                        <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin shrink-0" />
-                                        Writing HTML…
-                                      </span>
-                                    ) : (
-                                      <button
-                                        onClick={() => {
-                                          setMailerUndoHtml(mailerDraft.htmlContent);
-                                          setMailerDraft(d => ({ ...d, htmlContent: htmlPart }));
-                                          setMailerDirty(true);
-                                        }}
-                                        className="flex items-center gap-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-100 transition-colors"
-                                      >
-                                        <Check className="w-3 h-3" />
-                                        Apply
-                                      </button>
-                                    )}
-                                    {mailerUndoHtml !== null && !mailerAiStreaming && (
-                                      <button
-                                        onClick={() => {
-                                          setMailerDraft(d => ({ ...d, htmlContent: mailerUndoHtml }));
-                                          setMailerUndoHtml(null);
-                                          setMailerDirty(false);
-                                        }}
-                                        className="flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-colors"
-                                      >
-                                        Undo
-                                      </button>
-                                    )}
-                                    {mailerDirty && !mailerAiStreaming && (
-                                      <button
-                                        onClick={saveMailer}
-                                        disabled={updateMailerMutation.isPending}
-                                        className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                                      >
-                                        {updateMailerMutation.isPending ? 'Saving…' : 'Save'}
-                                      </button>
-                                    )}
-                                  </div>
+                                {/* Streaming-html pill below frozen bubble */}
+                                {isStreaming && mailerAiState === 'streaming-html' && (
+                                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-violet-500 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1">
+                                    <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                                    Rewriting HTML…
+                                  </span>
+                                )}
+                                {/* Applied badge for completed HTML messages */}
+                                {!isStreaming && hasHtmlMarker && (
+                                  <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1">
+                                    <Check className="w-3 h-3" />
+                                    Applied to preview
+                                  </span>
                                 )}
                               </div>
                             );
                           })}
-                          {mailerAiLoading && (
-                            <div className="flex items-start gap-2">
-                              <div className="bg-muted rounded-xl rounded-bl-sm px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-                                <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-                                Thinking…
-                              </div>
-                            </div>
-                          )}
                           <div ref={mailerAiBottomRef} />
                         </div>
                         {/* Input */}
@@ -1667,7 +1707,7 @@ export default function MarketingCampaignWorkspace() {
                             />
                             <button
                               onClick={sendMailerAiMessage}
-                              disabled={mailerAiLoading || !mailerAiInput.trim()}
+                              disabled={mailerAiState !== 'idle' || !mailerAiInput.trim()}
                               className="shrink-0 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white p-2 transition-colors"
                             >
                               <Send className="w-3.5 h-3.5" />
