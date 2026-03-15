@@ -91,7 +91,7 @@ export default function PortalMarketing() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3b8dc6] text-white text-sm font-semibold shadow-sm hover:bg-[#2d7ab5] transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
-            Request Campaign
+            New Campaign
           </button>
         </div>
       </div>
