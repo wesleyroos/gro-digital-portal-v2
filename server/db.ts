@@ -520,7 +520,10 @@ export async function updateTask(
     text,
     clientSlug: clientSlug ?? null,
     clientName: clientName ?? null,
-    ...(opts?.status !== undefined ? { status: opts.status } : {}),
+    ...(opts?.status !== undefined ? {
+      status: opts.status,
+      resolvedAt: opts.status === "resolved" ? new Date() : null,
+    } : {}),
     ...(opts && 'dueDate' in opts ? { dueDate: opts.dueDate ? new Date(opts.dueDate) : null } : {}),
     ...(opts && 'priority' in opts ? { priority: opts.priority ?? null } : {}),
     ...(opts && 'notes' in opts ? { notes: opts.notes ?? null } : {}),

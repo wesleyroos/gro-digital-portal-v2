@@ -610,7 +610,7 @@ function formatTimestamp(d: Date | string | null | undefined): string {
 }
 
 type FeedbackRowProps = {
-  task: { id: number; text: string; status: string; notes: string | null; clientName: string | null; createdAt: Date | string | null };
+  task: { id: number; text: string; status: string; notes: string | null; clientName: string | null; createdAt: Date | string | null; resolvedAt?: Date | string | null };
   triageConfirm: number | null;
   deleteConfirm: number | null;
   onOpen: () => void;
@@ -639,6 +639,8 @@ function FeedbackRow({
   const url = extractUrl(task.notes);
   const description = stripUrlFromNotes(task.notes);
   const timestamp = formatTimestamp(task.createdAt);
+  const resolvedTimestamp = task.resolvedAt ? formatTimestamp(task.resolvedAt) : null;
+  const isResolved = task.status === "resolved";
 
   return (
     <div
@@ -660,7 +662,10 @@ function FeedbackRow({
             </span>
           )}
           {timestamp && (
-            <span className="text-[10px] text-muted-foreground">{timestamp}</span>
+            <span className="text-[10px] text-muted-foreground">Opened: {timestamp}</span>
+          )}
+          {isResolved && resolvedTimestamp && (
+            <span className="text-[10px] text-emerald-600 font-medium">Resolved: {resolvedTimestamp}</span>
           )}
         </div>
       </div>
@@ -726,7 +731,7 @@ function FeedbackRow({
 }
 
 type FeedbackDetailModalProps = {
-  task: { id: number; text: string; status: string; notes: string | null; clientName: string | null; createdAt: Date | string | null };
+  task: { id: number; text: string; status: string; notes: string | null; clientName: string | null; createdAt: Date | string | null; resolvedAt?: Date | string | null };
   onClose: () => void;
   onResolve: () => void;
   onTriage: () => void;
@@ -738,6 +743,7 @@ function FeedbackDetailModal({ task, onClose, onResolve, onTriage, onDelete }: F
   const url = extractUrl(task.notes);
   const description = stripUrlFromNotes(task.notes);
   const timestamp = formatTimestamp(task.createdAt);
+  const resolvedTimestamp = task.resolvedAt ? formatTimestamp(task.resolvedAt) : null;
   const isBug = task.status === "bug";
   const isResolved = task.status === "resolved";
 
@@ -789,8 +795,14 @@ function FeedbackDetailModal({ task, onClose, onResolve, onTriage, onDelete }: F
             )}
             {timestamp && (
               <div>
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Submitted at</p>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Opened</p>
                 <p className="text-xs text-foreground mt-0.5">{timestamp}</p>
+              </div>
+            )}
+            {isResolved && resolvedTimestamp && (
+              <div>
+                <p className="text-[10px] font-medium text-emerald-600 uppercase tracking-wide">Resolved</p>
+                <p className="text-xs text-emerald-700 font-medium mt-0.5">{resolvedTimestamp}</p>
               </div>
             )}
           </div>

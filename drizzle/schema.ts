@@ -96,6 +96,7 @@ export const tasks = mysqlTable("tasks", {
   priority: varchar("priority", { length: 16 }),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  resolvedAt: timestamp("resolvedAt"),
 });
 
 export type Task = typeof tasks.$inferSelect;
