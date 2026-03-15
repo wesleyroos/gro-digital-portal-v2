@@ -1243,7 +1243,7 @@ INSTRUCTIONS:
 - Always include the FULL document starting with <!DOCTYPE html> — never partial snippets.
 - IMPORTANT: The HTML above has base64 images replaced with placeholders like __BASE64_0__. Preserve these placeholders exactly as-is in your output — they will be automatically restored.
 - CRITICAL: Do NOT add, insert, or reference any campaign images unless the user explicitly asks you to add an image. If an image is already in the current HTML, keep it. If not, do not add one.
-- UNSUBSCRIBE LINK: The footer must always contain an unsubscribe link with href="{{{RESEND_UNSUBSCRIBE_URL}}}" — use this exact placeholder, never "#" or any other URL. This placeholder is automatically replaced per recipient when the email is sent.
+- FOOTER LINKS: The footer must always contain (1) a "View in browser" link with href="${req.protocol}://${req.get("host")}/m/${mailerId}" and (2) an unsubscribe link with href="{{{RESEND_UNSUBSCRIBE_URL}}}" — use these exact values, never "#" or placeholder text. This placeholder is automatically replaced per recipient when the email is sent.
 - You may also answer questions or suggest improvements without outputting HTML.
 - Keep responses concise. 1-3 sentences max before the HTML.`;
 
@@ -1298,6 +1298,16 @@ INSTRUCTIONS:
     } finally {
       res.end();
     }
+  });
+
+  // Public view-in-browser — GET /m/:mailerId
+  app.get("/m/:mailerId", async (req: Request, res: Response) => {
+    const mailerId = parseInt(req.params.mailerId, 10);
+    if (isNaN(mailerId)) { res.status(400).send("<p>Invalid mailer ID.</p>"); return; }
+    const mailer = await db.getCampaignMailerById(mailerId);
+    if (!mailer?.htmlContent) { res.status(404).send("<p>Email not found.</p>"); return; }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(mailer.htmlContent);
   });
 
   // Public unsubscribe — GET /unsubscribe?e=<email>&s=<clientSlug>

@@ -1404,7 +1404,7 @@ DESIGN REQUIREMENTS:
 - TYPOGRAPHY: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif. Body 16px line-height 1.6. Muted text #777, 13px.
 - COLOUR PALETTE: white base with one accent colour derived from the brand/assets. Keep it restrained and clean.
 - SPACING: generous padding (40px sections, 30px sides). Lots of white space.
-- FOOTER: white or very light grey (#f8f8f8), small muted text, copyright "© ${new Date().getFullYear()} ${campaign.clientSlug}", unsubscribe link with href="{{{RESEND_UNSUBSCRIBE_URL}}}" (use this exact placeholder — it is replaced automatically per recipient when sending), clean and minimal
+- FOOTER: white or very light grey (#f8f8f8), small muted text, copyright "© ${new Date().getFullYear()} ${campaign.clientSlug}", a "View in browser" link with href="__VIEW_IN_BROWSER_URL__" and an unsubscribe link with href="{{{RESEND_UNSUBSCRIBE_URL}}}" (use these exact placeholders — they are replaced automatically), clean and minimal
 - Mobile: @media max-width 600px — padding 20px sides, font sizes adjust, images 100% width
 - Return ONLY the raw HTML document. No explanation. No markdown. No code fences. Start with <!DOCTYPE html>.`;
 
@@ -1423,8 +1423,10 @@ DESIGN REQUIREMENTS:
           html = html.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
 
           const mailer = await createCampaignMailer(input.campaignId);
-          await updateCampaignMailer(mailer.id, { subject, previewText: previewText ?? null, htmlContent: html });
-          return { ...mailer, subject, previewText: previewText ?? null, htmlContent: html };
+          const baseUrl = `${ctx.req.protocol}://${ctx.req.get('host')}`;
+          const finalHtml = html.replace(/__VIEW_IN_BROWSER_URL__/g, `${baseUrl}/m/${mailer.id}`);
+          await updateCampaignMailer(mailer.id, { subject, previewText: previewText ?? null, htmlContent: finalHtml });
+          return { ...mailer, subject, previewText: previewText ?? null, htmlContent: finalHtml };
         }),
 
       sendTest: protectedProcedure
