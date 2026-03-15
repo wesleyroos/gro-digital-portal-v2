@@ -755,13 +755,23 @@ export const appRouter = router({
 
   campaign: router({
     list: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role === 'client') return getCampaignsByClientSlug(ctx.user.clientSlug!);
-      if (ctx.user.role === 'admin') {
+      let campaigns;
+      if (ctx.user.role === 'client') campaigns = await getCampaignsByClientSlug(ctx.user.clientSlug!);
+      else if (ctx.user.role === 'admin') {
         const assigned: string[] = ctx.user.assignedClients ? JSON.parse(ctx.user.assignedClients) : [];
-        const all = await getCampaigns();
-        return all.filter(c => assigned.includes(c.clientSlug));
+        campaigns = (await getCampaigns()).filter(c => assigned.includes(c.clientSlug));
+      } else {
+        campaigns = await getCampaigns();
       }
-      return getCampaigns();
+      return Promise.all(campaigns.map(async c => {
+        const posts = await getPostsByCampaign(c.id);
+        const dates = posts.map(p => p.scheduledAt ? new Date(p.scheduledAt).getTime() : null).filter((d): d is number => d !== null);
+        return {
+          ...c,
+          firstPostDate: dates.length ? new Date(Math.min(...dates)).toISOString() : null,
+          lastPostDate: dates.length ? new Date(Math.max(...dates)).toISOString() : null,
+        };
+      }));
     }),
 
     get: protectedProcedure

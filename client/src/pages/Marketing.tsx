@@ -49,7 +49,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const ALL_STATUSES = ["discovery", "strategy", "generating", "approval", "active", "completed"] as const;
 
-type SortKey = "name" | "clientSlug" | "status" | "createdAt";
+type SortKey = "name" | "clientSlug" | "status" | "createdAt" | "createdBy" | "firstPostDate";
 type SortDir = "asc" | "desc";
 
 export default function Marketing() {
@@ -281,6 +281,7 @@ export default function Marketing() {
                     { key: "status", label: "Status" },
                     { key: "createdAt", label: "Created" },
                     ...(isSuperAdmin ? [{ key: "createdBy" as SortKey, label: "Set up by" }] : []),
+                    { key: "firstPostDate" as SortKey, label: "Date Range" },
                   ] as { key: SortKey; label: string }[]).map(col => (
                     <th key={col.key} className="text-left px-4 py-3">
                       <button
@@ -339,6 +340,11 @@ export default function Marketing() {
                           {c.createdBy ?? <span className="opacity-40">—</span>}
                         </td>
                       )}
+                      <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums whitespace-nowrap">
+                        {c.firstPostDate && c.lastPostDate ? (
+                          `${new Date(c.firstPostDate).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })} – ${new Date(c.lastPostDate).toLocaleDateString("en-ZA", { day: "2-digit", month: "short", year: "numeric" })}`
+                        ) : <span className="opacity-40">—</span>}
+                      </td>
                       {!isClient && (
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">

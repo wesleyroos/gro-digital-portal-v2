@@ -132,42 +132,57 @@ export default function PortalMarketing() {
           </button>
         </div>
       ) : (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Megaphone className="h-4 w-4 text-[#3b8dc6]" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500">All Campaigns</h2>
-          </div>
-          <div className="space-y-2">
-            {campaigns.map(campaign => (
-              <div
-                key={campaign.id}
-                className={`bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-shadow flex border-l-[3px] ${STATUS_BORDER[campaign.status] ?? "border-l-gray-300"}`}
-                onClick={() => setLocation(`/portal/marketing/${campaign.id}`)}
-              >
-                <div className="flex items-center gap-4 px-4 py-3.5 flex-1 min-w-0">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{campaign.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {campaign.firstPostDate ? (
-                        <p className="text-xs text-gray-400">
-                          {format(new Date(campaign.firstPostDate), "d MMM yyyy")} – {campaign.lastPostDate ? format(new Date(campaign.lastPostDate), "d MMM yyyy") : "ongoing"}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-gray-400">No posts scheduled</p>
-                      )}
-                      {campaign.createdBy && (
-                        <p className="text-xs text-gray-300">· Set up by {campaign.createdBy}</p>
-                      )}
-                    </div>
-                  </div>
-                  <Badge variant="outline" className={`text-[10px] shrink-0 font-semibold px-2 py-0.5 ${STATUS_BADGE[campaign.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                    {STATUS_LABELS[campaign.status] ?? campaign.status}
-                  </Badge>
-                  <ArrowRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="rounded-lg border border-gray-100 overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                {[
+                  { label: "Campaign" },
+                  { label: "Status" },
+                  { label: "Created" },
+                  { label: "Set up by" },
+                  { label: "Date Range" },
+                ].map(col => (
+                  <th key={col.label} className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                    {col.label}
+                  </th>
+                ))}
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 bg-white">
+              {campaigns.map(campaign => (
+                <tr
+                  key={campaign.id}
+                  onClick={() => setLocation(`/portal/marketing/${campaign.id}`)}
+                  className="cursor-pointer hover:bg-gray-50 transition-colors group"
+                >
+                  <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#3b8dc6] transition-colors">
+                    {campaign.name}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 ${STATUS_BADGE[campaign.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                      {STATUS_LABELS[campaign.status] ?? campaign.status}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-xs tabular-nums">
+                    {format(new Date(campaign.createdAt), "dd MMM yyyy")}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-xs">
+                    {campaign.createdBy ?? <span className="opacity-40">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-xs tabular-nums whitespace-nowrap">
+                    {campaign.firstPostDate && campaign.lastPostDate
+                      ? `${format(new Date(campaign.firstPostDate), "dd MMM yyyy")} – ${format(new Date(campaign.lastPostDate), "dd MMM yyyy")}`
+                      : <span className="opacity-40">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-[#3b8dc6] transition-colors" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
