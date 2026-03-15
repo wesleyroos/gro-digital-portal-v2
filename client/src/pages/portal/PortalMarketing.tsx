@@ -147,10 +147,18 @@ export default function PortalMarketing() {
                 <div className="flex items-center gap-4 px-4 py-3.5 flex-1 min-w-0">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{campaign.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {campaign.startDate ? `Started ${format(new Date(campaign.startDate), "d MMM yyyy")}` : "Not started"}
-                      {campaign.endDate ? ` · Ends ${format(new Date(campaign.endDate), "d MMM yyyy")}` : ""}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {campaign.firstPostDate ? (
+                        <p className="text-xs text-gray-400">
+                          {format(new Date(campaign.firstPostDate), "d MMM yyyy")} – {campaign.lastPostDate ? format(new Date(campaign.lastPostDate), "d MMM yyyy") : "ongoing"}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400">No posts scheduled</p>
+                      )}
+                      {campaign.createdBy && (
+                        <p className="text-xs text-gray-300">· Set up by {campaign.createdBy}</p>
+                      )}
+                    </div>
                   </div>
                   <Badge variant="outline" className={`text-[10px] shrink-0 font-semibold px-2 py-0.5 ${STATUS_BADGE[campaign.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
                     {STATUS_LABELS[campaign.status] ?? campaign.status}

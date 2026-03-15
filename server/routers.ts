@@ -2275,7 +2275,17 @@ Only return JSON.`,
     }),
 
     getCampaigns: clientProcedure.query(async ({ ctx }) => {
-      return getCampaignsByClientSlug(ctx.clientSlug);
+      const campaigns = await getCampaignsByClientSlug(ctx.clientSlug);
+      const enriched = await Promise.all(campaigns.map(async c => {
+        const posts = await getPostsByCampaign(c.id);
+        const dates = posts.map(p => p.scheduledAt ? new Date(p.scheduledAt).getTime() : null).filter((d): d is number => d !== null);
+        return {
+          ...c,
+          firstPostDate: dates.length ? new Date(Math.min(...dates)).toISOString() : null,
+          lastPostDate: dates.length ? new Date(Math.max(...dates)).toISOString() : null,
+        };
+      }));
+      return enriched;
     }),
 
     getCampaign: clientProcedure
