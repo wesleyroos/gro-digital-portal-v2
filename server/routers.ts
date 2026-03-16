@@ -29,6 +29,7 @@ import {
   createStandaloneClient,
   deleteClientProfile,
   sendInvoiceEmail,
+  sendWelcomeEmail,
   updateInvoice,
   getLeads,
   createLead,
@@ -2393,7 +2394,7 @@ Only return JSON.`,
         password: z.string().min(8),
         clientSlug: z.string().min(1),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const { nanoid } = await import("nanoid");
         const openId = `client_${nanoid(16)}`;
         const passwordHash = await hashPassword(input.password);
@@ -2404,6 +2405,14 @@ Only return JSON.`,
           passwordHash,
           clientSlug: input.clientSlug,
         });
+        // Send welcome email (non-blocking — don't fail the mutation if email fails)
+        const portalUrl = `${ctx.req.protocol}://${ctx.req.get('host')}`;
+        sendWelcomeEmail({
+          name: input.name,
+          email: input.email.toLowerCase().trim(),
+          password: input.password,
+          portalUrl,
+        }).catch((err) => console.error('[sendWelcomeEmail]', err));
         return { success: true, openId };
       }),
 

@@ -585,6 +585,137 @@ export async function updateInvoice(
 
 // ── Email ──
 
+export async function sendWelcomeEmail(opts: {
+  name: string;
+  email: string;
+  password: string;
+  portalUrl: string;
+}) {
+  const { Resend } = await import('resend');
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY not configured');
+
+  const resend = new Resend(apiKey);
+  const loginUrl = `${opts.portalUrl}/portal`;
+  const firstName = opts.name.split(' ')[0];
+
+  await resend.emails.send({
+    from: 'Gro Digital <hello@grodigital.co.za>',
+    to: opts.email,
+    subject: 'Welcome to your Gro Digital client portal',
+    html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Gro Digital</title>
+</head>
+<body style="margin:0;padding:0;background-color:#EDF2F7;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EDF2F7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom:28px;">
+              <img src="https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773510512118-7qummfmnmo2.jpeg"
+                   alt="Gro Digital" height="44"
+                   style="height:44px;display:block;border-radius:6px;" />
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(58,155,213,0.10);overflow:hidden;">
+
+              <!-- Blue header band -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background:linear-gradient(135deg,#3A9BD5 0%,#2D7AB6 100%);padding:32px 36px 28px;">
+                    <p style="margin:0;font-size:13px;font-weight:600;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:2px;">Client Portal</p>
+                    <h1 style="margin:8px 0 0;font-size:26px;font-weight:800;color:#ffffff;line-height:1.2;">Welcome, ${firstName}!</h1>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Body -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:32px 36px;">
+
+                    <p style="margin:0 0 16px;font-size:15px;color:#2D3748;line-height:1.6;">
+                      Your Gro Digital client portal account is ready. Use the details below to sign in and access your invoices, proposals, and project updates.
+                    </p>
+
+                    <!-- Credentials box -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F7FAFC;border:1px solid #E2E8F0;border-radius:10px;margin:24px 0;">
+                      <tr>
+                        <td style="padding:20px 24px;">
+                          <p style="margin:0 0 14px;font-size:11px;font-weight:700;color:#3A9BD5;text-transform:uppercase;letter-spacing:1.5px;">Your login details</p>
+
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="padding:6px 0;border-bottom:1px solid #E2E8F0;">
+                                <span style="font-size:12px;color:#718096;">Email</span><br/>
+                                <span style="font-size:14px;font-weight:600;color:#1A202C;">${opts.email}</span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:10px 0 0;">
+                                <span style="font-size:12px;color:#718096;">Temporary password</span><br/>
+                                <span style="font-size:14px;font-weight:600;color:#1A202C;font-family:monospace;letter-spacing:0.5px;">${opts.password}</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style="margin:0 0 24px;font-size:13px;color:#718096;line-height:1.5;">
+                      We recommend changing your password after your first sign-in. If you have any trouble accessing the portal, reply to this email and we'll help you out.
+                    </p>
+
+                    <!-- CTA button -->
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background:linear-gradient(135deg,#3A9BD5 0%,#2D7AB6 100%);border-radius:10px;">
+                          <a href="${loginUrl}"
+                             style="display:inline-block;padding:13px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.2px;">
+                            Sign in to your portal →
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 0 8px;" align="center">
+              <p style="margin:0;font-size:12px;color:#A0AEC0;line-height:1.6;">
+                Gro Digital (Pty) Ltd &bull; <a href="https://grodigital.co.za" style="color:#A0AEC0;text-decoration:none;">grodigital.co.za</a><br/>
+                Questions? Email us at <a href="mailto:hello@grodigital.co.za" style="color:#3A9BD5;text-decoration:none;">hello@grodigital.co.za</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  });
+}
+
 export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string, baseUrl: string) {
   const { Resend } = await import('resend');
   const apiKey = process.env.RESEND_API_KEY;
