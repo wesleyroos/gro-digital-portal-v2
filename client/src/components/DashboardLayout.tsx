@@ -28,6 +28,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, Bot, ScrollText, Megaphone, Rocket, Images, Users } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
+import { trpc } from "@/lib/trpc";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 import TaskTray from "./TaskTray";
@@ -134,6 +135,12 @@ function DashboardLayoutContent({
   const allMenuItems = [...menuGroups.flatMap(g => g.items), ...bottomItems];
   const activeMenuItem = allMenuItems.find(item => item.path === location || (item.path !== '/' && location.startsWith(item.path)));
   const isMobile = useIsMobile();
+  const pingMutation = trpc.activity.ping.useMutation();
+
+  useEffect(() => {
+    pingMutation.mutate({ path: location });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location]);
 
   useEffect(() => {
     if (isCollapsed) {

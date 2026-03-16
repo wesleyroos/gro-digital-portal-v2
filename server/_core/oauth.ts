@@ -402,6 +402,7 @@ export function registerOAuthRoutes(app: Express) {
       }
 
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+      db.logUserActivity({ openId: user.openId, action: "login" }).catch(() => {});
 
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.name ?? email,
@@ -1543,6 +1544,7 @@ function gdSubmitAccept(token) {
         loginMethod: "dev",
         lastSignedIn: new Date(),
       });
+      db.logUserActivity({ openId: devOpenId, action: "login" }).catch(() => {});
       const sessionToken = await sdk.createSessionToken(devOpenId, {
         name: "Dev Admin",
         expiresInMs: ONE_YEAR_MS,
@@ -1581,6 +1583,7 @@ function gdSubmitAccept(token) {
         loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
         lastSignedIn: new Date(),
       });
+      db.logUserActivity({ openId: userInfo.openId, action: "login" }).catch(() => {});
 
       const sessionToken = await sdk.createSessionToken(userInfo.openId, {
         name: userInfo.name || "",

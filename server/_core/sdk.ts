@@ -275,7 +275,9 @@ class SDKServer {
     // is fully set up.
     if (sessionUserId === ownerOpenId) {
       // Best-effort DB sync in the background — don't block or fail on errors
-      db.upsertUser({ openId: ownerOpenId, name: "Admin", role: "superAdmin", lastSignedIn: signedInAt }).catch(() => {});
+      db.upsertUser({ openId: ownerOpenId, name: "Admin", role: "superAdmin", lastSignedIn: signedInAt })
+        .then(() => db.touchUserSeen(ownerOpenId))
+        .catch(() => {});
       return {
         id: 1,
         openId: ownerOpenId,
@@ -315,10 +317,7 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
+    db.touchUserSeen(user.openId).catch(() => {});
 
     return user;
   }

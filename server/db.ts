@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -161,6 +161,37 @@ export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(users).orderBy(users.createdAt);
+}
+
+export async function touchUserSeen(openId: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.openId, openId));
+}
+
+export async function logUserActivity(data: {
+  openId: string;
+  action: string;
+  path?: string;
+  meta?: string;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(userActivity).values({
+    openId: data.openId,
+    action: data.action,
+    path: data.path ?? null,
+    meta: data.meta ?? null,
+  });
+}
+
+export async function getUserActivity(openId: string, limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(userActivity)
+    .where(eq(userActivity.openId, openId))
+    .orderBy(desc(userActivity.createdAt))
+    .limit(limit);
 }
 
 export async function getUserByEmailWithPassword(email: string) {

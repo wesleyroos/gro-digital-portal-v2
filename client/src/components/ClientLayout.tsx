@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Megaphone, FileText, Settings2 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
+import { trpc } from "@/lib/trpc";
 import { Button } from "./ui/button";
 import FeedbackWidget from "./FeedbackWidget";
 
@@ -96,6 +97,12 @@ function ClientLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const activeMenuItem = menuItems.find(item => location === item.path || (item.path !== "/portal" && location.startsWith(item.path)));
+  const pingMutation = trpc.activity.ping.useMutation();
+
+  useEffect(() => {
+    pingMutation.mutate({ path: location });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location]);
 
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);

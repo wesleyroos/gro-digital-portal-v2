@@ -18,6 +18,7 @@ export const users = mysqlTable("users", {
   googleRefreshToken: text("googleRefreshToken"),
   googleConnectedEmail: varchar("googleConnectedEmail", { length: 320 }),
   assignedClients: text("assignedClients"),
+  lastSeenAt: timestamp("lastSeenAt"),
 });
 
 export type User = typeof users.$inferSelect;
@@ -413,3 +414,17 @@ export const portalSettings = mysqlTable("portal_settings", {
 });
 
 export type PortalSetting = typeof portalSettings.$inferSelect;
+
+/**
+ * User activity log — login events, page views, and key actions.
+ */
+export const userActivity = mysqlTable("userActivity", {
+  id: int("id").autoincrement().primaryKey(),
+  openId: varchar("openId", { length: 64 }).notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  path: varchar("path", { length: 255 }),
+  meta: varchar("meta", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type UserActivity = typeof userActivity.$inferSelect;

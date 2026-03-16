@@ -13,8 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { Plus, Shuffle, Copy, Trash2, KeyRound, Pencil, X, Check } from "lucide-react";
+import { Plus, Shuffle, Copy, Trash2, KeyRound, Pencil, X, Check, Activity } from "lucide-react";
 
 function generatePassword(): string {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -97,6 +103,12 @@ export default function Users() {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [resetState, setResetState] = useState<ResetState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [activityOpenId, setActivityOpenId] = useState<string | null>(null);
+
+  const activityQuery = trpc.activity.getForUser.useQuery(
+    { openId: activityOpenId ?? "", limit: 50 },
+    { enabled: !!activityOpenId },
+  );
 
   if (user?.role !== "superAdmin") {
     return (
@@ -324,7 +336,8 @@ export default function Users() {
                     <th className="text-left px-4 py-3 font-medium">Email</th>
                     <th className="text-left px-4 py-3 font-medium">Role</th>
                     <th className="text-left px-4 py-3 font-medium">Assigned clients</th>
-                    <th className="text-left px-4 py-3 font-medium">Last sign in</th>
+                    <th className="text-left px-4 py-3 font-medium">Last login</th>
+                    <th className="text-left px-4 py-3 font-medium">Last seen</th>
                     <th className="text-right px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -343,10 +356,22 @@ export default function Users() {
                             : "—"}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
-                          {u.lastSignedIn ? new Date(u.lastSignedIn).toLocaleDateString("en-ZA") : "—"}
+                          {u.lastSignedIn ? new Date(u.lastSignedIn).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                          {u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" }) : "—"}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="View activity"
+                              onClick={() => setActivityOpenId(u.openId)}
+                            >
+                              <Activity className="h-3.5 w-3.5" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -409,7 +434,7 @@ export default function Users() {
                       {/* Edit role inline row */}
                       {editState?.openId === u.openId && (
                         <tr key={`${u.openId}-edit`} className="bg-muted/20 border-b">
-                          <td colSpan={6} className="px-4 py-4">
+                          <td colSpan={7} className="px-4 py-4">
                             <form onSubmit={handleUpdateRole} className="flex flex-wrap gap-3 items-end">
                               <div className="space-y-1">
                                 <Label className="text-xs">Role</Label>
@@ -476,7 +501,7 @@ export default function Users() {
                       {/* Reset password inline row */}
                       {resetState?.openId === u.openId && (
                         <tr key={`${u.openId}-reset`} className="bg-muted/20 border-b">
-                          <td colSpan={6} className="px-4 py-4">
+                          <td colSpan={7} className="px-4 py-4">
                             <form onSubmit={handleResetPassword} className="flex flex-wrap gap-3 items-end">
                               <div className="space-y-1">
                                 <Label className="text-xs">New password</Label>
@@ -526,6 +551,39 @@ export default function Users() {
           )}
         </CardContent>
       </Card>
+
+      <Sheet open={!!activityOpenId} onOpenChange={open => { if (!open) setActivityOpenId(null); }}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>
+              Activity — {users.find(u => u.openId === activityOpenId)?.name ?? activityOpenId}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            {activityQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : !activityQuery.data?.length ? (
+              <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {activityQuery.data.map(row => (
+                  <li key={row.id} className="flex items-start gap-3 text-sm">
+                    <span className="mt-0.5 shrink-0 w-2 h-2 rounded-full bg-muted-foreground/40 mt-2" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium capitalize">{row.action.replace(/_/g, " ")}</span>
+                      {row.path && <span className="ml-1.5 text-muted-foreground truncate">{row.path}</span>}
+                      {row.meta && <span className="ml-1.5 text-muted-foreground truncate">· {row.meta}</span>}
+                      <div className="text-xs text-muted-foreground/70 mt-0.5">
+                        {new Date(row.createdAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

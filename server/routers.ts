@@ -111,6 +111,8 @@ import {
   getAllUsers,
   updateUserAssignedClients,
   updateUserRole,
+  logUserActivity,
+  getUserActivity,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
 import Anthropic from "@anthropic-ai/sdk";
@@ -328,9 +330,9 @@ export const appRouter = router({
           lineTotal: z.number().min(0),
         })),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         const { items, invoiceDate, dueDate, ...invoiceData } = input;
-        return createInvoice(
+        const result = await createInvoice(
           {
             ...invoiceData,
             invoiceDate: new Date(invoiceDate),
@@ -338,6 +340,8 @@ export const appRouter = router({
           },
           items,
         );
+        logUserActivity({ openId: ctx.user.openId, action: "create_invoice", meta: invoiceData.invoiceNumber }).catch(() => {});
+        return result;
       }),
 
     // Admin-only: update invoice status
@@ -503,13 +507,14 @@ export const appRouter = router({
         priority: z.string().nullish(),
         notes: z.string().nullish(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         await createTask(input.text, input.clientSlug, input.clientName, {
           status: input.status ?? undefined,
           dueDate: input.dueDate,
           priority: input.priority,
           notes: input.notes,
         });
+        logUserActivity({ openId: ctx.user.openId, action: "create_task", meta: input.text.slice(0, 255) }).catch(() => {});
         return { success: true };
       }),
 
@@ -563,8 +568,9 @@ export const appRouter = router({
         stage: z.enum(['prospect', 'proposal', 'negotiation', 'cold']).default('prospect'),
         notes: z.string().nullish(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         await createLead(input);
+        logUserActivity({ openId: ctx.user.openId, action: "create_lead", meta: input.name }).catch(() => {});
         return { success: true };
       }),
 
@@ -2419,6 +2425,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         clientSlug: u.clientSlug,
         assignedClients: u.assignedClients ? JSON.parse(u.assignedClients) as string[] : [],
         lastSignedIn: u.lastSignedIn,
+        lastSeenAt: u.lastSeenAt,
         createdAt: u.createdAt,
       }));
     }),
@@ -2485,6 +2492,21 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .mutation(async ({ input }) => {
         await deleteClientUser(input.openId);
         return { success: true };
+      }),
+  }),
+
+  activity: router({
+    ping: protectedProcedure
+      .input(z.object({ path: z.string().max(255) }))
+      .mutation(async ({ ctx, input }) => {
+        logUserActivity({ openId: ctx.user.openId, action: "page_view", path: input.path }).catch(() => {});
+        return { ok: true };
+      }),
+
+    getForUser: superAdminProcedure
+      .input(z.object({ openId: z.string(), limit: z.number().min(1).max(200).default(50) }))
+      .query(async ({ input }) => {
+        return getUserActivity(input.openId, input.limit);
       }),
   }),
 });
