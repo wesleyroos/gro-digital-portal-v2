@@ -2460,7 +2460,7 @@ Only return JSON.`,
         clientSlug: z.string().optional(),
         assignedClients: z.array(z.string()).optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const { nanoid } = await import("nanoid");
         const openId = `user_${nanoid(16)}`;
         const passwordHash = await hashPassword(input.password);
@@ -2475,6 +2475,13 @@ Only return JSON.`,
         if (input.assignedClients?.length) {
           await updateUserAssignedClients(openId, input.assignedClients);
         }
+        const portalUrl = `${ctx.req.protocol}://${ctx.req.get('host')}`;
+        sendWelcomeEmail({
+          name: input.name,
+          email: input.email.toLowerCase().trim(),
+          password: input.password,
+          portalUrl,
+        }).catch((err) => console.error('[sendWelcomeEmail]', err));
         return { success: true, openId };
       }),
 
