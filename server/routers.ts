@@ -1841,6 +1841,7 @@ INSTRUCTIONS:
 
           const resend = new Resend(ENV.resendApiKey);
           const res = await (resend.broadcasts as any).create({
+            name: mailer.subject,
             segmentId,
             from: ENV.resendFromEmail,
             subject: mailer.subject,
