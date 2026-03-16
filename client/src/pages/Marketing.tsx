@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Search, X } from "lucide-react";
+import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Search, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import CampaignAutoAgentModal from "@/components/CampaignAutoAgentModal";
 
 function ReadinessItem({ label, ok, note, warn }: { label: string; ok: boolean; note?: string; warn?: boolean }) {
   const Icon = ok ? CheckCircle2 : warn ? AlertCircle : XCircle;
@@ -72,6 +73,7 @@ export default function Marketing() {
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [showAutoAgent, setShowAutoAgent] = useState(false);
 
   const { data: campaigns, refetch } = trpc.campaign.list.useQuery();
   const { data: clients } = trpc.invoice.clients.useQuery(undefined, { enabled: !isClient });
@@ -204,10 +206,18 @@ export default function Marketing() {
             <p className="text-sm text-muted-foreground mt-0.5">AI-powered social media content automation</p>
           </div>
         </div>
-        <Button onClick={() => setShowNew(true)} size="sm" className="gap-2">
-          <Plus className="w-4 h-4" />
-          New Campaign
-        </Button>
+        <div className="flex items-center gap-2">
+          {isSuperAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setShowAutoAgent(true)} className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              Launch AI Agent
+            </Button>
+          )}
+          <Button onClick={() => setShowNew(true)} size="sm" className="gap-2">
+            <Plus className="w-4 h-4" />
+            New Campaign
+          </Button>
+        </div>
       </div>
 
       {!campaigns || campaigns.length === 0 ? (
@@ -482,6 +492,12 @@ export default function Marketing() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CampaignAutoAgentModal
+        open={showAutoAgent}
+        onClose={() => { setShowAutoAgent(false); refetch(); }}
+        clients={(clients ?? []).map(c => ({ clientSlug: c.clientSlug, clientName: c.clientName }))}
+      />
     </div>
   );
 }
