@@ -1857,6 +1857,7 @@ INSTRUCTIONS:
           await updateCampaignMailer(input.mailerId, {
             status: input.scheduledAt ? 'scheduled' : 'sent',
             sentAt: input.scheduledAt ? null : new Date(),
+            scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
             resendBroadcastId: input.scheduledAt ? broadcastId : null,
           });
 
