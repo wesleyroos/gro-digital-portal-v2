@@ -208,9 +208,10 @@ export default function Marketing() {
         </div>
         <div className="flex items-center gap-2">
           {isSuperAdmin && (
-            <Button variant="outline" size="sm" onClick={() => setShowAutoAgent(true)} className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowAutoAgent(true)} className="gap-2 relative">
               <Sparkles className="w-4 h-4" />
               Launch AI Agent
+              <span className="ml-1 text-[9px] font-semibold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full border border-violet-200">BETA</span>
             </Button>
           )}
           <Button onClick={() => setShowNew(true)} size="sm" className="gap-2">

@@ -8,6 +8,7 @@ import type { ImageModel, AspectRatio } from './_core/imageGeneration';
 
 // ── In-memory state ────────────────────────────────────────────────────────────
 const pendingApprovals = new Map<string, (response: string) => void>();
+const pendingUserMessages = new Map<string, string[]>();
 
 // ── SSE helpers ────────────────────────────────────────────────────────────────
 type SseEvent =
@@ -16,7 +17,9 @@ type SseEvent =
   | { type: 'tool_result'; tool: string; result: string; success: boolean }
   | { type: 'approval_required'; question: string }
   | { type: 'complete'; summary: string; campaignId: number }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'agent_message'; text: string }
+  | { type: 'user_message_echoed'; text: string };
 
 function sendSse(res: Response, event: SseEvent) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -24,6 +27,24 @@ function sendSse(res: Response, event: SseEvent) {
 
 // ── Anthropic tool definitions ─────────────────────────────────────────────────
 const AUTO_AGENT_TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'send_message',
+    description: 'Send a message to the user in the chat panel. Use this to introduce yourself, ask questions, share decisions, or explain what you are about to do.',
+    input_schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+  },
+  {
+    name: 'save_preferences',
+    description: "Save the user's image generation preferences for future campaigns.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        imageModel: { type: 'string', description: 'Image model: dall-e-3, gpt-image-1, or nano-banana-2' },
+        imageStyle: { type: 'string', description: 'Image style e.g. photorealistic, illustration, cinematic' },
+        imageAspectRatio: { type: 'string', description: 'Aspect ratio: 1:1, 4:5, 9:16' },
+      },
+      required: [],
+    },
+  },
   {
     name: 'create_campaign',
     description: 'Create a new marketing campaign for the client.',
@@ -33,6 +54,9 @@ const AUTO_AGENT_TOOLS: Anthropic.Tool[] = [
         name: { type: 'string', description: 'Campaign name (e.g. Q2 2026 Instagram Campaign)' },
         postToInstagram: { type: 'boolean', description: 'Whether to post to Instagram' },
         postToFacebook: { type: 'boolean', description: 'Whether to post to Facebook' },
+        imageModel: { type: 'string', description: 'Image model to use' },
+        imageStyle: { type: 'string', description: 'Image style' },
+        imageAspectRatio: { type: 'string', description: 'Aspect ratio for images' },
       },
       required: ['name'],
     },
@@ -145,6 +169,7 @@ interface AgentContext {
   campaignId: number | null;
   postIds: number[];
   mailerId: number | null;
+  savedPrefs: { imageModel?: string; imageStyle?: string; imageAspectRatio?: string };
 }
 
 // ── Tool executor ──────────────────────────────────────────────────────────────
@@ -157,7 +182,33 @@ async function executeAutoTool(
   aiModel: string,
 ): Promise<string> {
   try {
+    if (name === 'send_message') {
+      sendSse(res, { type: 'agent_message', text: args.text as string });
+      return 'Message sent to user.';
+    }
+
+    if (name === 'save_preferences') {
+      const saves: Promise<void>[] = [];
+      if (args.imageModel) saves.push(db.setSetting('agentPref_imageModel', args.imageModel as string));
+      if (args.imageStyle) saves.push(db.setSetting('agentPref_imageStyle', args.imageStyle as string));
+      if (args.imageAspectRatio) saves.push(db.setSetting('agentPref_imageAspectRatio', args.imageAspectRatio as string));
+      await Promise.all(saves);
+      // Also update campaign image settings
+      if (ctx.campaignId) {
+        await db.updateCampaign(ctx.campaignId, {
+          imageModel: args.imageModel as string ?? undefined,
+          imageStyle: args.imageStyle as string ?? undefined,
+          imageAspectRatio: args.imageAspectRatio as string ?? undefined,
+        });
+      }
+      return `Preferences saved.`;
+    }
+
     if (name === 'create_campaign') {
+      const imageModel = (args.imageModel as string) ?? ctx.savedPrefs.imageModel ?? undefined;
+      const imageStyle = (args.imageStyle as string) ?? ctx.savedPrefs.imageStyle ?? undefined;
+      const imageAspectRatio = (args.imageAspectRatio as string) ?? ctx.savedPrefs.imageAspectRatio ?? undefined;
+
       const campaignId = await db.createCampaign({
         clientSlug: ctx.clientSlug,
         name: args.name as string,
@@ -167,6 +218,9 @@ async function executeAutoTool(
       await db.updateCampaign(campaignId, {
         postToInstagram: args.postToInstagram !== false,
         postToFacebook: args.postToFacebook === true,
+        ...(imageModel ? { imageModel } : {}),
+        ...(imageStyle ? { imageStyle } : {}),
+        ...(imageAspectRatio ? { imageAspectRatio } : {}),
       });
       return `Campaign created with ID ${campaignId}.`;
     }
@@ -458,10 +512,19 @@ async function runCampaignAutoAgent(
   goals: string | undefined,
   res: Response,
 ) {
-  const [clientProfile, existingCampaigns] = await Promise.all([
+  const [clientProfile, existingCampaigns, prefModel, prefStyle, prefRatio] = await Promise.all([
     db.getClientProfile(clientSlug),
     db.getCampaignsByClientSlug(clientSlug),
+    db.getSetting('agentPref_imageModel'),
+    db.getSetting('agentPref_imageStyle'),
+    db.getSetting('agentPref_imageAspectRatio'),
   ]);
+
+  const savedPrefs = {
+    imageModel: prefModel ?? undefined,
+    imageStyle: prefStyle ?? undefined,
+    imageAspectRatio: prefRatio ?? undefined,
+  };
 
   const aiModel = (await db.getSetting('aiModel')) ?? 'claude-sonnet-4-6';
   const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
@@ -469,46 +532,59 @@ async function runCampaignAutoAgent(
   const igConnected = !!clientProfile?.instagramBusinessId && !!clientProfile?.instagramAccessToken;
   const fbConnected = !!clientProfile?.facebookPageId && !!clientProfile?.facebookPageAccessToken;
 
-  const systemPrompt = `You are an autonomous marketing campaign agent for GRO Digital.
-Drive the full campaign setup lifecycle without waiting for instructions.
-Make confident decisions using the client context below. Call request_approval
-only when genuinely uncertain (ambiguous brand voice, choice between valid strategies,
-or after generating sample images).
+  const allPrefsSet = savedPrefs.imageModel && savedPrefs.imageStyle && savedPrefs.imageAspectRatio;
+  const prefsDisplay = allPrefsSet
+    ? `Image model: ${savedPrefs.imageModel}, Style: ${savedPrefs.imageStyle}, Aspect ratio: ${savedPrefs.imageAspectRatio}`
+    : 'None saved yet';
+
+  const systemPrompt = `You are Jarvis, an autonomous marketing campaign agent for GRO Digital.
+You communicate with the user via the chat panel using send_message and request_approval.
+Use send_message to introduce yourself, share decisions, and narrate progress (keep it concise, 1-2 sentences).
+Use request_approval when you need a decision or confirmation before proceeding.
 
 TODAY: ${new Date().toISOString().slice(0, 10)}
 CLIENT: ${clientProfile?.name ?? clientSlug} (slug: ${clientSlug})
 Instagram: ${igConnected ? 'connected' : 'NOT CONNECTED'}
 Facebook: ${fbConnected ? 'connected' : 'NOT CONNECTED'}
-Notes: ${clientProfile?.notes?.slice(0, 200) ?? 'none'}
+Client notes: ${clientProfile?.notes?.slice(0, 200) ?? 'none'}
 Existing campaigns: ${existingCampaigns.length}
 Goals: ${goals ?? 'None specified'}
-Campaign name: ${campaignName ?? 'Generate an appropriate Q+year name'}
+Campaign name: ${campaignName ?? 'Generate appropriate Q+year name'}
+
+SAVED PREFERENCES (from previous runs):
+${prefsDisplay}
 
 LIFECYCLE — execute in order:
-1. create_campaign
-2. save_brand_info — derive from client context + goals
-3. save_strategy — 400-700 word strategy document
-4. generate_calendar — creates all post drafts
-5. generate_post_image for posts 0, 1, 2 (sample batch)
-   → request_approval: "Generated 3 sample images. Generate images for all N posts?"
-   → if yes, generate remaining posts
-6. approve_all_posts
-7. activate_campaign
-8. create_mailer → generate_mailer (purpose: "Campaign launch announcement")
-9. complete
+1. send_message — introduce yourself, briefly confirm the client and goals
+2. request_approval — ask about image preferences: "What image model, style and dimensions should I use? [show options with nano-banana-2/photorealistic/9:16 as recommendation, dall-e-3/artistic/1:1 as alternative]" SKIP this step if all 3 prefs are already saved above.
+3. save_preferences — save their image preferences
+4. create_campaign — use confirmed name and channel settings
+5. send_message — briefly explain where brand voice comes from (client notes, industry, goals)
+6. save_brand_info — derive confidently from context
+7. save_strategy — write 400-700 word strategy, then send_message with 2-3 sentence summary
+8. generate_calendar
+9. generate_post_image for posts 0, 1, 2 (sample batch)
+10. send_message — "Generated 3 sample images. Check the activity log for the URLs."
+11. request_approval — "Shall I generate images for all {N} remaining posts?"
+    → if yes, generate remaining; if no, skip
+12. approve_all_posts
+13. activate_campaign
+14. create_mailer → generate_mailer
+15. complete
 
 RULES:
-- Never ask conversational questions — use context to decide
-- Use request_approval sparingly: ambiguous brand voice, genuinely contested strategy choices, after sample images
-- If Instagram not connected, set postToInstagram=false; use Facebook if connected
-- Keep strategy documents actionable (400-700 words)
-- After each tool call, briefly narrate what you just did (1 sentence)`;
+- Keep send_message text brief (1-2 sentences, conversational tone)
+- Never make up brand info — explain what context you used
+- Use saved preferences; only ask about images if not all 3 are saved
+- If Instagram not connected, set postToInstagram=false
+- After each tool call, do NOT narrate in thinking text — use send_message instead`;
 
   const agentCtx: AgentContext = {
     clientSlug,
     campaignId: null,
     postIds: [],
     mailerId: null,
+    savedPrefs,
   };
 
   const messages: Anthropic.MessageParam[] = [
@@ -518,6 +594,14 @@ RULES:
   let done = false;
 
   for (let round = 0; round < 25 && !done; round++) {
+    // Drain queued user messages
+    const queuedMsgs = pendingUserMessages.get(agentId) ?? [];
+    pendingUserMessages.set(agentId, []);
+    for (const msg of queuedMsgs) {
+      messages.push({ role: 'user', content: msg });
+      sendSse(res, { type: 'user_message_echoed', text: msg });
+    }
+
     const toolUseBlocks: Anthropic.ToolUseBlock[] = [];
 
     // Stream text deltas as thinking events
@@ -617,6 +701,7 @@ export function registerCampaignAutoAgentRoutes(app: Express) {
     req.on('close', () => {
       clearInterval(keepalive);
       pendingApprovals.delete(agentId);
+      pendingUserMessages.delete(agentId);
     });
 
     try {
@@ -641,6 +726,16 @@ export function registerCampaignAutoAgentRoutes(app: Express) {
       resolve(response);
       pendingApprovals.delete(agentId);
     }
+    res.json({ ok: true });
+  });
+
+  // User chat message
+  app.post('/api/agent/campaign-auto/message', (req: Request, res: Response) => {
+    const { agentId, message } = req.body as { agentId: string; message: string };
+    if (!agentId || !message?.trim()) { res.status(400).json({ error: 'agentId and message required' }); return; }
+    const queue = pendingUserMessages.get(agentId) ?? [];
+    queue.push(message.trim());
+    pendingUserMessages.set(agentId, queue);
     res.json({ ok: true });
   });
 }

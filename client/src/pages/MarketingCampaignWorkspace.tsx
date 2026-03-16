@@ -1131,6 +1131,17 @@ export default function MarketingCampaignWorkspace() {
                     Activate Campaign
                   </Button>
                 )}
+                {campaign.status === "active" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-amber-600 border-amber-200 hover:bg-amber-50"
+                    onClick={() => updateStatusMutation.mutate({ id: campaignId, status: "approval" })}
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    Deactivate
+                  </Button>
+                )}
               </div>
 
               {/* Post grid */}
