@@ -226,11 +226,11 @@ function ProspectModal({
                   className="h-8 text-sm"
                   autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") updateProspect.mutate({ id: prospect.id, contactEmail: emailInput });
+                    if (e.key === "Enter") updateProspect.mutate({ id: prospect.id, contactEmail: emailInput.trim() });
                     if (e.key === "Escape") setEditingEmail(false);
                   }}
                 />
-                <Button size="sm" className="h-8" onClick={() => updateProspect.mutate({ id: prospect.id, contactEmail: emailInput })} disabled={updateProspect.isPending}>Save</Button>
+                <Button size="sm" className="h-8" onClick={() => updateProspect.mutate({ id: prospect.id, contactEmail: emailInput.trim() })} disabled={updateProspect.isPending}>Save</Button>
                 <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingEmail(false)}>Cancel</Button>
               </div>
             ) : prospect.contactEmail ? (

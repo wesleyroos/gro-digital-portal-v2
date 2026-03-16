@@ -2224,7 +2224,8 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .mutation(async ({ input, ctx }) => {
         const prospect = await getProspectById(input.prospectId);
         if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
-        if (!prospect.contactEmail) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Add an email address to this prospect first' });
+        const toEmail = prospect.contactEmail?.trim();
+        if (!toEmail) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Add an email address to this prospect first' });
 
         const tokenData = await getGoogleRefreshToken(ctx.user!.openId);
         if (!tokenData) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Connect your Google account in Settings first' });
@@ -2239,7 +2240,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         // so non-ASCII characters (em dash, etc.) render correctly in Gmail
         const encodedSubject = `=?UTF-8?B?${Buffer.from(input.subject).toString('base64')}?=`;
         const rawMessage = [
-          `To: ${prospect.contactEmail}`,
+          `To: ${toEmail}`,
           `Subject: ${encodedSubject}`,
           'Content-Type: text/plain; charset=utf-8',
           'Content-Transfer-Encoding: quoted-printable',
