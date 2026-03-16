@@ -1498,8 +1498,9 @@ export default function MarketingCampaignWorkspace() {
                   <p className="text-[10px] text-muted-foreground mt-1">
                     {(() => {
                       const d = new Date(mailer.scheduledAt ?? mailer.sentAt!);
-                      return d.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
-                        + ' · ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+                      const tz = { timeZone: 'Africa/Johannesburg' };
+                      return d.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', ...tz })
+                        + ' · ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', ...tz });
                     })()}
                   </p>
                 )}
@@ -2220,10 +2221,10 @@ export default function MarketingCampaignWorkspace() {
                           const openRate = row.sentCount > 0 ? ((row.opens / row.sentCount) * 100).toFixed(1) : null;
                           const clickRate = row.sentCount > 0 ? ((row.clicks / row.sentCount) * 100).toFixed(1) : null;
                           const schedDate = row.mailer.scheduledAt
-                            ? new Date(row.mailer.scheduledAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
+                            ? new Date(row.mailer.scheduledAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', timeZone: 'Africa/Johannesburg' })
                             : null;
                           const sentDate = row.mailer.sentAt
-                            ? new Date(row.mailer.sentAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                            ? new Date(row.mailer.sentAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Johannesburg' })
                             : null;
                           return (
                             <tr key={row.mailer.id} className={`border-b last:border-0 transition-colors ${isSent ? 'hover:bg-muted/30' : 'opacity-60 hover:opacity-80 hover:bg-muted/20'}`}>
