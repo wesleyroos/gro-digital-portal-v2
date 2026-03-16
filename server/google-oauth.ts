@@ -24,19 +24,21 @@ function createOAuthClient() {
 export function registerGoogleOAuthRoutes(app: Express) {
   // Initiate Google OAuth consent flow (admin only)
   app.get("/api/auth/google/init", async (req: Request, res: Response) => {
+    let openId: string;
     try {
       const user = await sdk.authenticateRequest(req);
       if (user.role !== "admin" && user.role !== "superAdmin") {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
+      openId = user.openId;
     } catch {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
 
     const state = crypto.randomUUID();
-    stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, openId: user.openId });
+    stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, openId });
 
     const oauthClient = createOAuthClient();
     const authUrl = oauthClient.generateAuthUrl({
