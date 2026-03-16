@@ -1,5 +1,15 @@
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  useDroppable,
+  useDraggable,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -351,33 +361,100 @@ function ProspectModal({
 
 // ── Kanban card ───────────────────────────────────────────────────────────────
 
-function KanbanCard({ prospect, onClick }: { prospect: Prospect; onClick: () => void }) {
+function KanbanCardContent({ prospect, isDragging = false }: { prospect: Prospect; isDragging?: boolean }) {
   const issues: string[] = prospect.issues ? JSON.parse(prospect.issues) : [];
-
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left bg-card border rounded-lg p-3 hover:shadow-md hover:border-foreground/20 transition-all space-y-2 group"
-    >
-      <p className="font-medium text-sm leading-snug group-hover:text-primary transition-colors">
+    <div className={`w-full text-left bg-card border rounded-lg p-3 space-y-2 group transition-all
+      ${isDragging ? "shadow-xl rotate-1 opacity-90 cursor-grabbing" : "hover:shadow-md hover:border-foreground/20 cursor-grab"}`}>
+      <p className="font-medium text-sm leading-snug group-hover:text-primary transition-colors select-none">
         {prospect.businessName}
       </p>
       {prospect.address && (
-        <p className="text-xs text-muted-foreground line-clamp-1">{prospect.address}</p>
+        <p className="text-xs text-muted-foreground line-clamp-1 select-none">{prospect.address}</p>
       )}
       <div className="flex flex-wrap gap-1">
         <ScoreBadge score={prospect.pageSpeedScore} issues={issues} />
         <IssueBadges issues={issues.filter((i) => !i.startsWith("Score:"))} />
       </div>
       {prospect.contactEmail ? (
-        <p className="text-xs text-blue-600 truncate">{prospect.contactEmail}</p>
+        <p className="text-xs text-blue-600 truncate select-none">{prospect.contactEmail}</p>
       ) : (
-        <p className="text-xs text-muted-foreground/60 italic">No email</p>
+        <p className="text-xs text-muted-foreground/60 italic select-none">No email</p>
       )}
       {prospect.status === "emailed" && prospect.lastEmailSubject && (
-        <p className="text-xs text-muted-foreground truncate">✉ {prospect.lastEmailSubject}</p>
+        <p className="text-xs text-muted-foreground truncate select-none">✉ {prospect.lastEmailSubject}</p>
       )}
-    </button>
+    </div>
+  );
+}
+
+function DraggableCard({ prospect, onClick }: { prospect: Prospect; onClick: () => void }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: prospect.id });
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ opacity: isDragging ? 0.3 : 1 }}
+      {...listeners}
+      {...attributes}
+      onPointerDown={(e) => {
+        dragStartPos.current = { x: e.clientX, y: e.clientY };
+        // Call the dnd-kit listener too
+        if (listeners?.onPointerDown) listeners.onPointerDown(e);
+      }}
+      onClick={(e) => {
+        // Only fire click if pointer didn't move much (wasn't a drag)
+        if (dragStartPos.current) {
+          const dx = Math.abs(e.clientX - dragStartPos.current.x);
+          const dy = Math.abs(e.clientY - dragStartPos.current.y);
+          if (dx < 5 && dy < 5) onClick();
+        }
+      }}
+    >
+      <KanbanCardContent prospect={prospect} />
+    </div>
+  );
+}
+
+function DroppableColumn({
+  col,
+  prospects,
+  onCardClick,
+  isOver,
+}: {
+  col: typeof COLUMNS[number];
+  prospects: Prospect[];
+  onCardClick: (p: Prospect) => void;
+  isOver: boolean;
+}) {
+  const { setNodeRef } = useDroppable({ id: col.status });
+
+  return (
+    <div className="flex-shrink-0 w-64">
+      <div className={`flex items-center justify-between px-3 py-2 rounded-t-lg border ${col.headerBg} mb-2`}>
+        <span className={`text-xs font-semibold uppercase tracking-wide ${col.color}`}>{col.label}</span>
+        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${col.headerBg} ${col.color} border`}>
+          {prospects.length}
+        </span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`space-y-2 min-h-[120px] rounded-lg transition-colors p-1 -m-1
+          ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
+      >
+        {prospects.length === 0 ? (
+          <div className={`border-2 border-dashed rounded-lg p-4 text-center text-xs transition-colors
+            ${isOver ? "border-primary/30 text-primary/50" : "border-muted text-muted-foreground/50"}`}>
+            Drop here
+          </div>
+        ) : (
+          prospects.map((p) => (
+            <DraggableCard key={p.id} prospect={p} onClick={() => onCardClick(p)} />
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -385,52 +462,62 @@ function KanbanCard({ prospect, onClick }: { prospect: Prospect; onClick: () => 
 
 function KanbanBoard({ prospects, onRefresh }: { prospects: Prospect[]; onRefresh: () => void }) {
   const [selected, setSelected] = useState<Prospect | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [overId, setOverId] = useState<ProspectStatus | null>(null);
 
-  // Re-select the updated version after refresh
-  function handleRefresh() {
-    onRefresh();
-    if (selected) {
-      // Will be re-set by the refreshed data — close modal to avoid stale state
-      setSelected(null);
-    }
+  const updateStatus = trpc.outreach.prospect.update.useMutation({
+    onSuccess: onRefresh,
+    onError: (e) => toast.error(e.message),
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const activeProspect = activeId ? prospects.find((p) => p.id === activeId) : null;
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+    setOverId(null);
+    if (!over) return;
+    const newStatus = over.id as ProspectStatus;
+    const prospect = prospects.find((p) => p.id === active.id);
+    if (!prospect || prospect.status === newStatus) return;
+    updateStatus.mutate({ id: prospect.id, status: newStatus });
   }
 
   return (
     <>
-      <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
-        {COLUMNS.map((col) => {
-          const cards = prospects.filter((p) => p.status === col.status);
-          return (
-            <div key={col.status} className="flex-shrink-0 w-64">
-              {/* Column header */}
-              <div className={`flex items-center justify-between px-3 py-2 rounded-t-lg border ${col.headerBg} mb-2`}>
-                <span className={`text-xs font-semibold uppercase tracking-wide ${col.color}`}>{col.label}</span>
-                <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${col.headerBg} ${col.color} border`}>
-                  {cards.length}
-                </span>
-              </div>
-              {/* Cards */}
-              <div className="space-y-2 min-h-[120px]">
-                {cards.length === 0 ? (
-                  <div className="border-2 border-dashed rounded-lg p-4 text-center text-xs text-muted-foreground/50">
-                    Empty
-                  </div>
-                ) : (
-                  cards.map((p) => (
-                    <KanbanCard key={p.id} prospect={p} onClick={() => setSelected(p)} />
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <DndContext
+        sensors={sensors}
+        onDragStart={({ active }) => setActiveId(active.id as number)}
+        onDragOver={({ over }) => setOverId(over ? over.id as ProspectStatus : null)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => { setActiveId(null); setOverId(null); }}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
+          {COLUMNS.map((col) => (
+            <DroppableColumn
+              key={col.status}
+              col={col}
+              prospects={prospects.filter((p) => p.status === col.status)}
+              onCardClick={setSelected}
+              isOver={overId === col.status}
+            />
+          ))}
+        </div>
+
+        <DragOverlay>
+          {activeProspect && <KanbanCardContent prospect={activeProspect} isDragging />}
+        </DragOverlay>
+      </DndContext>
 
       {selected && (
         <ProspectModal
           prospect={selected}
           onClose={() => setSelected(null)}
-          onRefresh={handleRefresh}
+          onRefresh={() => { setSelected(null); onRefresh(); }}
         />
       )}
     </>
