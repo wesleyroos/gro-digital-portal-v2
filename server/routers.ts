@@ -2230,11 +2230,14 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
 
         const gmail = google.gmail({ version: 'v1', auth: oauthClient });
 
-        // Build RFC 2822 message
+        // Build RFC 2822 message — encode subject as UTF-8 encoded-word (RFC 2047)
+        // so non-ASCII characters (em dash, etc.) render correctly in Gmail
+        const encodedSubject = `=?UTF-8?B?${Buffer.from(input.subject).toString('base64')}?=`;
         const rawMessage = [
           `To: ${prospect.contactEmail}`,
-          `Subject: ${input.subject}`,
+          `Subject: ${encodedSubject}`,
           'Content-Type: text/plain; charset=utf-8',
+          'Content-Transfer-Encoding: quoted-printable',
           '',
           input.body,
         ].join('\r\n');
