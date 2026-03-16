@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, outreachSequences, outreachSequenceSteps, outreachSends, InsertOutreachProspect, InsertOutreachSequence, InsertOutreachSequenceStep, InsertOutreachSend, mediaFiles, InsertMediaFile } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1561,91 +1561,10 @@ export async function deleteProspect(id: number) {
   await db.delete(outreachProspects).where(eq(outreachProspects.id, id));
 }
 
-// ── Outreach sequences ──
-
-export async function getSequences() {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(outreachSequences).orderBy(asc(outreachSequences.id));
-}
-
-export async function createSequence(data: InsertOutreachSequence) {
+export async function bulkCreateProspects(rows: InsertOutreachProspect[]) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
-  const [result] = await db.insert(outreachSequences).values(data);
-  return result.insertId as number;
-}
-
-export async function updateSequence(id: number, data: Partial<InsertOutreachSequence>) {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
-  await db.update(outreachSequences).set(data).where(eq(outreachSequences.id, id));
-}
-
-export async function deleteSequence(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
-  await db.delete(outreachSequenceSteps).where(eq(outreachSequenceSteps.sequenceId, id));
-  await db.delete(outreachSequences).where(eq(outreachSequences.id, id));
-}
-
-// ── Outreach sequence steps ──
-
-export async function getSequenceSteps(sequenceId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(outreachSequenceSteps).where(eq(outreachSequenceSteps.sequenceId, sequenceId)).orderBy(asc(outreachSequenceSteps.stepNumber));
-}
-
-export async function getSequenceStepById(id: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const rows = await db.select().from(outreachSequenceSteps).where(eq(outreachSequenceSteps.id, id)).limit(1);
-  return rows[0];
-}
-
-export async function createSequenceStep(data: InsertOutreachSequenceStep) {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
-  const [result] = await db.insert(outreachSequenceSteps).values(data);
-  return result.insertId as number;
-}
-
-export async function updateSequenceStep(id: number, data: Partial<InsertOutreachSequenceStep>) {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
-  await db.update(outreachSequenceSteps).set(data).where(eq(outreachSequenceSteps.id, id));
-}
-
-export async function deleteSequenceStep(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
-  await db.delete(outreachSequenceSteps).where(eq(outreachSequenceSteps.id, id));
-}
-
-// ── Outreach sends ──
-
-export async function getSends(prospectId?: number) {
-  const db = await getDb();
-  if (!db) return [];
-  const query = db.select().from(outreachSends);
-  if (prospectId !== undefined) {
-    return query.where(eq(outreachSends.prospectId, prospectId)).orderBy(asc(outreachSends.createdAt));
-  }
-  return query.orderBy(desc(outreachSends.createdAt));
-}
-
-export async function createSend(data: InsertOutreachSend) {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
-  const [result] = await db.insert(outreachSends).values(data);
-  return result.insertId as number;
-}
-
-export async function updateSend(id: number, data: Partial<InsertOutreachSend>) {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
-  await db.update(outreachSends).set(data).where(eq(outreachSends.id, id));
+  await db.insert(outreachProspects).values(rows);
 }
 
 // ── Media library ──

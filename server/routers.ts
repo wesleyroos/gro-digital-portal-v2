@@ -101,18 +101,7 @@ import {
   createProspect,
   updateProspect,
   deleteProspect,
-  getSequences,
-  createSequence,
-  updateSequence,
-  deleteSequence,
-  getSequenceSteps,
-  getSequenceStepById,
-  createSequenceStep,
-  updateSequenceStep,
-  deleteSequenceStep,
-  getSends,
-  createSend,
-  updateSend,
+  bulkCreateProspects,
   getClientUsersBySlug,
   createClientUser,
   deleteClientUser,
@@ -1988,13 +1977,11 @@ INSTRUCTIONS:
           contactName: z.string().optional(),
           contactEmail: z.string().optional(),
           contactPhone: z.string().optional(),
-          linkedinUrl: z.string().optional(),
-          instagramHandle: z.string().optional(),
           website: z.string().optional(),
+          address: z.string().optional(),
           industry: z.string().optional(),
-          location: z.string().optional(),
-          source: z.enum(['discovery', 'manual']).optional(),
-          sourceQuery: z.string().optional(),
+          pageSpeedScore: z.number().nullable().optional(),
+          issues: z.string().optional(),
           notes: z.string().optional(),
         }))
         .mutation(async ({ input }) => {
@@ -2009,12 +1996,12 @@ INSTRUCTIONS:
           contactName: z.string().nullable().optional(),
           contactEmail: z.string().nullable().optional(),
           contactPhone: z.string().nullable().optional(),
-          linkedinUrl: z.string().nullable().optional(),
-          instagramHandle: z.string().nullable().optional(),
           website: z.string().nullable().optional(),
+          address: z.string().nullable().optional(),
           industry: z.string().nullable().optional(),
-          location: z.string().nullable().optional(),
-          status: z.enum(['new', 'in_sequence', 'replied', 'converted', 'unsubscribed']).optional(),
+          pageSpeedScore: z.number().nullable().optional(),
+          issues: z.string().nullable().optional(),
+          status: z.enum(['new', 'emailed', 'replied', 'converted']).optional(),
           notes: z.string().nullable().optional(),
         }))
         .mutation(async ({ input }) => {
@@ -2029,290 +2016,244 @@ INSTRUCTIONS:
           await deleteProspect(input.id);
           return { success: true };
         }),
+    }),
 
-      discover: adminProcedure
-        .input(z.object({ criteria: z.string().min(1) }))
-        .mutation(async ({ input }) => {
-          const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
+    discover: adminProcedure
+      .input(z.object({ criteria: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
 
-          // Use AI to extract structured search params
-          const extraction = await anthropic.messages.create({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 512,
-            messages: [{
-              role: 'user',
-              content: `Extract search parameters from this outreach criteria: "${input.criteria}"
+        // Extract structured search params from natural language
+        const extraction = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 256,
+          messages: [{
+            role: 'user',
+            content: `Extract search parameters from this outreach criteria: "${input.criteria}"
 Return a JSON object with: { searchQuery: string, location: string | null }
 searchQuery should be suitable for Google Places textSearch (e.g. "coffee shops").
 Only return JSON, no explanation.`,
-            }],
-          });
+          }],
+        });
 
-          let searchQuery = input.criteria;
-          let locationHint = '';
-          try {
-            const raw = (extraction.content[0] as { type: string; text: string }).text;
-            const parsed = JSON.parse(raw);
-            searchQuery = parsed.searchQuery ?? input.criteria;
-            locationHint = parsed.location ?? '';
-          } catch { /* use raw criteria */ }
+        let searchQuery = input.criteria;
+        let locationHint = '';
+        try {
+          const raw = (extraction.content[0] as { type: string; text: string }).text;
+          const parsed = JSON.parse(raw);
+          searchQuery = parsed.searchQuery ?? input.criteria;
+          locationHint = parsed.location ?? '';
+        } catch { /* use raw criteria */ }
 
-          if (!ENV.googlePlacesApiKey) {
-            return { candidates: [], error: 'Google Places API key not configured' };
-          }
+        if (!ENV.googlePlacesApiKey) {
+          return { candidates: [], error: 'Google Places API key not configured' };
+        }
 
-          const query = locationHint ? `${searchQuery} in ${locationHint}` : searchQuery;
-          const placesRes = await fetch(
-            'https://places.googleapis.com/v1/places:searchText',
-            {
-              method: 'POST',
-              signal: AbortSignal.timeout(15_000),
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Goog-Api-Key': ENV.googlePlacesApiKey,
-                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.businessStatus',
-              },
-              body: JSON.stringify({ textQuery: query, maxResultCount: 20 }),
+        const query = locationHint ? `${searchQuery} in ${locationHint}` : searchQuery;
+        const placesRes = await fetch(
+          'https://places.googleapis.com/v1/places:searchText',
+          {
+            method: 'POST',
+            signal: AbortSignal.timeout(15_000),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': ENV.googlePlacesApiKey,
+              'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber',
             },
-          );
-          const placesData = await placesRes.json() as { places?: Array<{ displayName?: { text?: string }; formattedAddress?: string; websiteUri?: string; nationalPhoneNumber?: string }> };
+            body: JSON.stringify({ textQuery: query, maxResultCount: 20 }),
+          },
+        );
+        const placesData = await placesRes.json() as { places?: Array<{ displayName?: { text?: string }; formattedAddress?: string; websiteUri?: string; nationalPhoneNumber?: string }> };
+        const places = placesData.places ?? [];
 
-          const candidates = (placesData.places ?? []).map((place) => ({
+        // Enrich each place: PageSpeed score + email scrape (in parallel, best-effort)
+        const enriched = await Promise.all(places.map(async (place) => {
+          const website = place.websiteUri ?? '';
+          let pageSpeedScore: number | null = null;
+          let contactEmail = '';
+          const issues: string[] = [];
+
+          if (!website) {
+            issues.push('No website');
+          } else {
+            // Detect no SSL
+            if (website.startsWith('http://')) {
+              issues.push('No SSL');
+            }
+
+            // PageSpeed Insights (free, no key needed)
+            try {
+              const psRes = await fetch(
+                `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(website)}&strategy=mobile`,
+                { signal: AbortSignal.timeout(10_000) },
+              );
+              if (psRes.ok) {
+                const psData = await psRes.json() as { lighthouseResult?: { categories?: { performance?: { score?: number } } } };
+                const raw = psData.lighthouseResult?.categories?.performance?.score;
+                if (typeof raw === 'number') {
+                  pageSpeedScore = Math.round(raw * 100);
+                  if (pageSpeedScore < 50) {
+                    issues.push(`Score: ${pageSpeedScore}/100`);
+                  }
+                }
+              }
+            } catch { /* ignore timeout / fetch errors */ }
+
+            // Scrape homepage for email address
+            try {
+              const homeRes = await fetch(website, { signal: AbortSignal.timeout(5_000) });
+              if (homeRes.ok) {
+                const html = await homeRes.text();
+                const emails = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
+                // Filter out common false-positives (image files, w3c schema refs, etc.)
+                const filtered = emails.filter(e =>
+                  !e.includes('.png') && !e.includes('.jpg') && !e.includes('.gif') &&
+                  !e.includes('w3.org') && !e.includes('schema.org') && !e.includes('example.')
+                );
+                if (filtered.length > 0) contactEmail = filtered[0];
+              }
+            } catch { /* ignore */ }
+          }
+
+          // Only return businesses with issues (no website or score < 50)
+          const hasIssues = issues.length > 0 || (pageSpeedScore !== null && pageSpeedScore < 50);
+          if (!hasIssues) return null;
+
+          return {
             businessName: place.displayName?.text ?? '',
-            location: place.formattedAddress ?? '',
-            website: place.websiteUri ?? '',
+            address: place.formattedAddress ?? '',
             phone: place.nationalPhoneNumber ?? '',
-          }));
+            website,
+            pageSpeedScore,
+            contactEmail,
+            issues,
+          };
+        }));
 
-          return { candidates, sourceQuery: input.criteria };
-        }),
+        const candidates = enriched.filter(Boolean);
+        return { candidates };
+      }),
 
-      generateMessage: adminProcedure
-        .input(z.object({ prospectId: z.number(), stepId: z.number() }))
-        .mutation(async ({ input }) => {
-          const prospect = await getProspectById(input.prospectId);
-          if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
+    importProspects: adminProcedure
+      .input(z.object({
+        prospects: z.array(z.object({
+          businessName: z.string().min(1),
+          address: z.string().optional(),
+          contactPhone: z.string().optional(),
+          contactEmail: z.string().optional(),
+          website: z.string().optional(),
+          pageSpeedScore: z.number().nullable().optional(),
+          issues: z.string().optional(),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        if (input.prospects.length === 0) return { count: 0 };
+        await bulkCreateProspects(input.prospects);
+        return { count: input.prospects.length };
+      }),
 
-          const db_steps = await getSequenceStepById(input.stepId);
-          if (!db_steps) throw new TRPCError({ code: 'NOT_FOUND', message: 'Step not found' });
+    draftEmail: adminProcedure
+      .input(z.object({ prospectId: z.number(), isFollowUp: z.boolean().optional() }))
+      .mutation(async ({ input }) => {
+        const prospect = await getProspectById(input.prospectId);
+        if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
 
-          const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
-          const channelCtx = db_steps.channel === 'email' ? 'a professional email' : `a ${db_steps.channel} direct message`;
+        const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
+        const issues = prospect.issues ? JSON.parse(prospect.issues) as string[] : [];
+        const issuesSummary = issues.length > 0 ? issues.join(', ') : 'general digital presence improvement';
 
-          const result = await anthropic.messages.create({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 1024,
-            messages: [{
-              role: 'user',
-              content: `Write ${channelCtx} for cold outreach on behalf of GRO Digital, a South African digital marketing agency.
+        const followUpCtx = input.isFollowUp && prospect.lastEmailSubject
+          ? `\n\nThis is a follow-up to a previous email with subject: "${prospect.lastEmailSubject}". Keep it short, reference that you reached out before, and re-emphasise the key point.`
+          : '';
 
-Prospect details:
-- Business: ${prospect.businessName}
+        const result = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          messages: [{
+            role: 'user',
+            content: `Write a short, personalized cold outreach email on behalf of GRO Digital, a South African digital agency based in Pretoria that helps businesses with websites, hosting, and digital marketing.
+
+Business details:
+- Name: ${prospect.businessName}
 - Contact: ${prospect.contactName ?? 'the owner'}
-- Location: ${prospect.location ?? 'South Africa'}
-- Industry: ${prospect.industry ?? 'unknown'}
-- Website: ${prospect.website ?? 'unknown'}
+- Address: ${prospect.address ?? 'South Africa'}
+- Website: ${prospect.website ?? 'no website'}
+- Issues found: ${issuesSummary}${followUpCtx}
 
-Template to personalise:
-${db_steps.messageTemplate}
+Guidelines:
+- Keep it concise (3-4 short paragraphs max)
+- Lead with a specific observation about their detected issue (don't be generic)
+- Don't be pushy — offer a free audit or quick chat
+- Sign off as "Wesley from GRO Digital"
+- South African, professional but friendly tone
 
-${db_steps.subjectTemplate ? `Subject template: ${db_steps.subjectTemplate}\n` : ''}
-Return JSON: { "subject": "...", "message": "..." }
-For non-email channels, subject can be empty string.
-Only return JSON.`,
-            }],
-          });
+Return JSON only: { "subject": "...", "body": "..." }`,
+          }],
+        });
 
-          try {
-            const raw = (result.content[0] as { type: string; text: string }).text;
-            const parsed = JSON.parse(raw);
-            return { subject: parsed.subject ?? '', message: parsed.message ?? '' };
-          } catch {
-            return { subject: '', message: (result.content[0] as { type: string; text: string }).text };
-          }
-        }),
-    }),
-
-    sequence: router({
-      list: adminProcedure.query(async () => {
-        return getSequences();
+        try {
+          const raw = (result.content[0] as { type: string; text: string }).text;
+          const parsed = JSON.parse(raw);
+          return { subject: parsed.subject ?? '', body: parsed.body ?? '' };
+        } catch {
+          return { subject: 'Following up on your website', body: (result.content[0] as { type: string; text: string }).text };
+        }
       }),
 
-      create: adminProcedure
-        .input(z.object({
-          name: z.string().min(1),
-          description: z.string().optional(),
-          targetDescription: z.string().optional(),
-          isActive: z.boolean().optional(),
-        }))
-        .mutation(async ({ input }) => {
-          const id = await createSequence(input);
-          return { id };
-        }),
+    sendEmail: adminProcedure
+      .input(z.object({ prospectId: z.number(), subject: z.string().min(1), body: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        const prospect = await getProspectById(input.prospectId);
+        if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
+        if (!prospect.contactEmail) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Prospect has no email address' });
 
-      update: adminProcedure
-        .input(z.object({
-          id: z.number(),
-          name: z.string().optional(),
-          description: z.string().nullable().optional(),
-          targetDescription: z.string().nullable().optional(),
-          isActive: z.boolean().optional(),
-        }))
-        .mutation(async ({ input }) => {
-          const { id, ...data } = input;
-          await updateSequence(id, data);
-          return { success: true };
-        }),
+        const resend = new Resend(ENV.resendApiKey);
+        const { error } = await resend.emails.send({
+          from: 'GRO Digital <outreach@grodigital.co.za>',
+          to: [prospect.contactEmail],
+          subject: input.subject,
+          html: `<p>${input.body.replace(/\n/g, '<br>')}</p>`,
+        });
 
-      delete: adminProcedure
-        .input(z.object({ id: z.number() }))
-        .mutation(async ({ input }) => {
-          await deleteSequence(input.id);
-          return { success: true };
-        }),
+        if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
 
-      steps: router({
-        list: adminProcedure
-          .input(z.object({ sequenceId: z.number() }))
-          .query(async ({ input }) => {
-            return getSequenceSteps(input.sequenceId);
-          }),
-
-        create: adminProcedure
-          .input(z.object({
-            sequenceId: z.number(),
-            stepNumber: z.number(),
-            delayDays: z.number().default(0),
-            channel: z.enum(['email', 'linkedin', 'instagram']),
-            subjectTemplate: z.string().optional(),
-            messageTemplate: z.string().min(1),
-          }))
-          .mutation(async ({ input }) => {
-            const id = await createSequenceStep(input);
-            return { id };
-          }),
-
-        update: adminProcedure
-          .input(z.object({
-            id: z.number(),
-            stepNumber: z.number().optional(),
-            delayDays: z.number().optional(),
-            channel: z.enum(['email', 'linkedin', 'instagram']).optional(),
-            subjectTemplate: z.string().nullable().optional(),
-            messageTemplate: z.string().optional(),
-          }))
-          .mutation(async ({ input }) => {
-            const { id, ...data } = input;
-            await updateSequenceStep(id, data);
-            return { success: true };
-          }),
-
-        delete: adminProcedure
-          .input(z.object({ id: z.number() }))
-          .mutation(async ({ input }) => {
-            await deleteSequenceStep(input.id);
-            return { success: true };
-          }),
+        await updateProspect(input.prospectId, {
+          status: 'emailed',
+          lastEmailSubject: input.subject,
+          lastEmailBody: input.body,
+          lastEmailSentAt: new Date(),
+        });
+        return { success: true };
       }),
-    }),
 
-    send: router({
-      list: adminProcedure
-        .input(z.object({ prospectId: z.number().optional() }))
-        .query(async ({ input }) => {
-          return getSends(input.prospectId);
-        }),
+    markReplied: adminProcedure
+      .input(z.object({ prospectId: z.number() }))
+      .mutation(async ({ input }) => {
+        await updateProspect(input.prospectId, { status: 'replied' });
+        return { success: true };
+      }),
 
-      enqueueSequence: adminProcedure
-        .input(z.object({ prospectId: z.number(), sequenceId: z.number() }))
-        .mutation(async ({ input }) => {
-          const steps = await getSequenceSteps(input.sequenceId);
-          if (steps.length === 0) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sequence has no steps' });
+    convertToLead: adminProcedure
+      .input(z.object({ prospectId: z.number() }))
+      .mutation(async ({ input }) => {
+        const prospect = await getProspectById(input.prospectId);
+        if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
 
-          const now = new Date();
-          for (const step of steps) {
-            const scheduledAt = new Date(now.getTime() + step.delayDays * 24 * 60 * 60 * 1000);
-            await createSend({
-              prospectId: input.prospectId,
-              sequenceId: input.sequenceId,
-              stepId: step.id,
-              channel: step.channel,
-              subject: step.subjectTemplate ?? null,
-              message: step.messageTemplate,
-              status: 'draft',
-              scheduledAt,
-            });
-          }
-
-          await updateProspect(input.prospectId, { status: 'in_sequence' });
-          return { success: true, count: steps.length };
-        }),
-
-      approveDraft: adminProcedure
-        .input(z.object({ id: z.number(), subject: z.string().optional(), message: z.string().optional() }))
-        .mutation(async ({ input }) => {
-          const { id, ...updates } = input;
-          await updateSend(id, { status: 'approved', ...updates });
-          return { success: true };
-        }),
-
-      sendEmail: adminProcedure
-        .input(z.object({ id: z.number() }))
-        .mutation(async ({ input }) => {
-          const sends = await getSends();
-          const send = sends.find(s => s.id === input.id);
-          if (!send) throw new TRPCError({ code: 'NOT_FOUND', message: 'Send not found' });
-          if (send.channel !== 'email') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Not an email send' });
-
-          const prospect = await getProspectById(send.prospectId);
-          if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
-          if (!prospect.contactEmail) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Prospect has no email address' });
-
-          const resend = new Resend(ENV.resendApiKey);
-          const { data, error } = await resend.emails.send({
-            from: 'GRO Digital <outreach@grodigital.co.za>',
-            to: [prospect.contactEmail],
-            subject: send.subject ?? '(No subject)',
-            html: `<p>${(send.message ?? '').replace(/\n/g, '<br>')}</p>`,
-
-          });
-
-          if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
-
-          await updateSend(input.id, { status: 'sent', sentAt: new Date(), resendMessageId: data?.id ?? null });
-          return { success: true };
-        }),
-
-      markReplied: adminProcedure
-        .input(z.object({ id: z.number() }))
-        .mutation(async ({ input }) => {
-          const sends = await getSends();
-          const send = sends.find(s => s.id === input.id);
-          if (!send) throw new TRPCError({ code: 'NOT_FOUND', message: 'Send not found' });
-
-          await updateSend(input.id, { status: 'replied' });
-
-          const prospect = await getProspectById(send.prospectId);
-          if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
-
-          await updateProspect(send.prospectId, { status: 'replied' });
-
-          if (!prospect.leadId) {
-            const leadId = await createLead({
-              name: prospect.businessName,
-              contactName: prospect.contactName ?? undefined,
-              contactEmail: prospect.contactEmail ?? undefined,
-              contactPhone: prospect.contactPhone ?? undefined,
-              stage: 'prospect',
-              notes: 'Auto-created from outreach reply',
-            });
-            await updateProspect(send.prospectId, { leadId });
-            return { success: true, leadId };
-          }
-
+        if (prospect.leadId) {
           return { success: true, leadId: prospect.leadId };
-        }),
-    }),
+        }
+
+        const leadId = await createLead({
+          name: prospect.businessName,
+          contactName: prospect.contactName ?? undefined,
+          contactEmail: prospect.contactEmail ?? undefined,
+          contactPhone: prospect.contactPhone ?? undefined,
+          stage: 'prospect',
+          notes: `Converted from outreach. Issues: ${prospect.issues ?? 'none'}`,
+        });
+        await updateProspect(input.prospectId, { status: 'converted', leadId });
+        return { success: true, leadId };
+      }),
   }),
 
   // ── Client portal — scoped to the logged-in client's own data ──
