@@ -1556,7 +1556,6 @@ export async function getMailerAnalytics(campaignId: number) {
   const ids = mailerRows.map(m => m.id);
   const events = await db.select().from(mailerEvents).where(inArray(mailerEvents.mailerId, ids));
   return mailerRows
-    .filter(m => m.status === 'sent' || events.some(e => e.mailerId === m.id))
     .map(m => {
       const mEvents = events.filter(e => e.mailerId === m.id);
       const opens = mEvents.filter(e => e.type === 'open').length;

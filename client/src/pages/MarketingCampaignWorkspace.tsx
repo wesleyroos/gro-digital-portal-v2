@@ -2164,24 +2164,26 @@ export default function MarketingCampaignWorkspace() {
                 </div>
               );
               const rows = mailerAnalytics ?? [];
-              const totalSent = rows.reduce((s, r) => s + r.sentCount, 0);
-              const totalOpens = rows.reduce((s, r) => s + r.opens, 0);
-              const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
+              // Summary stats only from sent mailers
+              const sentRows = rows.filter(r => r.mailer.status === 'sent');
+              const totalSent = sentRows.reduce((s, r) => s + r.sentCount, 0);
+              const totalOpens = sentRows.reduce((s, r) => s + r.opens, 0);
+              const totalClicks = sentRows.reduce((s, r) => s + r.clicks, 0);
               const avgOpenRate = totalSent > 0 ? ((totalOpens / totalSent) * 100).toFixed(1) : null;
               const avgClickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : null;
 
               if (!rows.length) return (
                 <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                  <p className="text-sm text-muted-foreground">No sent mailers yet — analytics will appear here once emails have been sent.</p>
+                  <p className="text-sm text-muted-foreground">No mailers yet — analytics will appear here once emails have been sent.</p>
                 </div>
               );
 
               return (
                 <div className="space-y-4">
-                  {/* Summary cards */}
+                  {/* Summary cards — sent mailers only */}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     {[
-                      { label: 'Sent', value: totalSent.toLocaleString(), color: 'text-foreground' },
+                      { label: 'Sent', value: totalSent > 0 ? totalSent.toLocaleString() : '—', color: 'text-foreground' },
                       { label: 'Opens', value: totalOpens.toLocaleString(), color: 'text-emerald-600' },
                       { label: 'Open Rate', value: avgOpenRate ? `${avgOpenRate}%` : '—', color: 'text-emerald-600' },
                       { label: 'Clicks', value: totalClicks.toLocaleString(), color: 'text-blue-600' },
@@ -2200,7 +2202,8 @@ export default function MarketingCampaignWorkspace() {
                       <thead>
                         <tr className="bg-muted/50 border-b">
                           <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Subject</th>
-                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sent</th>
+                          <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recipients</th>
                           <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Opens</th>
                           <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Open Rate</th>
                           <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-blue-600">Clicks</th>
@@ -2209,32 +2212,34 @@ export default function MarketingCampaignWorkspace() {
                       </thead>
                       <tbody>
                         {rows.map(row => {
+                          const isSent = row.mailer.status === 'sent';
                           const openRate = row.sentCount > 0 ? ((row.opens / row.sentCount) * 100).toFixed(1) : null;
                           const clickRate = row.sentCount > 0 ? ((row.clicks / row.sentCount) * 100).toFixed(1) : null;
+                          const schedDate = row.mailer.scheduledAt
+                            ? new Date(row.mailer.scheduledAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
+                            : null;
+                          const sentDate = row.mailer.sentAt
+                            ? new Date(row.mailer.sentAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : null;
                           return (
-                            <tr key={row.mailer.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                            <tr key={row.mailer.id} className={`border-b last:border-0 transition-colors ${isSent ? 'hover:bg-muted/30' : 'opacity-60 hover:opacity-80 hover:bg-muted/20'}`}>
                               <td className="px-3 py-3">
                                 <p className="text-xs font-medium">{row.mailer.subject || '(No subject)'}</p>
-                                {row.mailer.sentAt && (
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                                    {new Date(row.mailer.sentAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                  </p>
-                                )}
-                                {row.topLinks.length > 0 && (
-                                  <div className="mt-1.5 space-y-0.5">
-                                    {row.topLinks.map(l => (
-                                      <p key={l.url} className="text-[10px] text-muted-foreground truncate max-w-xs">
-                                        <span className="font-medium text-blue-600">{l.count}×</span> {l.url}
-                                      </p>
-                                    ))}
-                                  </div>
-                                )}
+                                {sentDate && <p className="text-[10px] text-muted-foreground mt-0.5">Sent {sentDate}</p>}
                               </td>
-                              <td className="px-3 py-3 text-right tabular-nums text-foreground">{row.sentCount > 0 ? row.sentCount.toLocaleString() : '—'}</td>
-                              <td className="px-3 py-3 text-right tabular-nums text-emerald-600 font-semibold">{row.opens.toLocaleString()}</td>
-                              <td className="px-3 py-3 text-right tabular-nums text-emerald-600">{openRate ? `${openRate}%` : '—'}</td>
-                              <td className="px-3 py-3 text-right tabular-nums text-blue-600 font-semibold">{row.clicks.toLocaleString()}</td>
-                              <td className="px-3 py-3 text-right tabular-nums text-blue-600">{clickRate ? `${clickRate}%` : '—'}</td>
+                              <td className="px-3 py-3">
+                                {isSent
+                                  ? <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Sent</span>
+                                  : row.mailer.status === 'scheduled'
+                                    ? <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Scheduled{schedDate ? ` ${schedDate}` : ''}</span>
+                                    : <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Draft</span>
+                                }
+                              </td>
+                              <td className="px-3 py-3 text-right tabular-nums text-foreground">{isSent ? (row.sentCount > 0 ? row.sentCount.toLocaleString() : '—') : '—'}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-emerald-600 font-semibold">{isSent ? row.opens.toLocaleString() : '—'}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-emerald-600">{isSent ? (openRate ? `${openRate}%` : '—') : '—'}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-blue-600 font-semibold">{isSent ? row.clicks.toLocaleString() : '—'}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-blue-600">{isSent ? (clickRate ? `${clickRate}%` : '—') : '—'}</td>
                             </tr>
                           );
                         })}
