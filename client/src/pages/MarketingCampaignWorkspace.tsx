@@ -159,7 +159,17 @@ export default function MarketingCampaignWorkspace() {
     onError: () => toast.error('Failed to create mailer'),
   });
   const updateMailerMutation = trpc.campaign.mailer.update.useMutation({
-    onSuccess: () => { refetchMailers(); setMailerDirty(false); setMailerUndoStack([]); setMailerRedoStack([]); toast.success('Saved'); },
+    onSuccess: (data) => {
+      refetchMailers();
+      setMailerDirty(false);
+      setMailerUndoStack([]);
+      setMailerRedoStack([]);
+      if (data.cancelledBroadcast) {
+        toast.warning("Scheduled send cancelled — changes saved. You'll need to re-schedule the broadcast.");
+      } else {
+        toast.success('Saved');
+      }
+    },
     onError: () => toast.error('Failed to save mailer'),
   });
   const deleteMailerMutation = trpc.campaign.mailer.delete.useMutation({

@@ -1317,6 +1317,7 @@ export async function updateCampaignMailer(id: number, data: {
   sentAt?: Date | null;
   notes?: string | null;
   sentCount?: number;
+  resendBroadcastId?: string | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');

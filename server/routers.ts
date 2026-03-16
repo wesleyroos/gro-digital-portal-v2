@@ -1338,15 +1338,30 @@ export const appRouter = router({
             const campaign = await getCampaignById(mailer.campaignId);
             if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
           }
+
+          // If this mailer is scheduled in Resend, cancel it before saving changes
+          // so the old version doesn't send. User must re-schedule explicitly.
+          let cancelledBroadcast = false;
+          if (mailer?.status === 'scheduled' && mailer.resendBroadcastId && ENV.resendApiKey) {
+            try {
+              const resend = new Resend(ENV.resendApiKey);
+              await (resend.broadcasts as any).cancel(mailer.resendBroadcastId);
+              cancelledBroadcast = true;
+            } catch (e) {
+              console.warn('[Mailer update] Failed to cancel Resend broadcast:', e);
+            }
+          }
+
           await updateCampaignMailer(input.id, {
             subject: input.subject,
             previewText: input.previewText,
             htmlContent: input.htmlContent,
-            status: input.status,
-            scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : input.scheduledAt === null ? null : undefined,
+            status: cancelledBroadcast ? 'draft' : input.status,
+            scheduledAt: cancelledBroadcast ? null : (input.scheduledAt ? new Date(input.scheduledAt) : input.scheduledAt === null ? null : undefined),
             notes: input.notes,
+            ...(cancelledBroadcast ? { resendBroadcastId: null } : {}),
           });
-          return { success: true };
+          return { success: true, cancelledBroadcast };
         }),
 
       delete: protectedProcedure
@@ -1831,6 +1846,7 @@ INSTRUCTIONS:
           await updateCampaignMailer(input.mailerId, {
             status: input.scheduledAt ? 'scheduled' : 'sent',
             sentAt: input.scheduledAt ? null : new Date(),
+            resendBroadcastId: input.scheduledAt ? broadcastId : null,
           });
 
           // Record how many were sent to

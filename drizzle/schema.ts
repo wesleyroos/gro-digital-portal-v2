@@ -327,6 +327,7 @@ export const campaignMailers = mysqlTable('campaignMailers', {
   scheduledAt: timestamp('scheduledAt'),
   sentAt: timestamp('sentAt'),
   sentCount: int('sentCount').default(0).notNull(),
+  resendBroadcastId: varchar('resendBroadcastId', { length: 255 }),
   notes: text('notes'),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   updatedAt: timestamp('updatedAt').defaultNow().onUpdateNow().notNull(),
