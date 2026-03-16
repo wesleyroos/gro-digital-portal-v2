@@ -34,4 +34,5 @@ export const ENV = {
   googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY ?? "",
   hunterApiKey: process.env.HUNTER_API_KEY ?? "",
   portalUrl: process.env.PORTAL_URL ?? "",
+  appUrl: process.env.APP_URL ?? "",
 };

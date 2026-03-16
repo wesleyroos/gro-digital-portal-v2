@@ -3,6 +3,7 @@ import type { Express, Request, Response } from "express";
 import { decodeJwt } from "jose";
 import { sdk } from "./_core/sdk";
 import { storeGoogleTokens } from "./db";
+import { ENV } from "./_core/env";
 
 // In-memory CSRF state store: state nonce → { expiry, openId }
 const stateStore = new Map<string, { expiry: number; openId: string }>();
@@ -81,12 +82,14 @@ export function registerGoogleOAuthRoutes(app: Express) {
 
       if (!tokens.refresh_token) {
         console.error("[Google OAuth] No refresh token returned — user may have already connected previously");
-        res.redirect(302, "/settings?google=connected");
+        const base = ENV.appUrl || '';
+        res.redirect(302, `${base}/settings?google=connected`);
         return;
       }
 
       await storeGoogleTokens(openId, tokens.refresh_token, email);
-      res.redirect(302, "/settings?google=connected");
+      const base = ENV.appUrl || '';
+      res.redirect(302, `${base}/settings?google=connected`);
     } catch (error) {
       console.error("[Google OAuth] Callback error:", error);
       res.status(500).json({ error: "Google OAuth callback failed" });
