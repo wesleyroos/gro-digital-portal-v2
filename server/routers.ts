@@ -1851,7 +1851,7 @@ INSTRUCTIONS:
 
           // Record how many were sent to
           try {
-            const countRes = await (resend.contacts as any).list({ segmentId, limit: 1 });
+            const countRes = await (resend.contacts as any).list({ segmentId, limit: 1000 });
             const sentCount = countRes?.data?.total ?? countRes?.data?.data?.length ?? 0;
             await updateCampaignMailer(input.mailerId, { sentCount });
           } catch { /* best effort */ }
