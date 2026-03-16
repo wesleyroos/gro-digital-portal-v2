@@ -26,7 +26,7 @@ export function registerGoogleOAuthRoutes(app: Express) {
   app.get("/api/auth/google/init", async (req: Request, res: Response) => {
     try {
       const user = await sdk.authenticateRequest(req);
-      if (user.role !== "admin") {
+      if (user.role !== "admin" && user.role !== "superAdmin") {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
@@ -65,7 +65,7 @@ export function registerGoogleOAuthRoutes(app: Express) {
     let user;
     try {
       user = await sdk.authenticateRequest(req);
-      if (user.role !== "admin") {
+      if (user.role !== "admin" && user.role !== "superAdmin") {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
