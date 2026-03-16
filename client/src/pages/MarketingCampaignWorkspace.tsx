@@ -164,8 +164,10 @@ export default function MarketingCampaignWorkspace() {
       setMailerDirty(false);
       setMailerUndoStack([]);
       setMailerRedoStack([]);
-      if (data.cancelledBroadcast) {
-        toast.warning("Scheduled send cancelled — changes saved. You'll need to re-schedule the broadcast.");
+      if (data.broadcastUpdated) {
+        toast.success('Saved and synced to Resend');
+      } else if (data.cannotSyncToResend) {
+        toast.warning("Saved locally. Couldn't sync to Resend — cancel and re-schedule this broadcast to use the latest content.");
       } else {
         toast.success('Saved');
       }

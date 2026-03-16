@@ -1339,16 +1339,27 @@ export const appRouter = router({
             if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
           }
 
-          // If this mailer is scheduled in Resend, cancel it before saving changes
-          // so the old version doesn't send. User must re-schedule explicitly.
-          let cancelledBroadcast = false;
-          if (mailer?.status === 'scheduled' && mailer.resendBroadcastId && ENV.resendApiKey) {
-            try {
-              const resend = new Resend(ENV.resendApiKey);
-              await (resend.broadcasts as any).cancel(mailer.resendBroadcastId);
-              cancelledBroadcast = true;
-            } catch (e) {
-              console.warn('[Mailer update] Failed to cancel Resend broadcast:', e);
+          // If this mailer is scheduled in Resend, push updated HTML/subject so
+          // the scheduled send uses the latest content.
+          let broadcastUpdated = false;
+          let cannotSyncToResend = false;
+          if (mailer?.status === 'scheduled' && ENV.resendApiKey) {
+            if (mailer.resendBroadcastId) {
+              try {
+                const resend = new Resend(ENV.resendApiKey);
+                const htmlToSync = input.htmlContent ?? mailer.htmlContent;
+                await (resend.broadcasts as any).update(mailer.resendBroadcastId, {
+                  ...(htmlToSync ? { html: instrumentMailerHtml(htmlToSync, input.id, ENV.portalUrl ?? 'https://app.grodigital.co.za') } : {}),
+                  ...(input.subject ? { subject: input.subject } : {}),
+                });
+                broadcastUpdated = true;
+              } catch (e) {
+                console.warn('[Mailer update] Failed to update Resend broadcast:', e);
+              }
+            } else {
+              // Scheduled in Resend before we started tracking broadcast IDs —
+              // we don't know which broadcast to update.
+              cannotSyncToResend = true;
             }
           }
 
@@ -1356,12 +1367,11 @@ export const appRouter = router({
             subject: input.subject,
             previewText: input.previewText,
             htmlContent: input.htmlContent,
-            status: cancelledBroadcast ? 'draft' : input.status,
-            scheduledAt: cancelledBroadcast ? null : (input.scheduledAt ? new Date(input.scheduledAt) : input.scheduledAt === null ? null : undefined),
+            status: input.status,
+            scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : input.scheduledAt === null ? null : undefined,
             notes: input.notes,
-            ...(cancelledBroadcast ? { resendBroadcastId: null } : {}),
           });
-          return { success: true, cancelledBroadcast };
+          return { success: true, broadcastUpdated, cannotSyncToResend };
         }),
 
       delete: protectedProcedure
