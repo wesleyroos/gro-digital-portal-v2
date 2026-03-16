@@ -1494,9 +1494,13 @@ export default function MarketingCampaignWorkspace() {
                     'bg-gray-100 text-gray-600'
                   }`}>{mailer.status}</span>
                 </div>
-                {mailer.scheduledAt && (
+                {(mailer.scheduledAt || mailer.sentAt) && (
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    {new Date(mailer.scheduledAt).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {(() => {
+                      const d = new Date(mailer.scheduledAt ?? mailer.sentAt!);
+                      return d.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })
+                        + ' · ' + d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+                    })()}
                   </p>
                 )}
               </button>
