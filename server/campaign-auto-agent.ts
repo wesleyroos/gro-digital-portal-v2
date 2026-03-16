@@ -28,6 +28,17 @@ function sendSse(res: Response, event: SseEvent) {
 // ── Anthropic tool definitions ─────────────────────────────────────────────────
 const AUTO_AGENT_TOOLS: Anthropic.Tool[] = [
   {
+    name: 'browse_website',
+    description: 'Fetch and read the text content of a public website URL to understand the business brand, offerings, tone, and identity. Use this before setting brand info.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Full URL including https://' },
+      },
+      required: ['url'],
+    },
+  },
+  {
     name: 'send_message',
     description: 'Send a message to the user in the chat panel. Use this to introduce yourself, ask questions, share decisions, or explain what you are about to do.',
     input_schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
@@ -182,6 +193,26 @@ async function executeAutoTool(
   aiModel: string,
 ): Promise<string> {
   try {
+    if (name === 'browse_website') {
+      const url = args.url as string;
+      if (!url?.startsWith('http')) return 'Error: URL must start with http:// or https://';
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GRODigital-Jarvis/1.0)' },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) return `Error: HTTP ${response.status} fetching ${url}`;
+      const html = await response.text();
+      const text = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 5000);
+      return `Content from ${url}:\n\n${text}`;
+    }
+
     if (name === 'send_message') {
       sendSse(res, { type: 'agent_message', text: args.text as string });
       return 'Message sent to user.';
@@ -556,21 +587,22 @@ ${prefsDisplay}
 
 LIFECYCLE — execute in order:
 1. send_message — introduce yourself, briefly confirm the client and goals
-2. request_approval — ask about image preferences: "What image model, style and dimensions should I use? [show options with nano-banana-2/photorealistic/9:16 as recommendation, dall-e-3/artistic/1:1 as alternative]" SKIP this step if all 3 prefs are already saved above.
-3. save_preferences — save their image preferences
-4. create_campaign — use confirmed name and channel settings
-5. send_message — briefly explain where brand voice comes from (client notes, industry, goals)
-6. save_brand_info — derive confidently from context
-7. save_strategy — write 400-700 word strategy, then send_message with 2-3 sentence summary
-8. generate_calendar
-9. generate_post_image for posts 0, 1, 2 (sample batch)
-10. send_message — "Generated 3 sample images. Check the activity log for the URLs."
-11. request_approval — "Shall I generate images for all {N} remaining posts?"
+2. browse_website — if you can find a URL in the client notes or infer one from the client name/slug, browse it now to understand their brand, offerings, and tone. Tell the user what you found via send_message.
+3. request_approval — ask about image preferences: show options with nano-banana-2/photorealistic/9:16 as recommendation. SKIP if all 3 prefs are already saved above.
+4. save_preferences — save their image preferences
+5. create_campaign — use confirmed name and channel settings
+6. send_message — briefly explain what context you used to derive brand voice (website, notes, goals)
+7. save_brand_info — derive confidently from website content + context
+8. save_strategy — write 400-700 word strategy, then send_message with 2-3 sentence summary
+9. generate_calendar
+10. generate_post_image for posts 0, 1, 2 (sample batch)
+11. send_message — tell the user 3 sample images are ready and share what you can see about them
+12. request_approval — "Shall I generate images for all remaining posts?"
     → if yes, generate remaining; if no, skip
-12. approve_all_posts
-13. activate_campaign
-14. create_mailer → generate_mailer
-15. complete
+13. approve_all_posts
+14. activate_campaign
+15. create_mailer → generate_mailer
+16. complete
 
 RULES:
 - Keep send_message text brief (1-2 sentences, conversational tone)

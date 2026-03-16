@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useLocation } from "wouter";
 import {
   Dialog,
@@ -48,6 +49,7 @@ interface Props {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const TOOL_LABELS: Record<string, string> = {
+  browse_website: "Browsing website...",
   send_message: "Sending message...",
   save_preferences: "Saving preferences...",
   create_campaign: "Creating campaign...",
@@ -89,11 +91,19 @@ export default function CampaignAutoAgentModal({ open, onClose, clients }: Props
   const agentIdRef = useRef<string>("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const activityEndRef = useRef<HTMLDivElement>(null);
+  const latestApprovalRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatLog]);
+
+  // Auto-focus approval input when paused
+  useEffect(() => {
+    if (phase === "paused") {
+      setTimeout(() => latestApprovalRef.current?.focus(), 100);
+    }
+  }, [phase]);
 
   useEffect(() => {
     activityEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -412,8 +422,8 @@ export default function CampaignAutoAgentModal({ open, onClose, clients }: Props
                         <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                           J
                         </div>
-                        <div className="bg-violet-50 border border-violet-100 rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-foreground leading-relaxed max-w-[85%]">
-                          {entry.text}
+                        <div className="bg-violet-50 border border-violet-100 rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-foreground leading-relaxed max-w-[85%] prose prose-sm max-w-none [&>p]:mb-1 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:list-inside [&>ul]:mb-1 [&>ol]:list-decimal [&>ol]:list-inside [&>ol]:mb-1 [&>li]:mb-0.5 [&>strong]:font-semibold [&>code]:bg-violet-100 [&>code]:px-1 [&>code]:rounded [&>code]:text-xs [&>code]:font-mono">
+                          <ReactMarkdown>{entry.text}</ReactMarkdown>
                         </div>
                       </div>
                     );
@@ -437,20 +447,22 @@ export default function CampaignAutoAgentModal({ open, onClose, clients }: Props
                           <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                             J
                           </div>
-                          <div className="bg-violet-50 border border-violet-100 rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-foreground leading-relaxed max-w-[85%]">
-                            {entry.question}
+                          <div className="bg-violet-50 border border-violet-100 rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-foreground leading-relaxed max-w-[85%] prose prose-sm max-w-none [&>p]:mb-1 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:list-inside [&>ul]:mb-1 [&>ol]:list-decimal [&>ol]:list-inside [&>ol]:mb-1 [&>li]:mb-0.5 [&>strong]:font-semibold">
+                            <ReactMarkdown>{entry.question}</ReactMarkdown>
                           </div>
                         </div>
                         {/* Approval input card */}
                         {!entry.answered ? (
-                          <div className="ml-8 border border-amber-300 bg-amber-50 rounded-xl p-3 space-y-2">
-                            <div className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
-                              Approval required
+                          <div className="ml-8 border-2 border-amber-400 bg-amber-50 rounded-xl p-3 space-y-2 shadow-sm">
+                            <div className="text-xs font-semibold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              Reply required
                             </div>
                             <div className="flex gap-2">
                               <Input
-                                className="bg-white border-amber-200 text-sm h-8 flex-1"
-                                placeholder="Type your response..."
+                                ref={latestApprovalRef}
+                                className="bg-white border-amber-200 text-sm h-9 flex-1"
+                                placeholder="Type your reply and press Enter..."
                                 value={approvalInputs[entry.id] ?? ""}
                                 onChange={(e) =>
                                   setApprovalInputs((prev) => ({
@@ -464,10 +476,10 @@ export default function CampaignAutoAgentModal({ open, onClose, clients }: Props
                               />
                               <Button
                                 size="sm"
-                                className="h-8 shrink-0 bg-amber-500 hover:bg-amber-600"
+                                className="h-9 shrink-0 bg-amber-500 hover:bg-amber-600"
                                 onClick={() => submitApproval(entry.id)}
                               >
-                                Confirm
+                                Send
                               </Button>
                             </div>
                           </div>
@@ -515,6 +527,20 @@ export default function CampaignAutoAgentModal({ open, onClose, clients }: Props
                 })}
                 <div ref={chatEndRef} />
               </div>
+
+              {/* Paused banner */}
+              {phase === "paused" && (
+                <div
+                  className="px-3 py-2 bg-amber-50 border-t border-amber-300 shrink-0 flex items-center justify-between cursor-pointer hover:bg-amber-100 transition-colors"
+                  onClick={() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); setTimeout(() => latestApprovalRef.current?.focus(), 150); }}
+                >
+                  <span className="text-xs font-medium text-amber-700 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Jarvis is waiting for your reply
+                  </span>
+                  <span className="text-xs text-amber-600 font-medium">↑ Scroll to reply</span>
+                </div>
+              )}
 
               {/* Chat input */}
               <div className="px-3 py-3 border-t shrink-0 flex gap-2">
