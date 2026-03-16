@@ -2160,62 +2160,91 @@ Only return JSON, no explanation.`,
 
         const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
         const issues = prospect.issues ? JSON.parse(prospect.issues) as string[] : [];
-        const issuesSummary = issues.length > 0 ? issues.join(', ') : 'general digital presence improvement';
 
-        const followUpCtx = input.isFollowUp && prospect.lastEmailSubject
-          ? `\n\nThis is a follow-up to a previous email with subject: "${prospect.lastEmailSubject}". Keep it short, reference that you reached out before, and re-emphasise the key point.`
-          : '';
+        const isFollowUp = input.isFollowUp && !!prospect.lastEmailSubject;
+
+        const systemPrompt = `You are Wesley Roos, founder of GRO Digital — a boutique digital agency based in Pretoria, South Africa. You help small and medium businesses get found online, look credible, and win more customers through professional websites, fast hosting, and digital marketing.
+
+Your outreach emails are:
+- Warm, direct, and human — never corporate or salesy
+- Specific to what YOU noticed about THEIR business — not a generic template
+- Short: under 150 words in the body. Every sentence earns its place.
+- Focused on ONE clear pain point and what it's costing them
+- Offering something genuinely useful (free website audit, quick call) with zero pressure
+- Signed off personally as Wesley, with your contact details
+
+You never use hollow phrases like "I hope this finds you well", "I wanted to reach out", or "touching base". Get straight to the point.`;
+
+        const userPrompt = isFollowUp
+          ? `Write a short follow-up email to ${prospect.businessName}. I emailed them previously with subject: "${prospect.lastEmailSubject}" but haven't heard back.
+
+Keep it to 2-3 sentences. Acknowledge you reached out before, re-state the one key point briefly, and make it easy to reply. No pressure.
+
+Business: ${prospect.businessName}
+Address: ${prospect.address ?? 'Pretoria area'}
+Original issue: ${issues.join(', ') || 'website quality'}
+
+Return JSON only — no markdown, no code fences: { "subject": "Re: [original subject]", "body": "..." }`
+          : `Write a cold outreach email to ${prospect.businessName}.
+
+What I found:
+${issues.map(i => `- ${i}`).join('\n') || '- No website found'}
+${prospect.website ? `Website: ${prospect.website}` : 'They have no website at all.'}
+Address: ${prospect.address ?? 'Pretoria area'}
+
+Lead with the specific issue I found — make it clear this isn't a mass email. Offer a free website audit or a 15-minute call. Keep it under 120 words in the body.
+
+Return JSON only — no markdown, no code fences: { "subject": "...", "body": "..." }`;
 
         const result = await anthropic.messages.create({
           model: 'claude-sonnet-4-6',
           max_tokens: 1024,
-          messages: [{
-            role: 'user',
-            content: `Write a short, personalized cold outreach email on behalf of GRO Digital, a South African digital agency based in Pretoria that helps businesses with websites, hosting, and digital marketing.
-
-Business details:
-- Name: ${prospect.businessName}
-- Contact: ${prospect.contactName ?? 'the owner'}
-- Address: ${prospect.address ?? 'South Africa'}
-- Website: ${prospect.website ?? 'no website'}
-- Issues found: ${issuesSummary}${followUpCtx}
-
-Guidelines:
-- Keep it concise (3-4 short paragraphs max)
-- Lead with a specific observation about their detected issue (don't be generic)
-- Don't be pushy — offer a free audit or quick chat
-- Sign off as "Wesley from GRO Digital"
-- South African, professional but friendly tone
-
-Return JSON only: { "subject": "...", "body": "..." }`,
-          }],
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
         });
 
         try {
           const raw = (result.content[0] as { type: string; text: string }).text;
-          const parsed = JSON.parse(raw);
+          // Strip any markdown code fences Claude might add despite instructions
+          const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+          const parsed = JSON.parse(stripped);
           return { subject: parsed.subject ?? '', body: parsed.body ?? '' };
         } catch {
-          return { subject: 'Following up on your website', body: (result.content[0] as { type: string; text: string }).text };
+          return { subject: 'Quick question about your website', body: (result.content[0] as { type: string; text: string }).text };
         }
       }),
 
-    sendEmail: adminProcedure
+    saveGmailDraft: adminProcedure
       .input(z.object({ prospectId: z.number(), subject: z.string().min(1), body: z.string().min(1) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const prospect = await getProspectById(input.prospectId);
         if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
-        if (!prospect.contactEmail) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Prospect has no email address' });
+        if (!prospect.contactEmail) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Add an email address to this prospect first' });
 
-        const resend = new Resend(ENV.resendApiKey);
-        const { error } = await resend.emails.send({
-          from: 'GRO Digital <outreach@grodigital.co.za>',
-          to: [prospect.contactEmail],
-          subject: input.subject,
-          html: `<p>${input.body.replace(/\n/g, '<br>')}</p>`,
+        const tokenData = await getGoogleRefreshToken(ctx.user!.openId);
+        if (!tokenData) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Connect your Google account in Settings first' });
+
+        const { google } = await import('googleapis');
+        const oauthClient = new google.auth.OAuth2(ENV.googleClientId, ENV.googleClientSecret, ENV.googleRedirectUri);
+        oauthClient.setCredentials({ refresh_token: tokenData.refreshToken });
+
+        const gmail = google.gmail({ version: 'v1', auth: oauthClient });
+
+        // Build RFC 2822 message
+        const rawMessage = [
+          `To: ${prospect.contactEmail}`,
+          `Subject: ${input.subject}`,
+          'Content-Type: text/plain; charset=utf-8',
+          '',
+          input.body,
+        ].join('\r\n');
+
+        const encoded = Buffer.from(rawMessage).toString('base64url');
+
+        await gmail.users.drafts.create({
+          userId: 'me',
+          requestBody: { message: { raw: encoded } },
         });
-
-        if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
 
         await updateProspect(input.prospectId, {
           status: 'emailed',

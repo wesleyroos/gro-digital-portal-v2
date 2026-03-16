@@ -257,6 +257,14 @@ function ProspectCard({ prospect, onRefresh }: { prospect: Prospect; onRefresh: 
   const [editSubject, setEditSubject] = useState("");
   const [editBody, setEditBody] = useState("");
 
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState(prospect.contactEmail ?? "");
+
+  const updateProspect = trpc.outreach.prospect.update.useMutation({
+    onSuccess: () => { setEditingEmail(false); onRefresh(); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const draftEmail = trpc.outreach.draftEmail.useMutation({
     onSuccess: (data) => {
       setDraft(data);
@@ -266,9 +274,9 @@ function ProspectCard({ prospect, onRefresh }: { prospect: Prospect; onRefresh: 
     onError: (e) => toast.error(e.message),
   });
 
-  const sendEmail = trpc.outreach.sendEmail.useMutation({
+  const saveGmailDraft = trpc.outreach.saveGmailDraft.useMutation({
     onSuccess: () => {
-      toast.success("Email sent!");
+      toast.success("Saved to Gmail drafts!");
       setDraft(null);
       onRefresh();
     },
@@ -294,9 +302,9 @@ function ProspectCard({ prospect, onRefresh }: { prospect: Prospect; onRefresh: 
     draftEmail.mutate({ prospectId: prospect.id, isFollowUp });
   }
 
-  function handleSend() {
+  function handleSaveDraft() {
     if (!editSubject.trim() || !editBody.trim()) return;
-    sendEmail.mutate({ prospectId: prospect.id, subject: editSubject, body: editBody });
+    saveGmailDraft.mutate({ prospectId: prospect.id, subject: editSubject, body: editBody });
   }
 
   return (
@@ -316,13 +324,41 @@ function ProspectCard({ prospect, onRefresh }: { prospect: Prospect; onRefresh: 
           </div>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             {prospect.address && <span>{prospect.address}</span>}
-            {prospect.contactEmail && <span className="text-blue-600">{prospect.contactEmail}</span>}
             {prospect.contactPhone && <span>{prospect.contactPhone}</span>}
             {prospect.website && (
               <a href={prospect.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground">
                 {prospect.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                 <ExternalLink className="h-3 w-3" />
               </a>
+            )}
+          </div>
+          {/* Email address row */}
+          <div className="flex items-center gap-2 mt-1">
+            {editingEmail ? (
+              <>
+                <Input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="contact@business.co.za"
+                  className="h-7 text-xs max-w-[220px]"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") updateProspect.mutate({ id: prospect.id, contactEmail: emailInput });
+                    if (e.key === "Escape") setEditingEmail(false);
+                  }}
+                />
+                <Button size="sm" className="h-7 text-xs px-2" onClick={() => updateProspect.mutate({ id: prospect.id, contactEmail: emailInput })} disabled={updateProspect.isPending}>Save</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setEditingEmail(false)}>Cancel</Button>
+              </>
+            ) : prospect.contactEmail ? (
+              <button onClick={() => { setEmailInput(prospect.contactEmail ?? ""); setEditingEmail(true); }} className="text-xs text-blue-600 hover:underline">
+                {prospect.contactEmail}
+              </button>
+            ) : (
+              <button onClick={() => { setEmailInput(""); setEditingEmail(true); }} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                <Mail className="h-3 w-3" /> Add email address
+              </button>
             )}
           </div>
         </div>
@@ -364,19 +400,19 @@ function ProspectCard({ prospect, onRefresh }: { prospect: Prospect; onRefresh: 
               className="mt-1 text-sm font-mono"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               size="sm"
-              onClick={handleSend}
-              disabled={sendEmail.isPending || !prospect.contactEmail}
+              onClick={handleSaveDraft}
+              disabled={saveGmailDraft.isPending || !prospect.contactEmail}
             >
-              {sendEmail.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Send
+              {saveGmailDraft.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Save to Gmail drafts
             </Button>
             {!prospect.contactEmail && (
-              <p className="text-xs text-muted-foreground self-center">Add an email address to this prospect first</p>
+              <p className="text-xs text-amber-600 self-center">↑ Add an email address above first</p>
             )}
-            <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
+            <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Discard</Button>
           </div>
         </div>
       )}
@@ -528,7 +564,7 @@ export default function Outreach() {
   const prospectsQuery = trpc.outreach.prospect.list.useQuery();
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-4xl">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Outreach</h1>
         <p className="text-muted-foreground text-sm mt-1">Find businesses with poor web presence and send targeted outreach.</p>
