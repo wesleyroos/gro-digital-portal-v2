@@ -1312,6 +1312,14 @@ export const appRouter = router({
           return getMailerAnalytics(input.campaignId);
         }),
 
+      getAnalyticsByShareToken: publicProcedure
+        .input(z.object({ token: z.string() }))
+        .query(async ({ input }) => {
+          const campaign = await getCampaignByShareToken(input.token);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          return getMailerAnalytics(campaign.id);
+        }),
+
       create: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
         .mutation(async ({ ctx, input }) => {
