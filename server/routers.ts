@@ -2076,11 +2076,6 @@ Only return JSON, no explanation.`,
           if (!website) {
             issues.push('No website');
           } else {
-            // Detect no SSL
-            if (website.startsWith('http://')) {
-              issues.push('No SSL');
-            }
-
             // PageSpeed Insights (free, no key needed)
             try {
               const psRes = await fetch(
@@ -2099,9 +2094,13 @@ Only return JSON, no explanation.`,
               }
             } catch { /* ignore timeout / fetch errors */ }
 
-            // Scrape homepage for email address
+            // Scrape homepage for email address + check real SSL by following redirects
             try {
               const homeRes = await fetch(website, { signal: AbortSignal.timeout(5_000) });
+              // Check the final URL after redirects — Google Places often stores http:// for sites that redirect to https://
+              if (!homeRes.url.startsWith('https://')) {
+                issues.push('No SSL');
+              }
               if (homeRes.ok) {
                 const html = await homeRes.text();
                 const emails = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
