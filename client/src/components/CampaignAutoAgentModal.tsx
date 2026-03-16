@@ -324,7 +324,7 @@ export default function CampaignAutoAgentModal({ open, onClose, clients }: Props
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-5xl h-[88vh] flex flex-col gap-0 p-0 overflow-hidden">
+      <DialogContent className="w-[92vw] max-w-5xl h-[88vh] flex flex-col gap-0 p-0 overflow-hidden sm:max-w-5xl">
         <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Sparkles className="w-4 h-4 text-violet-500" />
