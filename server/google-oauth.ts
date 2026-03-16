@@ -4,8 +4,8 @@ import { decodeJwt } from "jose";
 import { sdk } from "./_core/sdk";
 import { storeGoogleTokens } from "./db";
 
-// In-memory CSRF state store: state nonce → expiry timestamp
-const stateStore = new Map<string, number>();
+// In-memory CSRF state store: state nonce → { expiry, openId }
+const stateStore = new Map<string, { expiry: number; openId: string }>();
 
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar",
@@ -36,7 +36,7 @@ export function registerGoogleOAuthRoutes(app: Express) {
     }
 
     const state = crypto.randomUUID();
-    stateStore.set(state, Date.now() + 10 * 60 * 1000); // 10-min TTL
+    stateStore.set(state, { expiry: Date.now() + 10 * 60 * 1000, openId: user.openId });
 
     const oauthClient = createOAuthClient();
     const authUrl = oauthClient.generateAuthUrl({
@@ -55,24 +55,16 @@ export function registerGoogleOAuthRoutes(app: Express) {
     const code = req.query.code as string;
 
     // Verify CSRF state nonce
-    const expiry = stateStore.get(state);
-    if (!expiry || Date.now() > expiry) {
+    const stateData = stateStore.get(state);
+    if (!stateData || Date.now() > stateData.expiry) {
       res.status(400).json({ error: "Invalid or expired state" });
       return;
     }
     stateStore.delete(state);
 
-    let user;
-    try {
-      user = await sdk.authenticateRequest(req);
-      if (user.role !== "admin" && user.role !== "superAdmin") {
-        res.status(403).json({ error: "Forbidden" });
-        return;
-      }
-    } catch {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
+    // openId was stored when the flow started — no need to re-read session cookie
+    // (Google's redirect may not carry SameSite=Strict cookies)
+    const openId = stateData.openId;
 
     try {
       const oauthClient = createOAuthClient();
@@ -91,7 +83,7 @@ export function registerGoogleOAuthRoutes(app: Express) {
         return;
       }
 
-      await storeGoogleTokens(user.openId, tokens.refresh_token, email);
+      await storeGoogleTokens(openId, tokens.refresh_token, email);
       res.redirect(302, "/settings?google=connected");
     } catch (error) {
       console.error("[Google OAuth] Callback error:", error);
