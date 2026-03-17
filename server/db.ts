@@ -1,4 +1,4 @@
-import { eq, inArray, sql, asc, desc, and, isNotNull } from "drizzle-orm";
+import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity } from "../drizzle/schema";
@@ -1462,6 +1462,24 @@ export async function getCampaignMailers(campaignId: number) {
   return db.select().from(campaignMailers).where(eq(campaignMailers.campaignId, campaignId)).orderBy(asc(campaignMailers.createdAt));
 }
 
+export async function autoTransitionScheduledMailers(campaignId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const now = new Date();
+  const stale = await db.select({ id: campaignMailers.id, scheduledAt: campaignMailers.scheduledAt })
+    .from(campaignMailers)
+    .where(and(
+      eq(campaignMailers.campaignId, campaignId),
+      eq(campaignMailers.status, 'scheduled'),
+      lte(campaignMailers.scheduledAt, now),
+    ));
+  for (const m of stale) {
+    await db.update(campaignMailers)
+      .set({ status: 'sent', sentAt: m.scheduledAt ?? now })
+      .where(eq(campaignMailers.id, m.id));
+  }
+}
+
 export async function createCampaignMailer(campaignId: number) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
@@ -1492,6 +1510,7 @@ export async function updateCampaignMailer(id: number, data: {
   if (data.sentAt !== undefined) set.sentAt = data.sentAt;
   if (data.notes !== undefined) set.notes = data.notes;
   if (data.sentCount !== undefined) set.sentCount = data.sentCount;
+  if (data.resendBroadcastId !== undefined) set.resendBroadcastId = data.resendBroadcastId;
   if (Object.keys(set).length === 0) return;
   await db.update(campaignMailers).set(set).where(eq(campaignMailers.id, id));
 }

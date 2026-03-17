@@ -80,6 +80,7 @@ import {
   deleteCampaignAsset,
   updateCampaignAssetDescription,
   getCampaignMailers,
+  autoTransitionScheduledMailers,
   createCampaignMailer,
   updateCampaignMailer,
   deleteCampaignMailer,
@@ -1298,6 +1299,7 @@ export const appRouter = router({
         .query(async ({ ctx, input }) => {
           const campaign = await getCampaignById(input.campaignId);
           if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          await autoTransitionScheduledMailers(input.campaignId);
           return getCampaignMailers(input.campaignId);
         }),
 
@@ -1306,6 +1308,7 @@ export const appRouter = router({
         .query(async ({ ctx, input }) => {
           const campaign = await getCampaignById(input.campaignId);
           if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          await autoTransitionScheduledMailers(input.campaignId);
           return getMailerAnalytics(input.campaignId);
         }),
 
@@ -2336,6 +2339,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .query(async ({ ctx, input }) => {
         const campaign = await getCampaignById(input.campaignId);
         if (!campaign || campaign.clientSlug !== ctx.clientSlug) return [];
+        await autoTransitionScheduledMailers(input.campaignId);
         return getCampaignMailers(input.campaignId);
       }),
 
