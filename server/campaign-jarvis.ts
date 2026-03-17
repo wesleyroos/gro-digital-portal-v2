@@ -556,13 +556,15 @@ FULL LIFECYCLE (only execute steps not yet done):
 7. ${posts.length > 0 ? 'SKIP (calendar already generated)' : 'generate_calendar'}
 8. ${posts.length === 0 ? 'SKIP until calendar exists' : posts.filter(p => !p.imageUrl).length === 0 ? 'SKIP (all images generated)' : `generate_post_image for posts 0, 1, 2 (sample batch) — then request_approval to continue with remaining ${posts.length - 3} posts`}
 9. ${posts.every(p => p.status === 'approved') ? 'SKIP (all approved)' : 'approve_all_posts'}
-10. ${campaign.status === 'active' ? 'SKIP (already active)' : 'activate_campaign'}
-11. create_mailer → generate_mailer (purpose: "Campaign launch announcement")
-12. complete
+10. create_mailer → generate_mailer (purpose: "Campaign launch announcement")
+11. request_approval — "Everything is ready. Shall I activate the campaign?" — ALWAYS ask before activating, never activate automatically
+12. ${campaign.status === 'active' ? 'SKIP (already active)' : 'activate_campaign — only if approved in step 11'}
+13. complete
 
 RULES:
 - Use send_message to narrate — never just think out loud
-- Use request_approval sparingly (only for image batch approval, genuinely contested decisions)
+- NEVER activate the campaign without explicit human approval via request_approval first
+- Use request_approval for: image batch continuation, campaign activation
 - If Instagram not connected, set postToInstagram=false when relevant
 - Never make up brand info — explain what context you used`;
 

@@ -79,7 +79,7 @@ export default function Marketing() {
   const [jarvisClientSlug, setJarvisClientSlug] = useState("");
   const [jarvisGoals, setJarvisGoals] = useState("");
 
-  const { data: campaigns, refetch } = trpc.campaign.list.useQuery();
+  const { data: campaigns, refetch } = trpc.campaign.list.useQuery(undefined, { staleTime: 0 });
   const { data: clients } = trpc.invoice.clients.useQuery(undefined, { enabled: !isClient });
 
   const { data: igStatus } = trpc.instagram.getStatus.useQuery(
