@@ -113,6 +113,7 @@ import {
   updateUserRole,
   logUserActivity,
   getUserActivity,
+  touchUserSeen,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
 import Anthropic from "@anthropic-ai/sdk";
@@ -2501,6 +2502,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .input(z.object({ path: z.string().max(255) }))
       .mutation(async ({ ctx, input }) => {
         logUserActivity({ openId: ctx.user.openId, action: "page_view", path: input.path }).catch(() => {});
+        touchUserSeen(ctx.user.openId).catch(() => {});
         return { ok: true };
       }),
 
