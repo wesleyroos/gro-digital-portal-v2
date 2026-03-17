@@ -1300,6 +1300,24 @@ export const appRouter = router({
           const campaign = await getCampaignById(input.campaignId);
           if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
           await autoTransitionScheduledMailers(input.campaignId);
+          // Recover missing sentCount for sent mailers (e.g. scheduled send where count wasn't captured)
+          if (campaign && ENV.resendApiKey) {
+            const allMailers = await getCampaignMailers(input.campaignId);
+            const missing = allMailers.filter(m => m.status === 'sent' && !m.sentCount);
+            if (missing.length > 0) {
+              try {
+                const segmentId = await getResendSegmentId(campaign.clientSlug);
+                if (segmentId) {
+                  const resend = new Resend(ENV.resendApiKey);
+                  const countRes = await (resend.contacts as any).list({ segmentId, limit: 1000 });
+                  const sentCount = countRes?.data?.total ?? countRes?.data?.data?.length ?? 0;
+                  if (sentCount > 0) {
+                    await Promise.all(missing.map(m => updateCampaignMailer(m.id, { sentCount })));
+                  }
+                }
+              } catch { /* best effort */ }
+            }
+          }
           return getCampaignMailers(input.campaignId);
         }),
 
