@@ -217,6 +217,23 @@ function assertClientSlugAccess(user: { role: string; clientSlug?: string | null
  * - Mailers WITH a resendBroadcastId: verify with Resend API first; only mark sent if Resend confirms.
  * - Mailers WITHOUT a resendBroadcastId (old records): transition based on time alone as a fallback.
  */
+async function recoverMissingSentCount(campaignId: number, clientSlug: string): Promise<void> {
+  if (!ENV.resendApiKey) return;
+  const allMailers = await getCampaignMailers(campaignId);
+  const missing = allMailers.filter(m => m.status === 'sent' && !m.sentCount);
+  if (missing.length === 0) return;
+  try {
+    const segmentId = await getResendSegmentId(clientSlug);
+    if (!segmentId) return;
+    const resend = new Resend(ENV.resendApiKey);
+    const countRes = await (resend.contacts as any).list({ segmentId, limit: 1000 });
+    const sentCount = countRes?.data?.total ?? countRes?.data?.data?.length ?? 0;
+    if (sentCount > 0) {
+      await Promise.all(missing.map(m => updateCampaignMailer(m.id, { sentCount })));
+    }
+  } catch { /* best effort */ }
+}
+
 async function resolveScheduledMailers(campaignId: number): Promise<void> {
   const candidates = await getPastScheduledMailers(campaignId);
   if (candidates.length === 0) return;
@@ -1328,24 +1345,7 @@ export const appRouter = router({
           const campaign = await getCampaignById(input.campaignId);
           if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
           await resolveScheduledMailers(input.campaignId);
-          // Recover missing sentCount for sent mailers (e.g. scheduled send where count wasn't captured)
-          if (campaign && ENV.resendApiKey) {
-            const allMailers = await getCampaignMailers(input.campaignId);
-            const missing = allMailers.filter(m => m.status === 'sent' && !m.sentCount);
-            if (missing.length > 0) {
-              try {
-                const segmentId = await getResendSegmentId(campaign.clientSlug);
-                if (segmentId) {
-                  const resend = new Resend(ENV.resendApiKey);
-                  const countRes = await (resend.contacts as any).list({ segmentId, limit: 1000 });
-                  const sentCount = countRes?.data?.total ?? countRes?.data?.data?.length ?? 0;
-                  if (sentCount > 0) {
-                    await Promise.all(missing.map(m => updateCampaignMailer(m.id, { sentCount })));
-                  }
-                }
-              } catch { /* best effort */ }
-            }
-          }
+          if (campaign) await recoverMissingSentCount(input.campaignId, campaign.clientSlug);
           return getCampaignMailers(input.campaignId);
         }),
 
@@ -1355,6 +1355,7 @@ export const appRouter = router({
           const campaign = await getCampaignById(input.campaignId);
           if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
           await resolveScheduledMailers(input.campaignId);
+          if (campaign) await recoverMissingSentCount(input.campaignId, campaign.clientSlug);
           return getMailerAnalytics(input.campaignId);
         }),
 
