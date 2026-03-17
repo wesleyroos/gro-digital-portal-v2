@@ -218,26 +218,16 @@ function assertClientSlugAccess(user: { role: string; clientSlug?: string | null
  * - Mailers WITHOUT a resendBroadcastId (old records): transition based on time alone as a fallback.
  */
 async function recoverMissingSentCount(campaignId: number, clientSlug: string): Promise<void> {
+  if (!ENV.resendApiKey) return;
   const allMailers = await getCampaignMailers(campaignId);
   const missing = allMailers.filter(m => m.status === 'sent' && !m.sentCount);
   if (missing.length === 0) return;
-
-  // Prefer reusing the sentCount from another sent mailer in the same campaign
-  // (they all go to the same segment, so the count is the same)
-  const knownCount = allMailers.find(m => m.status === 'sent' && m.sentCount > 0)?.sentCount;
-  if (knownCount) {
-    await Promise.all(missing.map(m => updateCampaignMailer(m.id, { sentCount: knownCount })));
-    return;
-  }
-
-  // Fallback: query Resend contacts API
-  if (!ENV.resendApiKey) return;
   try {
     const segmentId = await getResendSegmentId(clientSlug);
     if (!segmentId) return;
     const resend = new Resend(ENV.resendApiKey);
-    const countRes = await (resend.contacts as any).list({ segmentId, limit: 1000 });
-    const sentCount = countRes?.data?.total ?? countRes?.data?.data?.length ?? 0;
+    const res = await resend.contacts.list({ segmentId, limit: 1000 });
+    const sentCount = res?.data?.data?.length ?? 0;
     if (sentCount > 0) {
       await Promise.all(missing.map(m => updateCampaignMailer(m.id, { sentCount })));
     }
@@ -1928,8 +1918,8 @@ INSTRUCTIONS:
 
           // Record how many were sent to
           try {
-            const countRes = await (resend.contacts as any).list({ segmentId, limit: 1000 });
-            const sentCount = countRes?.data?.total ?? countRes?.data?.data?.length ?? 0;
+            const countRes = await resend.contacts.list({ segmentId, limit: 1000 });
+            const sentCount = countRes?.data?.data?.length ?? 0;
             await updateCampaignMailer(input.mailerId, { sentCount });
           } catch { /* best effort */ }
 
