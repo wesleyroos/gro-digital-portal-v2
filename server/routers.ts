@@ -80,7 +80,8 @@ import {
   deleteCampaignAsset,
   updateCampaignAssetDescription,
   getCampaignMailers,
-  autoTransitionScheduledMailers,
+  getPastScheduledMailers,
+  markMailerAsSent,
   createCampaignMailer,
   updateCampaignMailer,
   deleteCampaignMailer,
@@ -207,6 +208,33 @@ function assertClientSlugAccess(user: { role: string; clientSlug?: string | null
     const assigned: string[] = user.assignedClients ? JSON.parse(user.assignedClients) : [];
     if (!assigned.includes(clientSlug)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
+    }
+  }
+}
+
+/**
+ * Transition past-scheduled mailers to sent.
+ * - Mailers WITH a resendBroadcastId: verify with Resend API first; only mark sent if Resend confirms.
+ * - Mailers WITHOUT a resendBroadcastId (old records): transition based on time alone as a fallback.
+ */
+async function resolveScheduledMailers(campaignId: number): Promise<void> {
+  const candidates = await getPastScheduledMailers(campaignId);
+  if (candidates.length === 0) return;
+
+  for (const m of candidates) {
+    if (m.resendBroadcastId && ENV.resendApiKey) {
+      try {
+        const resend = new Resend(ENV.resendApiKey);
+        const result = await (resend.broadcasts as any).get(m.resendBroadcastId);
+        const status: string = result?.data?.status ?? result?.status ?? '';
+        if (status === 'sent') {
+          await markMailerAsSent(m.id, m.scheduledAt ?? new Date());
+        }
+        // If status is anything other than 'sent' (e.g. 'sending', 'failed'), leave as-is
+      } catch { /* best effort — leave as scheduled if Resend is unreachable */ }
+    } else {
+      // No broadcastId stored (pre-fix record) — fall back to time-based transition
+      await markMailerAsSent(m.id, m.scheduledAt ?? new Date());
     }
   }
 }
@@ -1299,7 +1327,7 @@ export const appRouter = router({
         .query(async ({ ctx, input }) => {
           const campaign = await getCampaignById(input.campaignId);
           if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
-          await autoTransitionScheduledMailers(input.campaignId);
+          await resolveScheduledMailers(input.campaignId);
           // Recover missing sentCount for sent mailers (e.g. scheduled send where count wasn't captured)
           if (campaign && ENV.resendApiKey) {
             const allMailers = await getCampaignMailers(input.campaignId);
@@ -1326,7 +1354,7 @@ export const appRouter = router({
         .query(async ({ ctx, input }) => {
           const campaign = await getCampaignById(input.campaignId);
           if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
-          await autoTransitionScheduledMailers(input.campaignId);
+          await resolveScheduledMailers(input.campaignId);
           return getMailerAnalytics(input.campaignId);
         }),
 
@@ -2357,7 +2385,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .query(async ({ ctx, input }) => {
         const campaign = await getCampaignById(input.campaignId);
         if (!campaign || campaign.clientSlug !== ctx.clientSlug) return [];
-        await autoTransitionScheduledMailers(input.campaignId);
+        await resolveScheduledMailers(input.campaignId);
         return getCampaignMailers(input.campaignId);
       }),
 

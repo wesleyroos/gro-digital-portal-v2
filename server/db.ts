@@ -1462,22 +1462,23 @@ export async function getCampaignMailers(campaignId: number) {
   return db.select().from(campaignMailers).where(eq(campaignMailers.campaignId, campaignId)).orderBy(asc(campaignMailers.createdAt));
 }
 
-export async function autoTransitionScheduledMailers(campaignId: number): Promise<void> {
+export async function getPastScheduledMailers(campaignId: number) {
   const db = await getDb();
-  if (!db) return;
+  if (!db) return [];
   const now = new Date();
-  const stale = await db.select({ id: campaignMailers.id, scheduledAt: campaignMailers.scheduledAt })
+  return db.select({ id: campaignMailers.id, scheduledAt: campaignMailers.scheduledAt, resendBroadcastId: campaignMailers.resendBroadcastId })
     .from(campaignMailers)
     .where(and(
       eq(campaignMailers.campaignId, campaignId),
       eq(campaignMailers.status, 'scheduled'),
       lte(campaignMailers.scheduledAt, now),
     ));
-  for (const m of stale) {
-    await db.update(campaignMailers)
-      .set({ status: 'sent', sentAt: m.scheduledAt ?? now })
-      .where(eq(campaignMailers.id, m.id));
-  }
+}
+
+export async function markMailerAsSent(id: number, sentAt: Date): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(campaignMailers).set({ status: 'sent', sentAt }).where(eq(campaignMailers.id, id));
 }
 
 export async function createCampaignMailer(campaignId: number) {
