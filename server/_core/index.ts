@@ -8,6 +8,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerCampaignAgentRoutes } from "../marketing-agent";
 import { registerCampaignAutoAgentRoutes } from "../campaign-auto-agent";
+import { registerCampaignJarvisRoutes } from "../campaign-jarvis";
 import { registerInstagramOAuthRoutes } from "../instagram-oauth";
 import { registerFacebookOAuthRoutes } from "../facebook-oauth";
 import { startScheduler } from "../scheduler";
@@ -45,6 +46,7 @@ async function startServer() {
   registerOAuthRoutes(app);
   registerCampaignAgentRoutes(app);
   registerCampaignAutoAgentRoutes(app);
+  registerCampaignJarvisRoutes(app);
   registerInstagramOAuthRoutes(app);
   registerFacebookOAuthRoutes(app);
   // tRPC API

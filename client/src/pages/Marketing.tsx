@@ -74,6 +74,10 @@ export default function Marketing() {
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showAutoAgent, setShowAutoAgent] = useState(false);
+  // Jarvis launch dialog state
+  const [showJarvisLaunch, setShowJarvisLaunch] = useState(false);
+  const [jarvisClientSlug, setJarvisClientSlug] = useState("");
+  const [jarvisGoals, setJarvisGoals] = useState("");
 
   const { data: campaigns, refetch } = trpc.campaign.list.useQuery();
   const { data: clients } = trpc.invoice.clients.useQuery(undefined, { enabled: !isClient });
@@ -97,6 +101,33 @@ export default function Marketing() {
       setNewName("");
       if (!isClient) setNewClientSlug("");
       setLocation(isClient ? `/portal/marketing/${data.id}` : `/marketing/${data.id}`);
+    },
+    onError: () => toast.error("Failed to create campaign"),
+  });
+
+  // Jarvis: auto-generate a campaign name for the selected client, create it, then redirect with ?jarvis=start
+  function generateJarvisName(clientSlug: string) {
+    const clientCampaigns = (campaigns ?? []).filter(c => c.clientSlug === clientSlug);
+    const existing = new Set(clientCampaigns.map(c => c.name.toLowerCase()));
+    const now = new Date();
+    const year = now.getFullYear();
+    const quarter = Math.ceil((now.getMonth() + 1) / 4);
+    for (let offset = 0; offset < 8; offset++) {
+      const q = ((quarter - 1 + offset) % 4) + 1;
+      const y = year + Math.floor((quarter - 1 + offset) / 4);
+      const candidate = `Q${q} ${y} Instagram Campaign`;
+      if (!existing.has(candidate.toLowerCase())) return candidate;
+    }
+    return `Campaign #${clientCampaigns.length + 1}`;
+  }
+
+  const jarvisCreateMutation = trpc.campaign.create.useMutation({
+    onSuccess: (data) => {
+      setShowJarvisLaunch(false);
+      setJarvisClientSlug("");
+      setJarvisGoals("");
+      refetch();
+      setLocation(`/marketing/${data.id}?jarvis=start`);
     },
     onError: () => toast.error("Failed to create campaign"),
   });
@@ -208,7 +239,7 @@ export default function Marketing() {
         </div>
         <div className="flex items-center gap-2">
           {isSuperAdmin && (
-            <Button variant="outline" size="sm" onClick={() => setShowAutoAgent(true)} className="gap-2 relative">
+            <Button variant="outline" size="sm" onClick={() => setShowJarvisLaunch(true)} className="gap-2 relative">
               <Sparkles className="w-4 h-4" />
               Launch AI Agent
               <span className="ml-1 text-[9px] font-semibold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full border border-violet-200">BETA</span>
@@ -494,11 +525,57 @@ export default function Marketing() {
         </DialogContent>
       </Dialog>
 
-      <CampaignAutoAgentModal
-        open={showAutoAgent}
-        onClose={() => { setShowAutoAgent(false); refetch(); }}
-        clients={(clients ?? []).map(c => ({ clientSlug: c.clientSlug, clientName: c.clientName }))}
-      />
+      {/* Jarvis launch dialog */}
+      <Dialog open={showJarvisLaunch} onOpenChange={setShowJarvisLaunch}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-violet-600" />
+              Launch AI Agent
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <p className="text-sm text-muted-foreground">
+              Jarvis will create a new campaign and build it out automatically — brand info, strategy, content calendar, images, and a launch mailer.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Client</Label>
+              <Select value={jarvisClientSlug} onValueChange={setJarvisClientSlug}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a client…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(clients ?? []).map(c => (
+                    <SelectItem key={c.clientSlug} value={c.clientSlug}>{c.clientName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Goals <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                placeholder="e.g. drive product awareness, promote summer sale…"
+                value={jarvisGoals}
+                onChange={e => setJarvisGoals(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowJarvisLaunch(false)}>Cancel</Button>
+            <Button
+              className="gap-2 bg-violet-600 hover:bg-violet-700"
+              disabled={!jarvisClientSlug || jarvisCreateMutation.isPending}
+              onClick={() => {
+                const name = generateJarvisName(jarvisClientSlug);
+                jarvisCreateMutation.mutate({ clientSlug: jarvisClientSlug, name });
+              }}
+            >
+              <Sparkles className="w-4 h-4" />
+              {jarvisCreateMutation.isPending ? "Creating…" : "Launch"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

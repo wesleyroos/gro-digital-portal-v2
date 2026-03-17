@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronRight, Mail, Undo2 } from "lucide-react";
+import CampaignJarvisPanel from "@/components/CampaignJarvisPanel";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +54,22 @@ export default function MarketingCampaignWorkspace() {
   const params = adminParams ?? portalParams;
   const isPortal = !!portalParams;
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "superAdmin";
   const campaignId = parseInt(params?.id ?? "0", 10);
+
+  const [jarvisOpen, setJarvisOpen] = useState(false);
+  const [autoStartJarvis, setAutoStartJarvis] = useState(false);
+
+  // Open Jarvis automatically when ?jarvis=start is in the URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("jarvis") === "start") {
+      setJarvisOpen(true);
+      setAutoStartJarvis(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const { data, refetch, isLoading } = trpc.campaign.get.useQuery(
     { id: campaignId },
@@ -714,7 +731,9 @@ export default function MarketingCampaignWorkspace() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="flex h-[calc(100vh-64px)] gap-0">
+      {/* Main workspace */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5 shrink-0">
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setLocation(isPortal ? "/portal/marketing" : "/marketing")}>
@@ -753,6 +772,17 @@ export default function MarketingCampaignWorkspace() {
             )}
           </div>
         </div>
+        {isSuperAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-8 px-2.5 gap-1.5 text-xs font-medium ${jarvisOpen ? "text-violet-600 bg-violet-50 hover:bg-violet-100" : "text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setJarvisOpen(v => !v)}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {jarvisOpen ? "Hide Jarvis" : "Jarvis"}
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -2770,6 +2800,17 @@ export default function MarketingCampaignWorkspace() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>{/* end main workspace */}
+
+      {/* Jarvis sidebar panel */}
+      {isSuperAdmin && jarvisOpen && (
+        <CampaignJarvisPanel
+          campaignId={campaignId}
+          autoStart={autoStartJarvis}
+          onDataChanged={() => refetch()}
+          onClose={() => { setJarvisOpen(false); setAutoStartJarvis(false); }}
+        />
+      )}
     </div>
   );
 }
