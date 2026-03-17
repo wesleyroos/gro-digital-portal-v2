@@ -344,9 +344,9 @@ Return ONLY a valid JSON array — no explanation, no preamble, no markdown code
       const post = allPosts.find(p => p.id === postId);
       if (!post) return `Error: post ${postId} not found.`;
 
-      const imageModel = (campaign?.imageModel ?? 'dall-e-3') as ImageModel;
-      const style = campaign?.imageStyle ?? undefined;
-      const aspectRatio = (campaign?.imageAspectRatio ?? '1:1') as AspectRatio;
+      const imageModel = (campaign?.imageModel ?? ctx.savedPrefs.imageModel ?? 'dall-e-3') as ImageModel;
+      const style = campaign?.imageStyle ?? ctx.savedPrefs.imageStyle ?? undefined;
+      const aspectRatio = (campaign?.imageAspectRatio ?? ctx.savedPrefs.imageAspectRatio ?? '1:1') as AspectRatio;
       const url = await generateAndStorePostImage(post.imagePrompt ?? '', postId, imageModel, style, aspectRatio);
       sendSse(res, { type: 'data_changed' });
       return `Image generated for post ${postIndex}: ${url}`;
@@ -497,6 +497,16 @@ async function runJarvis(campaignId: number, goals: string | undefined, res: Res
     imageStyle: prefStyle ?? undefined,
     imageAspectRatio: prefRatio ?? undefined,
   };
+
+  // Apply saved prefs to campaign if they're missing — this ensures generate_post_image
+  // uses the correct model/style/ratio even when save_preferences is skipped on resume
+  if (savedPrefs.imageModel && !campaign.imageModel) {
+    await db.updateCampaign(campaignId, {
+      imageModel: savedPrefs.imageModel,
+      imageStyle: savedPrefs.imageStyle,
+      imageAspectRatio: savedPrefs.imageAspectRatio,
+    });
+  }
 
   const ctx: JarvisContext = {
     campaignId,

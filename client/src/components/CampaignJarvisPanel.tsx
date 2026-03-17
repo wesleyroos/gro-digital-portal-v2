@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, X, Send, ChevronRight, Loader2, CheckCircle2, XCircle, MessageSquare, Activity, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, X, Send, ChevronRight, Loader2, CheckCircle2, XCircle, MessageSquare, Activity, ChevronDown, ChevronUp, Square } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ChatEntry =
@@ -274,6 +274,17 @@ export default function CampaignJarvisPanel({ campaignId, goals, autoStart, onDa
             </span>
           )}
         </div>
+        {(phase === "running" || phase === "paused") && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+            title="Stop Jarvis"
+            onClick={() => { abortRef.current?.abort(); setPhase("idle"); }}
+          >
+            <Square className="w-3.5 h-3.5 fill-current" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={onClose}>
           <X className="w-3.5 h-3.5" />
         </Button>
