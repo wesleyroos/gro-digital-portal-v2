@@ -23,8 +23,9 @@ export async function exchangeForLongLivedToken(shortToken: string, appId: strin
  * Pass a long-lived user token to get non-expiring page access tokens.
  */
 export async function getFacebookPages(userToken: string): Promise<Array<{ id: string; name: string; access_token: string }>> {
-  const res = await fetch(`${GRAPH_BASE}/me/accounts?access_token=${encodeURIComponent(userToken)}`);
+  const res = await fetch(`${GRAPH_BASE}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`);
   const data = await res.json() as { data?: Array<{ id: string; name: string; access_token: string }>; error?: { message: string } };
+  console.log('[Facebook] /me/accounts raw response:', JSON.stringify(data));
   if (!res.ok || !data.data) {
     throw new Error(`getFacebookPages failed: ${data.error?.message ?? JSON.stringify(data)}`);
   }
