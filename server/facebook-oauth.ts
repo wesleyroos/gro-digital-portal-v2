@@ -64,7 +64,7 @@ export function registerFacebookOAuthRoutes(app: Express) {
     authUrl.searchParams.set('redirect_uri', ENV.facebookRedirectUri);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'pages_show_list,pages_manage_posts,pages_read_engagement');
-    authUrl.searchParams.set('auth_type', 'rerequest'); // force re-consent even if previously authorized
+    authUrl.searchParams.set('auth_type', 'reauthenticate'); // force fresh re-auth so /me/accounts returns pages correctly
     authUrl.searchParams.set('state', state);
 
     res.redirect(302, authUrl.toString());
