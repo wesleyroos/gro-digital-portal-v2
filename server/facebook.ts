@@ -20,16 +20,44 @@ export async function exchangeForLongLivedToken(shortToken: string, appId: strin
 
 /**
  * Get all Facebook Pages managed by the authenticated user.
- * Pass a long-lived user token to get non-expiring page access tokens.
+ * First tries /me/accounts (works for personal page admins).
+ * Falls back to /me/businesses → /{business-id}/owned_pages for pages inside a Business Portfolio.
  */
 export async function getFacebookPages(userToken: string): Promise<Array<{ id: string; name: string; access_token: string }>> {
+  // Primary: /me/accounts — works for pages with direct personal admin roles
   const res = await fetch(`${GRAPH_BASE}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`);
   const data = await res.json() as { data?: Array<{ id: string; name: string; access_token: string }>; error?: { message: string } };
   console.log('[Facebook] /me/accounts raw response:', JSON.stringify(data));
   if (!res.ok || !data.data) {
     throw new Error(`getFacebookPages failed: ${data.error?.message ?? JSON.stringify(data)}`);
   }
-  return data.data;
+  if (data.data.length > 0) return data.data;
+
+  // Fallback: pages owned by a Business Portfolio (/me/accounts returns empty for these)
+  console.log('[Facebook] /me/accounts empty — trying Business Portfolio fallback');
+  const bizRes = await fetch(`${GRAPH_BASE}/me/businesses?fields=id,name&access_token=${encodeURIComponent(userToken)}`);
+  const bizData = await bizRes.json() as { data?: Array<{ id: string; name: string }>; error?: { message: string } };
+  console.log('[Facebook] /me/businesses raw response:', JSON.stringify(bizData));
+  if (!bizRes.ok || !bizData.data || bizData.data.length === 0) return [];
+
+  const pages: Array<{ id: string; name: string; access_token: string }> = [];
+  for (const business of bizData.data) {
+    const pagesRes = await fetch(`${GRAPH_BASE}/${business.id}/owned_pages?fields=id,name&access_token=${encodeURIComponent(userToken)}`);
+    const pagesData = await pagesRes.json() as { data?: Array<{ id: string; name: string }>; error?: { message: string } };
+    console.log(`[Facebook] /${business.id}/owned_pages raw response:`, JSON.stringify(pagesData));
+    if (!pagesData.data) continue;
+    for (const page of pagesData.data) {
+      // Fetch the page access token separately
+      const tokenRes = await fetch(`${GRAPH_BASE}/${page.id}?fields=access_token&access_token=${encodeURIComponent(userToken)}`);
+      const tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string } };
+      if (tokenData.access_token) {
+        pages.push({ id: page.id, name: page.name, access_token: tokenData.access_token });
+      } else {
+        console.log(`[Facebook] Could not get access_token for page ${page.id}:`, JSON.stringify(tokenData));
+      }
+    }
+  }
+  return pages;
 }
 
 /**
