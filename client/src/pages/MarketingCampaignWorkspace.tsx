@@ -2201,12 +2201,49 @@ export default function MarketingCampaignWorkspace() {
           ) : (() => {
             const isFbView = perfPlatform === 'fb';
 
+            // ── Shared platform filter tabs ──
+            const platformTabs = (
+              <div className="flex items-center gap-2">
+                {([
+                  { key: "all" as const, label: "All platforms", activeClass: 'bg-foreground text-background border-foreground' },
+                  { key: "ig" as const,  label: "Instagram",     activeClass: 'bg-pink-500 text-white border-pink-500' },
+                  { key: "fb" as const,  label: "Facebook",      activeClass: 'bg-blue-600 text-white border-blue-600' },
+                  { key: "mailers" as const, label: "Mailers",   activeClass: 'bg-emerald-600 text-white border-emerald-600' },
+                ]).map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setPerfPlatform(opt.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      perfPlatform === opt.key
+                        ? opt.activeClass
+                        : 'bg-card text-muted-foreground border-border hover:border-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                    {opt.key !== 'all' && opt.key !== 'mailers' && perfData && (
+                      <span className="ml-1.5 opacity-70">
+                        {opt.key === 'ig'
+                          ? perfData.rows.filter(r => r.post.instagramPostId).length
+                          : perfData.rows.filter(r => r.post.facebookPostId).length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+                {perfPlatform === 'fb' && (
+                  <span className="text-[10px] text-muted-foreground ml-1">Views &amp; clicks — data may take a few hours after posting</span>
+                )}
+              </div>
+            );
+
             // ── Mailers analytics view ──
             if (perfPlatform === 'mailers') {
               if (mailerAnalyticsLoading) return (
-                <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-                  <span className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm">Fetching mailer analytics…</span>
+                <div className="space-y-4">
+                  {platformTabs}
+                  <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                    <span className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm">Fetching mailer analytics…</span>
+                  </div>
                 </div>
               );
               const rows = mailerAnalytics ?? [];
@@ -2219,13 +2256,17 @@ export default function MarketingCampaignWorkspace() {
               const avgClickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : null;
 
               if (!rows.length) return (
-                <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                  <p className="text-sm text-muted-foreground">No mailers yet — analytics will appear here once emails have been sent.</p>
+                <div className="space-y-4">
+                  {platformTabs}
+                  <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                    <p className="text-sm text-muted-foreground">No mailers yet — analytics will appear here once emails have been sent.</p>
+                  </div>
                 </div>
               );
 
               return (
                 <div className="space-y-4">
+                  {platformTabs}
                   {/* Summary cards — sent mailers only */}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     {[
@@ -2381,36 +2422,7 @@ export default function MarketingCampaignWorkspace() {
             return (
               <div className="space-y-4">
                 {/* ── Platform filter ── */}
-                <div className="flex items-center gap-2">
-                  {([
-                    { key: "all" as const, label: "All platforms", activeClass: 'bg-foreground text-background border-foreground' },
-                    { key: "ig" as const,  label: "Instagram",     activeClass: 'bg-pink-500 text-white border-pink-500' },
-                    { key: "fb" as const,  label: "Facebook",      activeClass: 'bg-blue-600 text-white border-blue-600' },
-                    { key: "mailers" as const, label: "Mailers",   activeClass: 'bg-emerald-600 text-white border-emerald-600' },
-                  ]).map(opt => (
-                    <button
-                      key={opt.key}
-                      onClick={() => setPerfPlatform(opt.key)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                        perfPlatform === opt.key
-                          ? opt.activeClass
-                          : 'bg-card text-muted-foreground border-border hover:border-foreground'
-                      }`}
-                    >
-                      {opt.label}
-                      {opt.key !== 'all' && opt.key !== 'mailers' && (
-                        <span className="ml-1.5 opacity-70">
-                          {opt.key === 'ig'
-                            ? perfData.rows.filter(r => r.post.instagramPostId).length
-                            : perfData.rows.filter(r => r.post.facebookPostId).length}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                  {perfPlatform === 'fb' && (
-                    <span className="text-[10px] text-muted-foreground ml-1">Views &amp; clicks — data may take a few hours after posting</span>
-                  )}
-                </div>
+                {platformTabs}
 
                 {filteredRows.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
