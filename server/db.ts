@@ -804,8 +804,7 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
 
   const resend = new Resend(apiKey);
   await resend.emails.send({
-    from: 'Gro Digital <invoices@grodigital.co.za>',
-    replyTo: 'Wesley <wesley@grodigital.co.za>',
+    from: 'Wesley @ Gro Digital <wesley@grodigital.co.za>',
     to: recipientEmail,
     subject: `Invoice ${invoice.invoiceNumber} from Gro Digital`,
 
