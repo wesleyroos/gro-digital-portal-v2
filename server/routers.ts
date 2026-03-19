@@ -11,6 +11,8 @@ import {
   deleteInvoice,
   getInvoiceByNumber,
   getInvoiceByShareToken,
+  getRecurringInvoiceConfig,
+  upsertRecurringInvoiceConfig,
   getInvoiceItems,
   getAllInvoices,
   getInvoicesByClientSlug,
@@ -2561,6 +2563,35 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .input(z.object({ openId: z.string(), limit: z.number().min(1).max(200).default(50) }))
       .query(async ({ input }) => {
         return getUserActivity(input.openId, input.limit);
+      }),
+  }),
+  recurringInvoice: router({
+    getConfig: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .query(async ({ input }) => {
+        return getRecurringInvoiceConfig(input.clientSlug);
+      }),
+
+    setConfig: adminProcedure
+      .input(z.object({
+        clientSlug: z.string(),
+        enabled: z.boolean(),
+        amount: z.number().min(0),
+        description: z.string().min(1).max(512),
+        recipientEmail: z.string().email().nullish(),
+        sendDay: z.number().int().min(1).max(28),
+        paymentTerms: z.string().default('Due upon receipt'),
+        notes: z.string().nullish(),
+      }))
+      .mutation(async ({ input }) => {
+        const { clientSlug, ...fields } = input;
+        await upsertRecurringInvoiceConfig(clientSlug, {
+          ...fields,
+          amount: String(fields.amount),
+          recipientEmail: fields.recipientEmail ?? null,
+          notes: fields.notes ?? null,
+        });
+        return { success: true };
       }),
   }),
 });

@@ -11,7 +11,7 @@ import { registerCampaignAutoAgentRoutes } from "../campaign-auto-agent";
 import { registerCampaignJarvisRoutes } from "../campaign-jarvis";
 import { registerInstagramOAuthRoutes } from "../instagram-oauth";
 import { registerFacebookOAuthRoutes } from "../facebook-oauth";
-import { startScheduler } from "../scheduler";
+import { startScheduler, runRecurringInvoiceTick } from "../scheduler";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -82,3 +82,7 @@ startServer().catch(console.error);
 // Overdue invoice automation — runs on startup then every hour
 markOverdueInvoices().catch(console.error);
 setInterval(() => markOverdueInvoices().catch(console.error), 60 * 60 * 1000);
+
+// Recurring invoice automation — runs on startup then every hour
+runRecurringInvoiceTick().catch(console.error);
+setInterval(() => runRecurringInvoiceTick().catch(console.error), 60 * 60 * 1000);

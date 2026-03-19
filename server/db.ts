@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1677,4 +1677,66 @@ export async function getMailerAnalytics(campaignId: number) {
         topLinks,
       };
     });
+}
+
+// ── Recurring invoice config ─────────────────────────────────────────────────
+
+export async function getRecurringInvoiceConfig(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(recurringInvoiceConfig)
+    .where(eq(recurringInvoiceConfig.clientSlug, clientSlug))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+export async function upsertRecurringInvoiceConfig(
+  clientSlug: string,
+  fields: Partial<Omit<InsertRecurringInvoiceConfig, 'id' | 'clientSlug' | 'createdAt' | 'updatedAt'>>
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db
+    .insert(recurringInvoiceConfig)
+    .values({ clientSlug, ...fields })
+    .onDuplicateKeyUpdate({ set: fields });
+}
+
+export async function getAllEnabledRecurringConfigs() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(recurringInvoiceConfig)
+    .where(eq(recurringInvoiceConfig.enabled, true));
+}
+
+export async function updateRecurringInvoiceLastSent(clientSlug: string, sentAt: Date) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(recurringInvoiceConfig)
+    .set({ lastSentAt: sentAt })
+    .where(eq(recurringInvoiceConfig.clientSlug, clientSlug));
+}
+
+export async function getInvoiceForClientInMonth(clientSlug: string, year: number, month: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const start = new Date(year, month - 1, 1);
+  const end = new Date(year, month, 1);
+  const result = await db
+    .select()
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.clientSlug, clientSlug),
+        eq(invoices.invoiceType, 'monthly'),
+        sql`${invoices.invoiceDate} >= ${start} AND ${invoices.invoiceDate} < ${end}`
+      )
+    )
+    .limit(1);
+  return result[0] ?? null;
 }

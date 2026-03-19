@@ -1,4 +1,5 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, updatePostStatus, updatePostFacebookId } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, updatePostStatus, updatePostFacebookId, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail } from './db';
+import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia } from './instagram';
 import { postImageToPage, postVideoToPage } from './facebook';
 
@@ -80,4 +81,93 @@ export function startScheduler() {
   runSchedulerTick().catch(console.error);
   setInterval(() => runSchedulerTick().catch(console.error), 60_000);
   console.log('[Scheduler] Started');
+}
+
+export async function runRecurringInvoiceTick() {
+  const now = new Date();
+  const todayDay = now.getDate();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-based
+
+  let configs: Awaited<ReturnType<typeof getAllEnabledRecurringConfigs>>;
+  try {
+    configs = await getAllEnabledRecurringConfigs();
+  } catch (e) {
+    console.error('[RecurringInvoice] Failed to fetch configs:', e);
+    return;
+  }
+
+  for (const config of configs) {
+    if (config.sendDay !== todayDay) continue;
+
+    try {
+      const existing = await getInvoiceForClientInMonth(config.clientSlug, currentYear, currentMonth);
+      if (existing) {
+        console.log(`[RecurringInvoice] Already sent for ${config.clientSlug} in ${currentYear}-${currentMonth}, skipping`);
+        continue;
+      }
+
+      const profile = await getClientProfile(config.clientSlug);
+      if (!profile) {
+        console.warn(`[RecurringInvoice] No client profile for ${config.clientSlug}, skipping`);
+        continue;
+      }
+
+      const monthStr = String(currentMonth).padStart(2, '0');
+      const invoiceNumber = `REC-${config.clientSlug.toUpperCase()}-${currentYear}-${monthStr}`;
+      const amount = parseFloat(String(config.amount));
+      const amountStr = String(amount);
+
+      await createInvoice(
+        {
+          invoiceNumber,
+          clientSlug: config.clientSlug,
+          clientName: profile.name ?? config.clientSlug,
+          clientContact: profile.contact ?? null,
+          clientPhone: profile.phone ?? null,
+          clientEmail: config.recipientEmail ?? profile.email ?? null,
+          projectName: config.description,
+          invoiceType: 'monthly',
+          status: 'sent',
+          subtotal: amountStr,
+          discountPercent: '0',
+          discountAmount: '0',
+          totalAmount: amountStr,
+          amountDue: amountStr,
+          paymentTerms: config.paymentTerms,
+          notes: config.notes ?? null,
+          clientAddress: profile.address ?? null,
+          invoiceDate: now,
+          dueDate: null,
+          bankName: 'FNB/RMB',
+          accountHolder: 'Gro Digital',
+          accountNumber: '62842244725',
+          accountType: 'Gold Business Account',
+          branchCode: '250655',
+        },
+        [{
+          description: config.description,
+          frequency: 'Monthly',
+          vat: 'No VAT',
+          unitPrice: amountStr,
+          quantity: 1,
+          lineTotal: amountStr,
+        }]
+      );
+
+      const recipientEmail = config.recipientEmail ?? profile.email;
+      if (recipientEmail) {
+        const invoice = await getInvoiceByNumber(invoiceNumber);
+        if (invoice) {
+          const baseUrl = ENV.appUrl || process.env.PORTAL_URL || '';
+          await sendInvoiceEmail(invoice.id, recipientEmail, baseUrl);
+        }
+      }
+
+      await updateRecurringInvoiceLastSent(config.clientSlug, now);
+      console.log(`[RecurringInvoice] Sent invoice ${invoiceNumber} for ${config.clientSlug}`);
+    } catch (e) {
+      console.error(`[RecurringInvoice] Failed for ${config.clientSlug}:`, e);
+    }
+  }
 }

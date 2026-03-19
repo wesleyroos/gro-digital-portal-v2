@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function generatePassword(): string {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -32,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   FileText,
@@ -182,6 +183,44 @@ export default function ClientPortal() {
       toast.success("Facebook disconnected");
     },
     onError: () => toast.error("Failed to disconnect Facebook"),
+  });
+
+  // ── Recurring invoice config ──
+  const { data: recurringConfig, refetch: refetchRecurring } =
+    trpc.recurringInvoice.getConfig.useQuery({ clientSlug: slug }, { enabled: isAdmin });
+
+  const [recurringDraft, setRecurringDraft] = useState({
+    enabled: false,
+    amount: 0,
+    description: "Monthly Services",
+    recipientEmail: "",
+    sendDay: 25,
+    paymentTerms: "Due upon receipt",
+    notes: "",
+  });
+  const [editingRecurring, setEditingRecurring] = useState(false);
+
+  useEffect(() => {
+    if (recurringConfig) {
+      setRecurringDraft({
+        enabled: recurringConfig.enabled,
+        amount: parseFloat(String(recurringConfig.amount)) || 0,
+        description: recurringConfig.description,
+        recipientEmail: recurringConfig.recipientEmail ?? "",
+        sendDay: recurringConfig.sendDay,
+        paymentTerms: recurringConfig.paymentTerms,
+        notes: recurringConfig.notes ?? "",
+      });
+    }
+  }, [recurringConfig]);
+
+  const setRecurringConfig = trpc.recurringInvoice.setConfig.useMutation({
+    onSuccess: () => {
+      refetchRecurring();
+      setEditingRecurring(false);
+      toast.success("Recurring invoice config saved");
+    },
+    onError: () => toast.error("Failed to save config"),
   });
 
   const [newUserName, setNewUserName] = useState("");
@@ -929,6 +968,103 @@ export default function ClientPortal() {
         {/* ── Billing tab ── */}
         {tab === "billing" && (
           <div className="space-y-10">
+
+            {/* Monthly auto-invoice config */}
+            <Card className="shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Repeat className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-semibold">Monthly Auto-Invoice</p>
+                    {recurringConfig?.enabled && (
+                      <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+                    )}
+                    {recurringConfig && !recurringConfig.enabled && (
+                      <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">Disabled</span>
+                    )}
+                  </div>
+                  {!editingRecurring && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-muted-foreground"
+                      onClick={() => setEditingRecurring(true)}>
+                      {recurringConfig ? "Edit" : "Set up"}
+                    </Button>
+                  )}
+                </div>
+
+                {!editingRecurring && recurringConfig && (
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>Amount: <span className="text-foreground font-mono font-medium">R{parseFloat(String(recurringConfig.amount)).toFixed(2)}</span></p>
+                    <p>Sends on day <span className="text-foreground font-medium">{recurringConfig.sendDay}</span> of each month</p>
+                    <p>To: <span className="text-foreground">{recurringConfig.recipientEmail || profile?.email || "(not set)"}</span></p>
+                    {recurringConfig.lastSentAt && (
+                      <p>Last sent: <span className="text-foreground">{new Date(recurringConfig.lastSentAt).toLocaleDateString("en-ZA")}</span></p>
+                    )}
+                  </div>
+                )}
+
+                {!editingRecurring && !recurringConfig && (
+                  <p className="text-xs text-muted-foreground">Not configured. Click "Set up" to enable monthly auto-invoicing.</p>
+                )}
+
+                {editingRecurring && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={recurringDraft.enabled}
+                        onCheckedChange={v => setRecurringDraft(d => ({ ...d, enabled: v }))}
+                      />
+                      <label className="text-xs text-muted-foreground">Enabled</label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Amount (R)</label>
+                        <Input type="number" className="mt-1 h-8 text-xs"
+                          value={recurringDraft.amount}
+                          onChange={e => setRecurringDraft(d => ({ ...d, amount: parseFloat(e.target.value) || 0 }))} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Send on day</label>
+                        <Input type="number" min={1} max={28} className="mt-1 h-8 text-xs"
+                          value={recurringDraft.sendDay}
+                          onChange={e => setRecurringDraft(d => ({ ...d, sendDay: parseInt(e.target.value) || 25 }))} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Line item description</label>
+                      <Input className="mt-1 h-8 text-xs" value={recurringDraft.description}
+                        onChange={e => setRecurringDraft(d => ({ ...d, description: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Recipient email (blank = use client email)</label>
+                      <Input type="email" className="mt-1 h-8 text-xs" value={recurringDraft.recipientEmail}
+                        onChange={e => setRecurringDraft(d => ({ ...d, recipientEmail: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Payment terms</label>
+                      <Input className="mt-1 h-8 text-xs" value={recurringDraft.paymentTerms}
+                        onChange={e => setRecurringDraft(d => ({ ...d, paymentTerms: e.target.value }))} />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" className="h-7 text-xs gap-1"
+                        onClick={() => setRecurringConfig.mutate({
+                          clientSlug: slug,
+                          ...recurringDraft,
+                          recipientEmail: recurringDraft.recipientEmail || null,
+                          notes: recurringDraft.notes || null,
+                        })}
+                        disabled={setRecurringConfig.isPending}>
+                        <Check className="w-3 h-3" /> Save
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs"
+                        onClick={() => setEditingRecurring(false)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {invoices?.length === 0 && (
               <div className="text-center py-12">
                 <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />

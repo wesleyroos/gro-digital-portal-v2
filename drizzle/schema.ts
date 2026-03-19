@@ -416,6 +416,27 @@ export const portalSettings = mysqlTable("portal_settings", {
 export type PortalSetting = typeof portalSettings.$inferSelect;
 
 /**
+ * Recurring invoice config — one row per client, drives monthly auto-invoicing.
+ */
+export const recurringInvoiceConfig = mysqlTable("recurringInvoiceConfig", {
+  id: int("id").autoincrement().primaryKey(),
+  clientSlug: varchar("clientSlug", { length: 128 }).notNull().unique(),
+  enabled: boolean("enabled").notNull().default(false),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  description: varchar("description", { length: 512 }).notNull().default("Monthly Services"),
+  recipientEmail: varchar("recipientEmail", { length: 320 }),
+  sendDay: int("sendDay").notNull().default(25),
+  paymentTerms: varchar("paymentTerms", { length: 255 }).notNull().default("Due upon receipt"),
+  notes: text("notes"),
+  lastSentAt: timestamp("lastSentAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type RecurringInvoiceConfig = typeof recurringInvoiceConfig.$inferSelect;
+export type InsertRecurringInvoiceConfig = typeof recurringInvoiceConfig.$inferInsert;
+
+/**
  * User activity log — login events, page views, and key actions.
  */
 export const userActivity = mysqlTable("userActivity", {
