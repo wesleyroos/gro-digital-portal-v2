@@ -191,7 +191,7 @@ export default function ClientPortal() {
 
   const [recurringDraft, setRecurringDraft] = useState({
     enabled: false,
-    amount: 0,
+    amount: "",
     description: "Monthly Services",
     recipientEmail: "",
     sendDay: 25,
@@ -204,7 +204,7 @@ export default function ClientPortal() {
     if (recurringConfig) {
       setRecurringDraft({
         enabled: recurringConfig.enabled,
-        amount: parseFloat(String(recurringConfig.amount)) || 0,
+        amount: String(parseFloat(String(recurringConfig.amount)) || ""),
         description: recurringConfig.description,
         recipientEmail: recurringConfig.recipientEmail ?? "",
         sendDay: recurringConfig.sendDay,
@@ -1020,7 +1020,7 @@ export default function ClientPortal() {
                         <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Amount (R)</label>
                         <Input type="number" className="mt-1 h-8 text-xs"
                           value={recurringDraft.amount}
-                          onChange={e => setRecurringDraft(d => ({ ...d, amount: parseFloat(e.target.value) || 0 }))} />
+                          onChange={e => setRecurringDraft(d => ({ ...d, amount: e.target.value }))} />
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Send on day</label>
@@ -1049,6 +1049,7 @@ export default function ClientPortal() {
                         onClick={() => setRecurringConfig.mutate({
                           clientSlug: slug,
                           ...recurringDraft,
+                          amount: parseFloat(recurringDraft.amount) || 0,
                           recipientEmail: recurringDraft.recipientEmail || null,
                           notes: recurringDraft.notes || null,
                         })}
