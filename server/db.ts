@@ -809,32 +809,39 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
     subject: `Invoice ${invoice.invoiceNumber} from Gro Digital`,
 
     html: `
-      <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; color: #111;">
-        <div style="margin-bottom: 32px;">
-          <h1 style="font-size: 24px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">GRO<span style="font-weight: 300;">digital</span></h1>
-          <p style="font-size: 11px; color: #888; margin: 4px 0 0; text-transform: uppercase; letter-spacing: 2px;">Invoice</p>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
+
+        <!-- Header bar -->
+        <div style="background: #1a56db; padding: 28px 32px; border-radius: 12px 12px 0 0;">
+          <img src="https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773557375019-ei1drt50gii.png"
+               alt="Gro Digital" style="height: 36px; display: block;" />
         </div>
 
-        <p style="font-size: 15px; margin-bottom: 8px;">Hi ${invoice.clientContact || invoice.clientName},</p>
-        <p style="font-size: 14px; color: #444; line-height: 1.6; margin-bottom: 24px;">
-          Please find your invoice <strong>${invoice.invoiceNumber}</strong> from Gro Digital below.
-          ${invoice.projectName ? `This relates to <strong>${invoice.projectName}</strong>.` : ''}
-        </p>
+        <!-- Body -->
+        <div style="padding: 36px 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
 
-        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px 24px; margin-bottom: 28px;">
-          <p style="margin: 0 0 4px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px;">Amount Due</p>
-          <p style="margin: 0; font-size: 32px; font-weight: 800; font-family: monospace; color: #111;">${formattedAmount}</p>
-          ${invoice.paymentTerms ? `<p style="margin: 8px 0 0; font-size: 12px; color: #888;">${invoice.paymentTerms}</p>` : ''}
+          <p style="font-size: 16px; font-weight: 600; margin: 0 0 6px; color: #111;">Hi ${(invoice.clientContact || invoice.clientName || '').split(' ')[0]},</p>
+          <p style="font-size: 14px; color: #555; line-height: 1.7; margin: 0 0 28px;">
+            Please find your invoice <strong style="color: #111;">${invoice.invoiceNumber}</strong> from Gro Digital attached below.
+            ${invoice.projectName ? `This relates to <strong style="color: #111;">${invoice.projectName}</strong>.` : ''}
+          </p>
+
+          <!-- Amount card -->
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 22px 26px; margin-bottom: 28px;">
+            <p style="margin: 0 0 6px; font-size: 11px; color: #1a56db; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Amount Due</p>
+            <p style="margin: 0; font-size: 34px; font-weight: 800; color: #111; letter-spacing: -1px;">${formattedAmount}</p>
+            ${invoice.paymentTerms ? `<p style="margin: 8px 0 0; font-size: 12px; color: #6b7280;">${invoice.paymentTerms}</p>` : ''}
+          </div>
+
+          <a href="${invoiceUrl}" style="display: inline-block; background: #1a56db; color: #fff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 32px; letter-spacing: 0.2px;">
+            View Invoice →
+          </a>
+
+          <p style="font-size: 12px; color: #9ca3af; margin: 0; padding-top: 24px; border-top: 1px solid #f3f4f6;">
+            Gro Digital (Pty) Ltd &bull; <a href="https://grodigital.co.za" style="color: #1a56db; text-decoration: none;">grodigital.co.za</a><br/>
+            Questions? Simply reply to this email.
+          </p>
         </div>
-
-        <a href="${invoiceUrl}" style="display: inline-block; background: #111; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 28px;">
-          View Invoice →
-        </a>
-
-        <p style="font-size: 12px; color: #aaa; margin-top: 32px; border-top: 1px solid #f0f0f0; padding-top: 20px;">
-          Gro Digital (Pty) Ltd &bull; grodigital.co.za<br/>
-          If you have any questions, reply to this email.
-        </p>
       </div>
     `,
   });

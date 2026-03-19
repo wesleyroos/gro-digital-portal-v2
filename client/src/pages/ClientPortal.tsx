@@ -1040,10 +1040,9 @@ export default function ClientPortal() {
                             onClick={() => {
                               setSendNowConfirmOpen(false);
                               sendNow.mutate({ clientSlug: slug }, {
-                                onSuccess: (d) => {
+                                onSuccess: () => {
                                   refetchRecurring();
-                                  toast.success("Invoice sent successfully");
-                                  window.open(`/i/${d.shareToken}`, '_blank');
+                                  toast.success("Invoice sent — check the Monthly Subscriptions section below");
                                 },
                                 onError: (e) => toast.error(e.message || "Send failed"),
                               });
