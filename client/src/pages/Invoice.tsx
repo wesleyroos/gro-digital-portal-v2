@@ -116,7 +116,7 @@ export default function Invoice() {
 
   const { data, isLoading, error } = trpc.invoice.getByNumber.useQuery({ invoiceNumber });
   const { data: me } = trpc.auth.me.useQuery();
-  const isAdmin = me?.role === "admin";
+  const isAdmin = me?.role === "admin" || me?.role === "superAdmin";
 
   const utils = trpc.useUtils();
 
