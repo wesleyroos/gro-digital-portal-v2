@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { buildAndSendRecurringInvoice } from './scheduler';
 import sharp from 'sharp';
 import { COOKIE_NAME } from "@shared/const";
 import { ENV } from "./_core/env";
@@ -2592,6 +2593,47 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
           notes: fields.notes ?? null,
         });
         return { success: true };
+      }),
+
+    previewNow: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ input }) => {
+        const config = await getRecurringInvoiceConfig(input.clientSlug);
+        if (!config) throw new TRPCError({ code: 'NOT_FOUND', message: 'No recurring config for this client' });
+        const previewNumber = `REC-PREVIEW-${input.clientSlug.toUpperCase()}`;
+        // Delete any old preview invoice so we always get a fresh one
+        await deleteInvoice(previewNumber);
+        const shareToken = await buildAndSendRecurringInvoice(config, {
+          invoiceNumber: previewNumber,
+          status: 'draft',
+          sendEmail: false,
+          baseUrl: ENV.appUrl || process.env.PORTAL_URL || '',
+        });
+        return { shareToken };
+      }),
+
+    sendNow: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ input }) => {
+        const config = await getRecurringInvoiceConfig(input.clientSlug);
+        if (!config) throw new TRPCError({ code: 'NOT_FOUND', message: 'No recurring config for this client' });
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const invoiceNumber = `REC-${input.clientSlug.toUpperCase()}-${year}-${month}`;
+        // If already sent this month, just return the existing invoice's share token
+        const existing = await getInvoiceByNumber(invoiceNumber);
+        if (existing) {
+          if (existing.shareToken) return { shareToken: existing.shareToken, alreadySent: true };
+        }
+        const baseUrl = ENV.appUrl || process.env.PORTAL_URL || '';
+        const shareToken = await buildAndSendRecurringInvoice(config, {
+          invoiceNumber,
+          status: 'sent',
+          sendEmail: true,
+          baseUrl,
+        });
+        return { shareToken, alreadySent: false };
       }),
   }),
 });

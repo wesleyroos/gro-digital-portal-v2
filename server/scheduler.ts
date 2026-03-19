@@ -83,6 +83,70 @@ export function startScheduler() {
   console.log('[Scheduler] Started');
 }
 
+/**
+ * Core logic: build and optionally send one recurring invoice for a client.
+ * Returns the shareToken so callers can construct a preview URL.
+ * `invoiceNumber` and `status` let callers override for preview vs real send.
+ */
+export async function buildAndSendRecurringInvoice(
+  config: Awaited<ReturnType<typeof getAllEnabledRecurringConfigs>>[number],
+  opts: { invoiceNumber: string; status: 'draft' | 'sent'; sendEmail: boolean; baseUrl: string }
+): Promise<string> {
+  const profile = await getClientProfile(config.clientSlug);
+  if (!profile) throw new Error(`No client profile for ${config.clientSlug}`);
+
+  const amount = parseFloat(String(config.amount));
+  const amountStr = String(amount);
+  const now = new Date();
+
+  const { shareToken } = await createInvoice(
+    {
+      invoiceNumber: opts.invoiceNumber,
+      clientSlug: config.clientSlug,
+      clientName: profile.name ?? config.clientSlug,
+      clientContact: profile.contact ?? null,
+      clientPhone: profile.phone ?? null,
+      clientEmail: config.recipientEmail ?? profile.email ?? null,
+      projectName: config.description,
+      invoiceType: 'monthly',
+      status: opts.status,
+      subtotal: amountStr,
+      discountPercent: '0',
+      discountAmount: '0',
+      totalAmount: amountStr,
+      amountDue: amountStr,
+      paymentTerms: config.paymentTerms,
+      notes: config.notes ?? null,
+      clientAddress: profile.address ?? null,
+      invoiceDate: now,
+      dueDate: null,
+      bankName: 'FNB/RMB',
+      accountHolder: 'Gro Digital',
+      accountNumber: '62842244725',
+      accountType: 'Gold Business Account',
+      branchCode: '250655',
+    },
+    [{
+      description: config.description,
+      frequency: 'Monthly',
+      vat: 'No VAT',
+      unitPrice: amountStr,
+      quantity: 1,
+      lineTotal: amountStr,
+    }]
+  );
+
+  if (opts.sendEmail) {
+    const recipientEmail = config.recipientEmail ?? profile.email;
+    if (recipientEmail) {
+      const invoice = await getInvoiceByNumber(opts.invoiceNumber);
+      if (invoice) await sendInvoiceEmail(invoice.id, recipientEmail, opts.baseUrl);
+    }
+  }
+
+  return shareToken;
+}
+
 export async function runRecurringInvoiceTick() {
   const now = new Date();
   const todayDay = now.getDate();
@@ -107,63 +171,11 @@ export async function runRecurringInvoiceTick() {
         continue;
       }
 
-      const profile = await getClientProfile(config.clientSlug);
-      if (!profile) {
-        console.warn(`[RecurringInvoice] No client profile for ${config.clientSlug}, skipping`);
-        continue;
-      }
-
       const monthStr = String(currentMonth).padStart(2, '0');
       const invoiceNumber = `REC-${config.clientSlug.toUpperCase()}-${currentYear}-${monthStr}`;
-      const amount = parseFloat(String(config.amount));
-      const amountStr = String(amount);
+      const baseUrl = ENV.appUrl || process.env.PORTAL_URL || '';
 
-      await createInvoice(
-        {
-          invoiceNumber,
-          clientSlug: config.clientSlug,
-          clientName: profile.name ?? config.clientSlug,
-          clientContact: profile.contact ?? null,
-          clientPhone: profile.phone ?? null,
-          clientEmail: config.recipientEmail ?? profile.email ?? null,
-          projectName: config.description,
-          invoiceType: 'monthly',
-          status: 'sent',
-          subtotal: amountStr,
-          discountPercent: '0',
-          discountAmount: '0',
-          totalAmount: amountStr,
-          amountDue: amountStr,
-          paymentTerms: config.paymentTerms,
-          notes: config.notes ?? null,
-          clientAddress: profile.address ?? null,
-          invoiceDate: now,
-          dueDate: null,
-          bankName: 'FNB/RMB',
-          accountHolder: 'Gro Digital',
-          accountNumber: '62842244725',
-          accountType: 'Gold Business Account',
-          branchCode: '250655',
-        },
-        [{
-          description: config.description,
-          frequency: 'Monthly',
-          vat: 'No VAT',
-          unitPrice: amountStr,
-          quantity: 1,
-          lineTotal: amountStr,
-        }]
-      );
-
-      const recipientEmail = config.recipientEmail ?? profile.email;
-      if (recipientEmail) {
-        const invoice = await getInvoiceByNumber(invoiceNumber);
-        if (invoice) {
-          const baseUrl = ENV.appUrl || process.env.PORTAL_URL || '';
-          await sendInvoiceEmail(invoice.id, recipientEmail, baseUrl);
-        }
-      }
-
+      await buildAndSendRecurringInvoice(config, { invoiceNumber, status: 'sent', sendEmail: true, baseUrl });
       await updateRecurringInvoiceLastSent(config.clientSlug, now);
       console.log(`[RecurringInvoice] Sent invoice ${invoiceNumber} for ${config.clientSlug}`);
     } catch (e) {

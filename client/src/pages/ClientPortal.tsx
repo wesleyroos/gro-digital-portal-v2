@@ -223,6 +223,9 @@ export default function ClientPortal() {
     onError: () => toast.error("Failed to save config"),
   });
 
+  const previewNow = trpc.recurringInvoice.previewNow.useMutation();
+  const sendNow = trpc.recurringInvoice.sendNow.useMutation();
+
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
@@ -992,13 +995,44 @@ export default function ClientPortal() {
                 </div>
 
                 {!editingRecurring && recurringConfig && (
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>Amount: <span className="text-foreground font-mono font-medium">R{parseFloat(String(recurringConfig.amount)).toFixed(2)}</span></p>
-                    <p>Sends on day <span className="text-foreground font-medium">{recurringConfig.sendDay}</span> of each month</p>
-                    <p>To: <span className="text-foreground">{recurringConfig.recipientEmail || profile?.email || "(not set)"}</span></p>
-                    {recurringConfig.lastSentAt && (
-                      <p>Last sent: <span className="text-foreground">{new Date(recurringConfig.lastSentAt).toLocaleDateString("en-ZA")}</span></p>
-                    )}
+                  <div className="space-y-3">
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>Amount: <span className="text-foreground font-mono font-medium">R{parseFloat(String(recurringConfig.amount)).toFixed(2)}</span></p>
+                      <p>Sends on day <span className="text-foreground font-medium">{recurringConfig.sendDay}</span> of each month</p>
+                      <p>To: <span className="text-foreground">{recurringConfig.recipientEmail || profile?.email || "(not set)"}</span></p>
+                      {recurringConfig.lastSentAt && (
+                        <p>Last sent: <span className="text-foreground">{new Date(recurringConfig.lastSentAt).toLocaleDateString("en-ZA")}</span></p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                        disabled={previewNow.isPending}
+                        onClick={() => previewNow.mutate({ clientSlug: slug }, {
+                          onSuccess: (d) => window.open(`/i/${d.shareToken}`, '_blank'),
+                          onError: () => toast.error("Preview failed"),
+                        })}>
+                        <FileText className="w-3 h-3" /> {previewNow.isPending ? "Generating…" : "Preview"}
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                        disabled={sendNow.isPending}
+                        onClick={() => {
+                          if (!confirm("Send the invoice now and email the client?")) return;
+                          sendNow.mutate({ clientSlug: slug }, {
+                            onSuccess: (d) => {
+                              refetchRecurring();
+                              if (d.alreadySent) {
+                                toast.info("Invoice already sent this month — opening existing invoice");
+                              } else {
+                                toast.success("Invoice sent!");
+                              }
+                              window.open(`/i/${d.shareToken}`, '_blank');
+                            },
+                            onError: (e) => toast.error(e.message || "Send failed"),
+                          });
+                        }}>
+                        <Mail className="w-3 h-3" /> {sendNow.isPending ? "Sending…" : "Send now"}
+                      </Button>
+                    </div>
                   </div>
                 )}
 
