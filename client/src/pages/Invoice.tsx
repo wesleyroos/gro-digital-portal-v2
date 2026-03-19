@@ -225,7 +225,7 @@ export default function Invoice() {
     <div className="min-h-screen bg-background">
       {/* Top bar with actions */}
       <div className="no-print sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className={`${isAdmin ? "" : "max-w-4xl mx-auto"} px-4 sm:px-6 py-3 flex items-center justify-between`}>
+        <div className="max-w-4xl px-4 sm:px-6 py-3 flex items-center justify-between">
           <Link href={backPath} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <ChevronLeft className="w-4 h-4 text-muted-foreground" />
             <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
@@ -323,7 +323,7 @@ export default function Invoice() {
       </div>
 
       {/* Invoice content */}
-      <div className={`${isAdmin ? "" : "max-w-4xl mx-auto"} px-4 sm:px-6 py-8 sm:py-12`}>
+      <div className="max-w-4xl px-4 sm:px-6 py-8 sm:py-12">
         {/* Header */}
         <div className="mb-10">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
