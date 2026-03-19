@@ -812,15 +812,15 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
 
         <!-- Header bar -->
-        <div style="background: #1a56db; padding: 28px 32px; border-radius: 12px 12px 0 0;">
+        <div style="background: #ffffff; padding: 28px 32px 20px; border: 1px solid #e5e7eb; border-bottom: 3px solid #1a56db; border-radius: 12px 12px 0 0;">
           <img src="https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773557375019-ei1drt50gii.png"
-               alt="Gro Digital" style="height: 36px; display: block;" />
+               alt="Gro Digital" style="height: 32px; display: block;" />
         </div>
 
         <!-- Body -->
         <div style="padding: 36px 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
 
-          <p style="font-size: 16px; font-weight: 600; margin: 0 0 6px; color: #111;">Hi ${(invoice.clientContact || invoice.clientName || '').split(' ')[0]},</p>
+          <p style="font-size: 16px; font-weight: 600; margin: 0 0 6px; color: #111;">Hi ${(invoice.clientContact || '').split(' ')[0] || invoice.clientName?.split(' ')[0] || 'there'},</p>
           <p style="font-size: 14px; color: #555; line-height: 1.7; margin: 0 0 28px;">
             Please find your invoice <strong style="color: #111;">${invoice.invoiceNumber}</strong> from Gro Digital attached below.
             ${invoice.projectName ? `This relates to <strong style="color: #111;">${invoice.projectName}</strong>.` : ''}

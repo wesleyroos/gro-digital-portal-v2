@@ -103,7 +103,7 @@ export async function buildAndSendRecurringInvoice(
     {
       invoiceNumber: opts.invoiceNumber,
       clientSlug: config.clientSlug,
-      clientName: profile.name ?? config.clientSlug,
+      clientName: profile.name ?? config.clientSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
       clientContact: profile.contact ?? null,
       clientPhone: profile.phone ?? null,
       clientEmail: config.recipientEmail ?? profile.email ?? null,
