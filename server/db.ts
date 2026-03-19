@@ -219,6 +219,45 @@ export async function updateUserRole(openId: string, role: "client" | "admin" | 
 
 // ── Invoice queries ──
 
+/**
+ * Derives the 2-letter client prefix used in invoice numbers.
+ * "bison-mining-supplies" → "BI", "igl" → "IG", "joe-bloggs" → "JO"
+ */
+function clientInvoicePrefix(clientSlug: string): string {
+  const firstWord = clientSlug.split('-')[0] ?? clientSlug;
+  return firstWord.slice(0, 2).toUpperCase();
+}
+
+/**
+ * Returns the next invoice number in the INV-XX### sequence.
+ * Scans all existing invoice numbers globally to find the highest number
+ * for this client's prefix, then increments it. Falls back to 001 if none exist.
+ */
+export async function getNextInvoiceNumber(clientSlug: string): Promise<string> {
+  const db = await getDb();
+  const prefix = clientInvoicePrefix(clientSlug);
+  const pattern = `INV-${prefix}%`;
+
+  if (!db) return `INV-${prefix}001`;
+
+  const rows = await db
+    .select({ invoiceNumber: invoices.invoiceNumber })
+    .from(invoices)
+    .where(sql`${invoices.invoiceNumber} LIKE ${pattern}`);
+
+  let max = 0;
+  for (const { invoiceNumber } of rows) {
+    const match = invoiceNumber.match(/(\d+)$/);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (n > max) max = n;
+    }
+  }
+
+  const next = String(max + 1).padStart(3, '0');
+  return `INV-${prefix}${next}`;
+}
+
 export async function getInvoiceByNumber(invoiceNumber: string) {
   const db = await getDb();
   if (!db) return undefined;

@@ -1,4 +1,4 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, updatePostStatus, updatePostFacebookId, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, updatePostStatus, updatePostFacebookId, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber } from './db';
 import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia } from './instagram';
 import { postImageToPage, postVideoToPage } from './facebook';
@@ -171,9 +171,7 @@ export async function runRecurringInvoiceTick() {
         continue;
       }
 
-      const monthStr = String(currentMonth).padStart(2, '0');
-      const slugPart = config.clientSlug.toUpperCase().slice(0, 16).replace(/-+$/, '');
-      const invoiceNumber = `REC-${slugPart}-${currentYear}-${monthStr}`;
+      const invoiceNumber = await getNextInvoiceNumber(config.clientSlug);
       const baseUrl = ENV.appUrl || process.env.PORTAL_URL || '';
 
       await buildAndSendRecurringInvoice(config, { invoiceNumber, status: 'sent', sendEmail: true, baseUrl });
