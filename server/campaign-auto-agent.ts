@@ -736,6 +736,8 @@ export function registerCampaignAutoAgentRoutes(app: Express) {
       pendingUserMessages.delete(agentId);
     });
 
+    db.insertAiInteraction({ source: 'campaign_auto_agent', toolName: 'autoAgent.run', inputSummary: goals?.slice(0, 512) ?? `client:${clientSlug}`, clientSlug }).catch(() => {});
+
     try {
       await runCampaignAutoAgent(agentId, clientSlug, campaignName, goals, res);
     } catch (e) {

@@ -57,6 +57,7 @@ export function logInteraction(data: {
     : undefined;
 
   trpcMutation("ai.logInteraction", {
+    source: "mcp",
     toolName: data.toolName,
     inputSummary,
     isError: data.isError ?? false,

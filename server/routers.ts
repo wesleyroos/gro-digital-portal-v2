@@ -1069,6 +1069,7 @@ export const appRouter = router({
             messages: [{ role: 'user', content: `Write a new image generation prompt for this social media post.\n\nTheme: ${post.theme ?? 'none'}\nCaption: ${post.caption ?? 'none'}\nHashtags: ${post.hashtags ?? 'none'}\n\nThe prompt should describe a specific visual scene or composition that would work well as an Instagram post image.` }],
           });
           const prompt = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : '';
+          insertAiInteraction({ source: 'campaign_image_prompt', toolName: 'regenerateImagePrompt', inputSummary: `postId:${input.postId} theme:${post.theme ?? ''}`, clientSlug: campaign.clientSlug }).catch(() => {});
           return { prompt };
         }),
 
@@ -1864,6 +1865,7 @@ INSTRUCTIONS:
 
             // Save assistant reply
             await insertMailerChatMessage(input.mailerId, 'assistant', replyText);
+            insertAiInteraction({ source: 'mailer_chat', toolName: 'mailer.chat.send', inputSummary: input.message.slice(0, 512), clientSlug: campaign?.clientSlug ?? undefined }).catch(() => {});
 
             return { reply: replyText };
           }),
@@ -2099,6 +2101,7 @@ Only return JSON, no explanation.`,
           }],
         });
 
+        insertAiInteraction({ source: 'outreach_discover', toolName: 'outreach.discover', inputSummary: input.criteria.slice(0, 512) }).catch(() => {});
         let searchQuery = input.criteria;
         let locationHint = '';
         try {
@@ -2264,6 +2267,8 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
         });
+
+        insertAiInteraction({ source: 'outreach_email_draft', toolName: 'outreach.draftEmail', inputSummary: `prospect:${prospect.businessName}` }).catch(() => {});
 
         try {
           const raw = (result.content[0] as { type: string; text: string }).text;
@@ -2640,6 +2645,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
   ai: router({
     logInteraction: adminProcedure
       .input(z.object({
+        source: z.string().default("mcp"),
         toolName: z.string(),
         inputSummary: z.string().optional(),
         isError: z.boolean().optional(),

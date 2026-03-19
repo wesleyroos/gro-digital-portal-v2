@@ -667,6 +667,8 @@ export function registerCampaignJarvisRoutes(app: Express) {
       pendingUserMessages.delete(campaignId);
     });
 
+    db.insertAiInteraction({ source: 'campaign_jarvis', toolName: 'jarvis.run', inputSummary: goals?.slice(0, 512) ?? `campaignId:${campaignId}` }).catch(() => {});
+
     try {
       await runJarvis(campaignId, goals, res);
     } catch (e) {

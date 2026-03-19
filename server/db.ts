@@ -1769,6 +1769,7 @@ export async function updateRecurringInvoiceLastSent(clientSlug: string, sentAt:
 }
 
 export async function insertAiInteraction(data: {
+  source: string;
   toolName: string;
   inputSummary?: string;
   isError?: boolean;
@@ -1777,6 +1778,7 @@ export async function insertAiInteraction(data: {
   const db = await getDb();
   if (!db) return;
   await db.insert(aiInteractions).values({
+    source: data.source,
     toolName: data.toolName,
     inputSummary: data.inputSummary ?? null,
     isError: data.isError ?? false,

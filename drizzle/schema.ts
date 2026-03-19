@@ -441,6 +441,7 @@ export type InsertRecurringInvoiceConfig = typeof recurringInvoiceConfig.$inferI
  */
 export const aiInteractions = mysqlTable("aiInteractions", {
   id: int("id").autoincrement().primaryKey(),
+  source: varchar("source", { length: 64 }).notNull().default("mcp"),
   toolName: varchar("toolName", { length: 128 }).notNull(),
   inputSummary: text("inputSummary"),
   isError: boolean("isError").notNull().default(false),
