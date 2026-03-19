@@ -93,7 +93,7 @@ export async function buildAndSendRecurringInvoice(
   opts: { invoiceNumber: string; status: 'draft' | 'sent'; sendEmail: boolean; baseUrl: string }
 ): Promise<string> {
   const profile = await getClientProfile(config.clientSlug);
-  if (!profile) throw new Error(`No client profile for ${config.clientSlug}`);
+  const slugToTitle = (s: string) => s.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const amount = parseFloat(String(config.amount));
   const amountStr = String(amount);
@@ -103,10 +103,10 @@ export async function buildAndSendRecurringInvoice(
     {
       invoiceNumber: opts.invoiceNumber,
       clientSlug: config.clientSlug,
-      clientName: profile.name ?? config.clientSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-      clientContact: profile.contact ?? null,
-      clientPhone: profile.phone ?? null,
-      clientEmail: config.recipientEmail ?? profile.email ?? null,
+      clientName: profile?.name ?? slugToTitle(config.clientSlug),
+      clientContact: profile?.contact ?? null,
+      clientPhone: profile?.phone ?? null,
+      clientEmail: config.recipientEmail ?? profile?.email ?? null,
       projectName: config.description,
       invoiceType: 'monthly',
       status: opts.status,
@@ -117,7 +117,7 @@ export async function buildAndSendRecurringInvoice(
       amountDue: amountStr,
       paymentTerms: config.paymentTerms,
       notes: config.notes ?? null,
-      clientAddress: profile.address ?? null,
+      clientAddress: profile?.address ?? null,
       invoiceDate: now,
       dueDate: null,
       bankName: 'FNB/RMB',
@@ -137,7 +137,7 @@ export async function buildAndSendRecurringInvoice(
   );
 
   if (opts.sendEmail) {
-    const recipientEmail = config.recipientEmail ?? profile.email;
+    const recipientEmail = config.recipientEmail ?? profile?.email;
     if (recipientEmail) {
       const invoice = await getInvoiceByNumber(opts.invoiceNumber);
       if (invoice) await sendInvoiceEmail(invoice.id, recipientEmail, opts.baseUrl);
