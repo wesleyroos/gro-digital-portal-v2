@@ -1131,97 +1131,37 @@ export default function ClientPortal() {
               </div>
             )}
 
-            {onceOff.length > 0 && (
-              <section>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-                  <FileText className="w-3.5 h-3.5" /> Project Invoices
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {onceOff.map((inv) => (
-                    <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
-                      <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-primary/20 bg-primary/[0.02]">
-                        <CardContent className="p-5">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center"><TypeIcon type={inv.invoiceType} /></div>
-                            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                          </div>
-                          <h4 className="text-sm font-semibold text-foreground mb-0.5">Invoice {inv.invoiceNumber}</h4>
-                          <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-lg font-bold font-mono text-primary">{formatCurrency(inv.totalAmount)}</span>
-                            <StatusBadge status={inv.status} />
-                          </div>
-                          {parseFloat(String(inv.amountDue)) !== parseFloat(String(inv.totalAmount)) && (
-                            <p className="text-xs text-muted-foreground mt-1.5 font-mono">Due: {formatCurrency(inv.amountDue)}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {monthly.length > 0 && (
-              <section>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-                  <Repeat className="w-3.5 h-3.5" /> Monthly Subscriptions
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {monthly.map((inv) => (
-                    <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
-                      <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-blue-200/50 bg-blue-50/30">
-                        <CardContent className="p-5">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><TypeIcon type={inv.invoiceType} /></div>
-                            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-blue-600 transition-colors" />
-                          </div>
-                          <h4 className="text-sm font-semibold text-foreground mb-0.5">{inv.invoiceNumber}</h4>
-                          <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-lg font-bold font-mono text-blue-700">{formatCurrency(inv.totalAmount)}<span className="text-xs font-normal text-muted-foreground">/mo</span></span>
-                            <StatusBadge status={inv.status} />
-                          </div>
-                          {parseFloat(String(inv.amountDue)) !== parseFloat(String(inv.totalAmount)) && (
-                            <p className="text-xs text-muted-foreground mt-1.5 font-mono">Due: {formatCurrency(inv.amountDue)}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {annual.length > 0 && (
-              <section>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-                  <CalendarDays className="w-3.5 h-3.5" /> Annual Subscriptions
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {annual.map((inv) => (
-                    <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
-                      <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-purple-200/50 bg-purple-50/30">
-                        <CardContent className="p-5">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center"><TypeIcon type={inv.invoiceType} /></div>
-                            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-purple-600 transition-colors" />
-                          </div>
-                          <h4 className="text-sm font-semibold text-foreground mb-0.5">{inv.invoiceNumber}</h4>
-                          <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-lg font-bold font-mono text-purple-700">{formatCurrency(inv.totalAmount)}<span className="text-xs font-normal text-muted-foreground">/yr</span></span>
-                            <StatusBadge status={inv.status} />
-                          </div>
-                          {parseFloat(String(inv.amountDue)) !== parseFloat(String(inv.totalAmount)) && (
-                            <p className="text-xs text-muted-foreground mt-1.5 font-mono">Due: {formatCurrency(inv.amountDue)}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </section>
+            {(onceOff.length > 0 || monthly.length > 0 || annual.length > 0) && (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 border-b border-border">
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">#</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Description</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Date</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Amount</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-background">
+                    {[...onceOff, ...monthly, ...annual]
+                      .sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime())
+                      .map((inv) => (
+                        <tr key={inv.id}
+                          className="hover:bg-muted/40 transition-colors cursor-pointer group"
+                          onClick={() => window.location.href = `/invoice/${inv.invoiceNumber}`}>
+                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">{inv.invoiceNumber}</td>
+                          <td className="px-4 py-3 text-sm text-foreground max-w-[200px] truncate">{inv.projectName || "—"}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(inv.invoiceDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-foreground whitespace-nowrap">{formatCurrency(inv.totalAmount)}</td>
+                          <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
