@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   FileText,
@@ -199,6 +200,7 @@ export default function ClientPortal() {
     notes: "",
   });
   const [editingRecurring, setEditingRecurring] = useState(false);
+  const [sendNowConfirmOpen, setSendNowConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (recurringConfig) {
@@ -206,13 +208,15 @@ export default function ClientPortal() {
         enabled: recurringConfig.enabled,
         amount: String(parseFloat(String(recurringConfig.amount)) || ""),
         description: recurringConfig.description,
-        recipientEmail: recurringConfig.recipientEmail ?? "",
+        recipientEmail: recurringConfig.recipientEmail ?? profile?.email ?? "",
         sendDay: recurringConfig.sendDay,
         paymentTerms: recurringConfig.paymentTerms,
         notes: recurringConfig.notes ?? "",
       });
+    } else if (profile) {
+      setRecurringDraft(d => ({ ...d, recipientEmail: profile.email ?? "" }));
     }
-  }, [recurringConfig]);
+  }, [recurringConfig, profile]);
 
   const setRecurringConfig = trpc.recurringInvoice.setConfig.useMutation({
     onSuccess: () => {
@@ -1015,24 +1019,40 @@ export default function ClientPortal() {
                       </Button>
                       <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
                         disabled={sendNow.isPending}
-                        onClick={() => {
-                          if (!confirm("Send the invoice now and email the client?")) return;
-                          sendNow.mutate({ clientSlug: slug }, {
-                            onSuccess: (d) => {
-                              refetchRecurring();
-                              if (d.alreadySent) {
-                                toast.info("Invoice already sent this month — opening existing invoice");
-                              } else {
-                                toast.success("Invoice sent!");
-                              }
-                              window.open(`/i/${d.shareToken}`, '_blank');
-                            },
-                            onError: (e) => toast.error(e.message || "Send failed"),
-                          });
-                        }}>
+                        onClick={() => setSendNowConfirmOpen(true)}>
                         <Mail className="w-3 h-3" /> {sendNow.isPending ? "Sending…" : "Send now"}
                       </Button>
                     </div>
+
+                    <AlertDialog open={sendNowConfirmOpen} onOpenChange={setSendNowConfirmOpen}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Send invoice now?</AlertDialogTitle>
+                          <AlertDialogDescription className="space-y-1.5">
+                            <span className="block">This will create and email the next invoice to:</span>
+                            <span className="block font-medium text-foreground">{recurringConfig?.recipientEmail || profile?.email || "the client's email"}</span>
+                            <span className="block mt-1">The invoice will be marked as <strong>sent</strong> and will appear in the billing tab.</span>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              setSendNowConfirmOpen(false);
+                              sendNow.mutate({ clientSlug: slug }, {
+                                onSuccess: (d) => {
+                                  refetchRecurring();
+                                  toast.success("Invoice sent successfully");
+                                  window.open(`/i/${d.shareToken}`, '_blank');
+                                },
+                                onError: (e) => toast.error(e.message || "Send failed"),
+                              });
+                            }}>
+                            Send invoice
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 )}
 
