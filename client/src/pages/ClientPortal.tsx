@@ -405,7 +405,7 @@ export default function ClientPortal() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {onceOff.map((inv) => (
-                  <Link key={inv.id} href={`/client/${slug}/invoice/${inv.invoiceNumber}`}>
+                  <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
                     <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-primary/20 bg-primary/[0.02]">
                       <CardContent className="p-5">
                         <div className="flex items-start justify-between mb-3">
@@ -436,7 +436,7 @@ export default function ClientPortal() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {monthly.map((inv) => (
-                  <Link key={inv.id} href={`/client/${slug}/invoice/${inv.invoiceNumber}`}>
+                  <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
                     <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-blue-200/50 bg-blue-50/30">
                       <CardContent className="p-5">
                         <div className="flex items-start justify-between mb-3">
@@ -464,7 +464,7 @@ export default function ClientPortal() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {annual.map((inv) => (
-                  <Link key={inv.id} href={`/client/${slug}/invoice/${inv.invoiceNumber}`}>
+                  <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
                     <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-purple-200/50 bg-purple-50/30">
                       <CardContent className="p-5">
                         <div className="flex items-start justify-between mb-3">
@@ -1138,7 +1138,7 @@ export default function ClientPortal() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {onceOff.map((inv) => (
-                    <Link key={inv.id} href={`/client/${slug}/invoice/${inv.invoiceNumber}`}>
+                    <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
                       <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-primary/20 bg-primary/[0.02]">
                         <CardContent className="p-5">
                           <div className="flex items-start justify-between mb-3">
@@ -1169,7 +1169,7 @@ export default function ClientPortal() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {monthly.map((inv) => (
-                    <Link key={inv.id} href={`/client/${slug}/invoice/${inv.invoiceNumber}`}>
+                    <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
                       <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-blue-200/50 bg-blue-50/30">
                         <CardContent className="p-5">
                           <div className="flex items-start justify-between mb-3">
@@ -1200,7 +1200,7 @@ export default function ClientPortal() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {annual.map((inv) => (
-                    <Link key={inv.id} href={`/client/${slug}/invoice/${inv.invoiceNumber}`}>
+                    <Link key={inv.id} href={`/invoice/${inv.invoiceNumber}`}>
                       <Card className="shadow-sm hover:shadow-md transition-shadow cursor-pointer group border-purple-200/50 bg-purple-50/30">
                         <CardContent className="p-5">
                           <div className="flex items-start justify-between mb-3">
