@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express from "express";
 import { z } from "zod";
-import { trpcMutation, trpcQuery } from "./api-client.js";
+import { trpcMutation, trpcQuery, logInteraction } from "./api-client.js";
 
 const BASE_URL = process.env.PUBLIC_URL ?? "";
 const MCP_API_KEY = process.env.MCP_API_KEY ?? "";
@@ -36,6 +36,27 @@ setInterval(() => {
 
 // ── MCP Server Factory (one instance per session) ───────────────────────
 
+type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
+
+/**
+ * Wraps a tool handler to log every call fire-and-forget before returning.
+ */
+function withLogging<T extends Record<string, unknown>>(
+  toolName: string,
+  handler: (input: T) => Promise<ToolResult>
+): (input: T, extra: unknown) => Promise<ToolResult> {
+  return async (input: T) => {
+    const result = await handler(input);
+    logInteraction({
+      toolName,
+      input,
+      isError: result.isError ?? false,
+      clientSlug: (input as any).client_slug ?? undefined,
+    });
+    return result;
+  };
+}
+
 function createMcpServer(): McpServer {
   const server = new McpServer({
     name: "GRO Digital Portal",
@@ -44,43 +65,43 @@ function createMcpServer(): McpServer {
 
   // ── Read Tools ────────────────────────────────────────────────────────
 
-  server.tool("get_clients", "List all clients with name, contact info, and linked profiles", {}, async () => {
+  server.tool("get_clients", "List all clients with name, contact info, and linked profiles", {}, withLogging("get_clients", async () => {
     try {
       const clients = await trpcQuery<any[]>("invoice.clients");
       return { content: [{ type: "text", text: JSON.stringify(clients, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
     }
-  });
+  }));
 
   server.tool(
     "get_client_profile",
     "Get detailed profile for a specific client including contact info and social connections",
     { client_slug: z.string().describe("The client's slug identifier (e.g. 'acme-corp')") },
-    async ({ client_slug }) => {
+    withLogging("get_client_profile", async ({ client_slug }) => {
       try {
         const profile = await trpcQuery("client.getProfile", { clientSlug: client_slug });
         return { content: [{ type: "text", text: JSON.stringify(profile, null, 2) }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
-  server.tool("get_leads", "List all leads in the pipeline with stage, source, value, and contact info", {}, async () => {
+  server.tool("get_leads", "List all leads in the pipeline with stage, source, value, and contact info", {}, withLogging("get_leads", async () => {
     try {
       const leads = await trpcQuery<any[]>("lead.list");
       return { content: [{ type: "text", text: JSON.stringify(leads, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
     }
-  });
+  }));
 
   server.tool(
     "get_invoices",
     "List all invoices. Optionally filter by client slug",
     { client_slug: z.string().optional().describe("Filter by client slug (optional)") },
-    async ({ client_slug }) => {
+    withLogging("get_invoices", async ({ client_slug }) => {
       try {
         const invoices = client_slug
           ? await trpcQuery("invoice.listByClient", { clientSlug: client_slug })
@@ -89,28 +110,28 @@ function createMcpServer(): McpServer {
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
   server.tool(
     "get_invoice_detail",
     "Get a specific invoice with line items by invoice number",
     { invoice_number: z.string().describe("The invoice number (e.g. 'INV-001')") },
-    async ({ invoice_number }) => {
+    withLogging("get_invoice_detail", async ({ invoice_number }) => {
       try {
         const result = await trpcQuery("invoice.getByNumber", { invoiceNumber: invoice_number });
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
   server.tool(
     "get_proposals",
     "List all proposals. Optionally filter by client slug",
     { client_slug: z.string().optional().describe("Filter by client slug (optional)") },
-    async ({ client_slug }) => {
+    withLogging("get_proposals", async ({ client_slug }) => {
       try {
         const proposals = client_slug
           ? await trpcQuery("proposal.listByClient", { clientSlug: client_slug })
@@ -119,44 +140,44 @@ function createMcpServer(): McpServer {
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
-  server.tool("get_tasks", "List all tasks with status, due dates, priority, and assigned client", {}, async () => {
+  server.tool("get_tasks", "List all tasks with status, due dates, priority, and assigned client", {}, withLogging("get_tasks", async () => {
     try {
       const tasks = await trpcQuery<any[]>("task.list");
       return { content: [{ type: "text", text: JSON.stringify(tasks, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
     }
-  });
+  }));
 
-  server.tool("get_subscriptions", "List all recurring subscriptions (MRR/ARR tracking) with amount, type, and status", {}, async () => {
+  server.tool("get_subscriptions", "List all recurring subscriptions (MRR/ARR tracking) with amount, type, and status", {}, withLogging("get_subscriptions", async () => {
     try {
       const subs = await trpcQuery<any[]>("subscription.list");
       return { content: [{ type: "text", text: JSON.stringify(subs, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
     }
-  });
+  }));
 
-  server.tool("get_revenue_summary", "Get comprehensive revenue metrics: MRR, ARR, monthly breakdown, outstanding invoices, project fees", {}, async () => {
+  server.tool("get_revenue_summary", "Get comprehensive revenue metrics: MRR, ARR, monthly breakdown, outstanding invoices, project fees", {}, withLogging("get_revenue_summary", async () => {
     try {
       const metrics = await trpcQuery("invoice.metrics");
       return { content: [{ type: "text", text: JSON.stringify(metrics, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
     }
-  });
+  }));
 
-  server.tool("get_campaigns", "List all marketing campaigns with status, client, and date range", {}, async () => {
+  server.tool("get_campaigns", "List all marketing campaigns with status, client, and date range", {}, withLogging("get_campaigns", async () => {
     try {
       const campaigns = await trpcQuery<any[]>("campaign.list");
       return { content: [{ type: "text", text: JSON.stringify(campaigns, null, 2) }] };
     } catch (err) {
       return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
     }
-  });
+  }));
 
   // ── Write Tools ───────────────────────────────────────────────────────
 
@@ -167,14 +188,14 @@ function createMcpServer(): McpServer {
       lead_id: z.number().describe("The lead's numeric ID"),
       stage: z.enum(["prospect", "proposal", "negotiation"]).describe("New pipeline stage"),
     },
-    async ({ lead_id, stage }) => {
+    withLogging("update_lead_status", async ({ lead_id, stage }) => {
       try {
         await trpcMutation("lead.update", { id: lead_id, stage });
         return { content: [{ type: "text", text: `Lead ${lead_id} moved to "${stage}" stage.` }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
   server.tool(
@@ -195,7 +216,7 @@ function createMcpServer(): McpServer {
       due_date: z.string().optional().describe("Due date in YYYY-MM-DD format"),
       notes: z.string().optional().describe("Additional notes"),
     },
-    async ({ client_slug, client_name, client_email, project_name, invoice_type, items, due_date, notes }) => {
+    withLogging("create_invoice", async ({ client_slug, client_name, client_email, project_name, invoice_type, items, due_date, notes }) => {
       try {
         const result = await trpcMutation("invoice.create", {
           clientSlug: client_slug,
@@ -218,7 +239,7 @@ function createMcpServer(): McpServer {
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
   server.tool(
@@ -231,14 +252,14 @@ function createMcpServer(): McpServer {
       priority: z.string().optional().describe("Priority level (e.g. 'high', 'medium', 'low')"),
       notes: z.string().optional().describe("Additional notes"),
     },
-    async ({ text, client_slug, due_date, priority, notes }) => {
+    withLogging("create_task", async ({ text, client_slug, due_date, priority, notes }) => {
       try {
         await trpcMutation("task.create", { text, clientSlug: client_slug, dueDate: due_date, priority, notes });
         return { content: [{ type: "text", text: `Task created: "${text}"` }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
   server.tool(
@@ -248,14 +269,14 @@ function createMcpServer(): McpServer {
       invoice_id: z.number().describe("The invoice's numeric ID"),
       status: z.enum(["draft", "sent", "paid", "overdue"]).describe("New status"),
     },
-    async ({ invoice_id, status }) => {
+    withLogging("update_invoice_status", async ({ invoice_id, status }) => {
       try {
         await trpcMutation("invoice.updateStatus", { invoiceId: invoice_id, status });
         return { content: [{ type: "text", text: `Invoice ${invoice_id} status updated to "${status}".` }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
   server.tool(
@@ -271,7 +292,7 @@ function createMcpServer(): McpServer {
       stage: z.enum(["prospect", "proposal", "negotiation"]).default("prospect").describe("Pipeline stage"),
       notes: z.string().optional().describe("Notes about the lead"),
     },
-    async ({ name, contact_name, contact_email, contact_phone, monthly_value, once_off_value, stage, notes }) => {
+    withLogging("create_lead", async ({ name, contact_name, contact_email, contact_phone, monthly_value, once_off_value, stage, notes }) => {
       try {
         await trpcMutation("lead.create", {
           name,
@@ -287,7 +308,7 @@ function createMcpServer(): McpServer {
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
   server.tool(
@@ -297,14 +318,14 @@ function createMcpServer(): McpServer {
       task_id: z.number().describe("The task's numeric ID"),
       done: z.boolean().describe("true to mark done, false to mark not done"),
     },
-    async ({ task_id, done }) => {
+    withLogging("complete_task", async ({ task_id, done }) => {
       try {
         await trpcMutation("task.setDone", { id: task_id, done });
         return { content: [{ type: "text", text: `Task ${task_id} marked as ${done ? "done" : "not done"}.` }] };
       } catch (err) {
         return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
       }
-    }
+    })
   );
 
   return server;

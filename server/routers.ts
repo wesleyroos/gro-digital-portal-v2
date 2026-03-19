@@ -120,6 +120,8 @@ import {
   logUserActivity,
   getUserActivity,
   touchUserSeen,
+  insertAiInteraction,
+  getAiInteractions,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
 import Anthropic from "@anthropic-ai/sdk";
@@ -2632,6 +2634,26 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
           baseUrl,
         });
         return { shareToken, invoiceNumber };
+      }),
+  }),
+
+  ai: router({
+    logInteraction: adminProcedure
+      .input(z.object({
+        toolName: z.string(),
+        inputSummary: z.string().optional(),
+        isError: z.boolean().optional(),
+        clientSlug: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await insertAiInteraction(input);
+        return { success: true };
+      }),
+
+    getInteractions: adminProcedure
+      .input(z.object({ limit: z.number().min(1).max(1000).default(200) }))
+      .query(async ({ input }) => {
+        return getAiInteractions(input.limit);
       }),
   }),
 });

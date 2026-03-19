@@ -43,6 +43,30 @@ export async function trpcQuery<T = unknown>(
 }
 
 /**
+ * Fire-and-forget: log an MCP tool call to the portal for feedback loop analysis.
+ * Never throws — logging failures must not affect tool responses.
+ */
+export function logInteraction(data: {
+  toolName: string;
+  input?: unknown;
+  isError?: boolean;
+  clientSlug?: string;
+}): void {
+  const inputSummary = data.input !== undefined
+    ? JSON.stringify(data.input).slice(0, 512)
+    : undefined;
+
+  trpcMutation("ai.logInteraction", {
+    toolName: data.toolName,
+    inputSummary,
+    isError: data.isError ?? false,
+    clientSlug: data.clientSlug,
+  }).catch((err) => {
+    console.warn("[ai-log] Failed to log interaction:", err instanceof Error ? err.message : String(err));
+  });
+}
+
+/**
  * Call a tRPC mutation procedure on the portal.
  * tRPC v11 with superjson: POST /api/trpc/<procedure> body={json:<data>}
  */

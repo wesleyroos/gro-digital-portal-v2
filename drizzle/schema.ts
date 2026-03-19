@@ -437,6 +437,21 @@ export type RecurringInvoiceConfig = typeof recurringInvoiceConfig.$inferSelect;
 export type InsertRecurringInvoiceConfig = typeof recurringInvoiceConfig.$inferInsert;
 
 /**
+ * AI interaction log — every MCP tool call, for feedback loop analysis.
+ */
+export const aiInteractions = mysqlTable("aiInteractions", {
+  id: int("id").autoincrement().primaryKey(),
+  toolName: varchar("toolName", { length: 128 }).notNull(),
+  inputSummary: text("inputSummary"),
+  isError: boolean("isError").notNull().default(false),
+  clientSlug: varchar("clientSlug", { length: 128 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AiInteraction = typeof aiInteractions.$inferSelect;
+export type InsertAiInteraction = typeof aiInteractions.$inferInsert;
+
+/**
  * User activity log — login events, page views, and key actions.
  */
 export const userActivity = mysqlTable("userActivity", {

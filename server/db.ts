@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1766,6 +1766,32 @@ export async function updateRecurringInvoiceLastSent(clientSlug: string, sentAt:
     .update(recurringInvoiceConfig)
     .set({ lastSentAt: sentAt })
     .where(eq(recurringInvoiceConfig.clientSlug, clientSlug));
+}
+
+export async function insertAiInteraction(data: {
+  toolName: string;
+  inputSummary?: string;
+  isError?: boolean;
+  clientSlug?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(aiInteractions).values({
+    toolName: data.toolName,
+    inputSummary: data.inputSummary ?? null,
+    isError: data.isError ?? false,
+    clientSlug: data.clientSlug ?? null,
+  });
+}
+
+export async function getAiInteractions(limit = 200) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(aiInteractions)
+    .orderBy(desc(aiInteractions.createdAt))
+    .limit(limit);
 }
 
 export async function getInvoiceForClientInMonth(clientSlug: string, year: number, month: number) {
