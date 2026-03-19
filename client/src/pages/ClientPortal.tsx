@@ -24,7 +24,7 @@ function generatePassword(): string {
 }
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
-import { Plus, Shuffle, Copy } from "lucide-react";
+import { Plus, Shuffle, Copy, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -229,6 +229,15 @@ export default function ClientPortal() {
 
   const previewNow = trpc.recurringInvoice.previewNow.useMutation();
   const sendNow = trpc.recurringInvoice.sendNow.useMutation();
+
+  const [resendInvoice, setResendInvoice] = useState<{ id: number; number: string; email: string } | null>(null);
+  const resendEmail = trpc.invoice.sendEmail.useMutation({
+    onSuccess: () => {
+      setResendInvoice(null);
+      toast.success("Invoice resent");
+    },
+    onError: () => toast.error("Failed to resend"),
+  });
 
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -1002,11 +1011,17 @@ export default function ClientPortal() {
                   <div className="space-y-3">
                     <div className="text-xs text-muted-foreground space-y-1">
                       <p>Amount: <span className="text-foreground font-mono font-medium">R{parseFloat(String(recurringConfig.amount)).toFixed(2)}</span></p>
-                      <p>Sends on day <span className="text-foreground font-medium">{recurringConfig.sendDay}</span> of each month</p>
                       <p>To: <span className="text-foreground">{recurringConfig.recipientEmail || profile?.email || "(not set)"}</span></p>
                       {recurringConfig.lastSentAt && (
                         <p>Last sent: <span className="text-foreground">{new Date(recurringConfig.lastSentAt).toLocaleDateString("en-ZA")}</span></p>
                       )}
+                      {recurringConfig.enabled && (() => {
+                        const now = new Date();
+                        const day = recurringConfig.sendDay;
+                        let next = new Date(now.getFullYear(), now.getMonth(), day);
+                        if (now.getDate() >= day) next = new Date(now.getFullYear(), now.getMonth() + 1, day);
+                        return <p>Next invoice: <span className="text-foreground font-medium">{next.toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</span></p>;
+                      })()}
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
@@ -1131,6 +1146,34 @@ export default function ClientPortal() {
               </div>
             )}
 
+            {/* Resend invoice modal */}
+            <AlertDialog open={!!resendInvoice} onOpenChange={(o) => { if (!o) setResendInvoice(null); }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Resend invoice {resendInvoice?.number}?</AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-3">
+                    <span className="block">This will send the invoice email again to:</span>
+                    <Input
+                      className="h-8 text-sm"
+                      value={resendInvoice?.email ?? ""}
+                      onChange={e => setResendInvoice(r => r ? { ...r, email: e.target.value } : null)}
+                    />
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={!resendInvoice?.email || resendEmail.isPending}
+                    onClick={() => {
+                      if (resendInvoice?.email)
+                        resendEmail.mutate({ invoiceId: resendInvoice.id, recipientEmail: resendInvoice.email });
+                    }}>
+                    {resendEmail.isPending ? "Sending…" : "Resend"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
             {(onceOff.length > 0 || monthly.length > 0 || annual.length > 0) && (
               <div className="rounded-lg border border-border overflow-hidden">
                 <table className="w-full text-sm">
@@ -1141,6 +1184,7 @@ export default function ClientPortal() {
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Date</th>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Amount</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
+                      <th className="px-4 py-2.5"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border bg-background">
@@ -1157,6 +1201,13 @@ export default function ClientPortal() {
                           </td>
                           <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-foreground whitespace-nowrap">{formatCurrency(inv.totalAmount)}</td>
                           <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Resend invoice"
+                              onClick={() => setResendInvoice({ id: inv.id, number: inv.invoiceNumber, email: inv.clientEmail || profile?.email || "" })}>
+                              <Send className="w-3 h-3 text-muted-foreground" />
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                   </tbody>
