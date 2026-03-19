@@ -112,6 +112,70 @@ function FbCard({ clientSlug }: { clientSlug: string }) {
   );
 }
 
+function LiCard({ clientSlug }: { clientSlug: string }) {
+  const { data, refetch } = trpc.linkedin.getStatus.useQuery({ clientSlug });
+  const disconnect = trpc.linkedin.disconnect.useMutation({
+    onSuccess: () => { refetch(); toast.success("LinkedIn disconnected"); },
+    onError: () => toast.error("Failed to disconnect"),
+  });
+  const setTarget = trpc.linkedin.setPostTarget.useMutation({
+    onSuccess: () => { refetch(); },
+    onError: () => toast.error("Failed to update target"),
+  });
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2.5">
+        <span className="w-4 h-4 font-bold text-[#0a66c2] text-sm flex items-center justify-center shrink-0">in</span>
+        <div>
+          <p className="text-sm font-medium">LinkedIn</p>
+          {data?.connected && data.postTarget === 'organization' && data.orgName && (
+            <p className="text-xs text-muted-foreground">{data.orgName}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {data?.connected ? (
+          <>
+            {data.orgName && (
+              <select
+                className="text-xs rounded border border-input bg-background px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#0a66c2]"
+                value={data.postTarget}
+                onChange={e => setTarget.mutate({ clientSlug, target: e.target.value as 'personal' | 'organization' })}
+                disabled={setTarget.isPending}
+              >
+                <option value="personal">Personal</option>
+                <option value="organization">{data.orgName}</option>
+              </select>
+            )}
+            <span className="flex items-center gap-1 text-xs font-medium text-emerald-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Connected
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => disconnect.mutate({ clientSlug })}
+              disabled={disconnect.isPending}
+            >
+              Disconnect
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => { window.location.href = `/api/auth/linkedin/init/${encodeURIComponent(clientSlug)}`; }}
+          >
+            Connect
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PortalSettings() {
   const { user, logout, refresh } = useAuth({ redirectOnUnauthenticated: true, redirectPath: "/login" });
 
@@ -155,6 +219,14 @@ export default function PortalSettings() {
       toastsShown.current = true;
     } else if (params.get("facebook") === "error") {
       toast.error("Facebook connection failed");
+      window.history.replaceState({}, "", window.location.pathname);
+      toastsShown.current = true;
+    } else if (params.get("linkedin") === "connected") {
+      toast.success("LinkedIn connected");
+      window.history.replaceState({}, "", window.location.pathname);
+      toastsShown.current = true;
+    } else if (params.get("linkedin") === "error") {
+      toast.error("LinkedIn connection failed");
       window.history.replaceState({}, "", window.location.pathname);
       toastsShown.current = true;
     } else if (params.get("facebook") === "select") {
@@ -262,6 +334,8 @@ export default function PortalSettings() {
             <IgCard clientSlug={user.clientSlug} />
             <div className="border-t border-gray-100" />
             <FbCard clientSlug={user.clientSlug} />
+            <div className="border-t border-gray-100" />
+            <LiCard clientSlug={user.clientSlug} />
           </div>
         </div>
       )}

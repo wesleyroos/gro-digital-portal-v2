@@ -333,7 +333,7 @@ ${campaign.strategy ?? 'No strategy saved — use brand info above to guide cont
 
 Generate exactly ${totalPosts} posts.
 Use these scheduled datetimes in order: ${scheduledDates.join(', ')}
-
+${(campaign as any).postToLinkedin ? `\nThis campaign also posts to LinkedIn. For each post, include a "linkedinCaption" field: a professional thought-leadership version (2-4 paragraphs, conversational but authoritative, ends with a question or CTA, max 3-5 hashtags).` : ''}
 Return ONLY a valid JSON array — no explanation, no preamble, no markdown code blocks:
 [
   {
@@ -341,7 +341,7 @@ Return ONLY a valid JSON array — no explanation, no preamble, no markdown code
     "caption": "engaging on-brand caption, 1-3 sentences",
     "hashtags": "#tag1 #tag2 #tag3 (10-20 hashtags, mix broad and niche)",
     "imagePrompt": "${hasProductRefs ? 'describe ONLY the scene/environment/lighting/mood — the product from the brand reference images will be placed into this scene automatically, so do NOT describe the product itself' : 'cinematic visual description: subject, lighting, mood, colour palette, style'}",
-    "theme": "which content pillar this belongs to"
+    "theme": "which content pillar this belongs to"${(campaign as any).postToLinkedin ? `,\n    "linkedinCaption": "professional thought-leadership version for LinkedIn"` : ''}
   }
 ]`;
 
@@ -357,7 +357,7 @@ Return ONLY a valid JSON array — no explanation, no preamble, no markdown code
       const match = rawText.match(/\[[\s\S]*\]/);
       if (!match) return 'Error: model did not return a valid JSON array.';
 
-      type PostInput = { scheduledAt?: string; caption?: string; hashtags?: string; imagePrompt?: string; theme?: string };
+      type PostInput = { scheduledAt?: string; caption?: string; hashtags?: string; imagePrompt?: string; theme?: string; linkedinCaption?: string };
       let posts: PostInput[];
       try {
         posts = JSON.parse(match[0]) as PostInput[];
@@ -373,6 +373,7 @@ Return ONLY a valid JSON array — no explanation, no preamble, no markdown code
           hashtags: p.hashtags ?? '',
           imagePrompt: p.imagePrompt ?? '',
           theme: p.theme ?? null,
+          linkedinCaption: p.linkedinCaption ?? null,
           status: 'draft' as const,
           sortOrder: i + 1,
         }))

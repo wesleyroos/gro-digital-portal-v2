@@ -48,6 +48,50 @@ const POST_CALENDAR_COLORS: Record<string, string> = {
   failed: "#ef4444",
 };
 
+function LinkedinCaptionSection({ post }: { post: { id: number; linkedinCaption?: string | null } }) {
+  const utils = trpc.useUtils();
+  const repurposeMutation = trpc.campaign.post.repurposeForLinkedin.useMutation({
+    onSuccess: ({ linkedinCaption }) => {
+      toast.success("LinkedIn caption generated");
+      utils.campaign.getPosts.invalidate();
+      setCaption(linkedinCaption);
+    },
+    onError: (e) => toast.error(`Failed: ${e.message}`),
+  });
+  const [caption, setCaption] = useState<string | null>(post.linkedinCaption ?? null);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-1.5 border-t border-border pt-1.5">
+      <button
+        className="flex items-center gap-1 text-[10px] font-medium text-[#0a66c2] hover:underline"
+        onClick={() => setOpen(v => !v)}
+      >
+        <span className="font-bold">in</span>
+        LinkedIn
+        {caption ? " ✓" : ""}
+        <span className="ml-0.5 text-muted-foreground">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="mt-1 space-y-1">
+          {caption ? (
+            <p className="text-[10px] text-muted-foreground line-clamp-4 whitespace-pre-wrap">{caption}</p>
+          ) : (
+            <p className="text-[10px] text-muted-foreground italic">No LinkedIn caption yet.</p>
+          )}
+          <button
+            className="text-[10px] text-[#0a66c2] hover:underline disabled:opacity-40"
+            disabled={repurposeMutation.isPending}
+            onClick={() => repurposeMutation.mutate({ postId: post.id })}
+          >
+            {repurposeMutation.isPending ? "Generating…" : caption ? "Regenerate" : "Repurpose for LinkedIn"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MarketingCampaignWorkspace() {
   const [, adminParams] = useRoute("/marketing/:id");
   const [, portalParams] = useRoute("/portal/marketing/:id");
@@ -87,6 +131,10 @@ export default function MarketingCampaignWorkspace() {
     { clientSlug: campaign?.clientSlug ?? "" },
     { enabled: !!campaign?.clientSlug }
   );
+  const { data: liStatus } = trpc.linkedin.getStatus.useQuery(
+    { clientSlug: campaign?.clientSlug ?? "" },
+    { enabled: !!campaign?.clientSlug }
+  );
 
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -100,7 +148,7 @@ export default function MarketingCampaignWorkspace() {
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
-  const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "mailers">("all");
+  const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "li" | "mailers">("all");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
@@ -689,7 +737,7 @@ export default function MarketingCampaignWorkspace() {
       const base = { date, extendedProps: { postId: p.id, status: p.status } };
 
       // Posted: one bar per platform in platform colour
-      if (p.status === 'posted' && (p.instagramPostId || p.facebookPostId)) {
+      if (p.status === 'posted' && ((p.instagramPostId || p.facebookPostId || (p as any).linkedinPostId))) {
         const events = [];
         if (p.instagramPostId) events.push({
           ...base, title,
@@ -698,6 +746,10 @@ export default function MarketingCampaignWorkspace() {
         if (p.facebookPostId) events.push({
           ...base, title,
           backgroundColor: '#1d4ed8', borderColor: '#1d4ed8',
+        });
+        if ((p as any).linkedinPostId) events.push({
+          ...base, title,
+          backgroundColor: '#0a66c2', borderColor: '#0a66c2',
         });
         return events;
       }
@@ -768,6 +820,17 @@ export default function MarketingCampaignWorkspace() {
               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                 Facebook not connected
+              </span>
+            )}
+            {liStatus?.connected ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                LI {liStatus.postTarget === 'organization' && liStatus.orgName ? liStatus.orgName : 'Personal'}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                LinkedIn not connected
               </span>
             )}
           </div>
@@ -1095,11 +1158,21 @@ export default function MarketingCampaignWorkspace() {
                     <input
                       type="checkbox"
                       checked={campaign.postToFacebook ?? false}
-                      onChange={e => setPlatformsMutation.mutate({ id: campaignId, postToInstagram: campaign.postToInstagram ?? true, postToFacebook: e.target.checked })}
+                      onChange={e => setPlatformsMutation.mutate({ id: campaignId, postToInstagram: campaign.postToInstagram ?? true, postToFacebook: e.target.checked, postToLinkedin: (campaign as any).postToLinkedin ?? false })}
                       disabled={setPlatformsMutation.isPending}
                       className="w-3.5 h-3.5 accent-violet-600"
                     />
                     <span className="text-xs font-medium">Facebook</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={(campaign as any).postToLinkedin ?? false}
+                      onChange={e => setPlatformsMutation.mutate({ id: campaignId, postToInstagram: campaign.postToInstagram ?? true, postToFacebook: campaign.postToFacebook ?? false, postToLinkedin: e.target.checked })}
+                      disabled={setPlatformsMutation.isPending}
+                      className="w-3.5 h-3.5 accent-violet-600"
+                    />
+                    <span className="text-xs font-medium" style={{ color: '#0a66c2' }}>LinkedIn</span>
                   </label>
                 </div>
                 {/* Image style + model + aspect ratio selectors */}
@@ -1403,6 +1476,10 @@ export default function MarketingCampaignWorkspace() {
                           </div>
                           {post.hashtags && (
                             <p className="text-[10px] text-muted-foreground line-clamp-1">{post.hashtags}</p>
+                          )}
+                          {/* LinkedIn caption section */}
+                          {(campaign as any).postToLinkedin && (
+                            <LinkedinCaptionSection post={post} />
                           )}
                         </div>
                       )}
@@ -2160,6 +2237,7 @@ export default function MarketingCampaignWorkspace() {
             <span className="font-medium text-foreground">Legend:</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#ec4899' }} />Instagram</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#1d4ed8' }} />Facebook</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#0a66c2' }} />LinkedIn</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#f59e0b' }} />Scheduled email</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#10b981' }} />Sent email</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: '#6366f1' }} />Scheduled post</span>
@@ -2208,11 +2286,12 @@ export default function MarketingCampaignWorkspace() {
                   { key: "all" as const, label: "All platforms", activeClass: 'bg-foreground text-background border-foreground' },
                   { key: "ig" as const,  label: "Instagram",     activeClass: 'bg-pink-500 text-white border-pink-500' },
                   { key: "fb" as const,  label: "Facebook",      activeClass: 'bg-blue-600 text-white border-blue-600' },
+                  { key: "li" as const,  label: "LinkedIn",      activeClass: 'bg-[#0a66c2] text-white border-[#0a66c2]' },
                   { key: "mailers" as const, label: "Mailers",   activeClass: 'bg-emerald-600 text-white border-emerald-600' },
                 ]).map(opt => (
                   <button
                     key={opt.key}
-                    onClick={() => setPerfPlatform(opt.key)}
+                    onClick={() => setPerfPlatform(opt.key as any)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                       perfPlatform === opt.key
                         ? opt.activeClass
@@ -2224,7 +2303,9 @@ export default function MarketingCampaignWorkspace() {
                       <span className="ml-1.5 opacity-70">
                         {opt.key === 'ig'
                           ? perfData.rows.filter(r => r.post.instagramPostId).length
-                          : perfData.rows.filter(r => r.post.facebookPostId).length}
+                          : opt.key === 'fb'
+                          ? perfData.rows.filter(r => r.post.facebookPostId).length
+                          : perfData.rows.filter(r => (r.post as any).linkedinPostId).length}
                       </span>
                     )}
                   </button>
@@ -2353,6 +2434,7 @@ export default function MarketingCampaignWorkspace() {
               .filter(row => {
                 if (perfPlatform === 'ig') return !!row.post.instagramPostId;
                 if (perfPlatform === 'fb') return !!row.post.facebookPostId;
+                if (perfPlatform === 'li') return !!(row.post as any).linkedinPostId;
                 return true;
               })
               .map(row => {
@@ -2426,7 +2508,7 @@ export default function MarketingCampaignWorkspace() {
 
                 {filteredRows.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
-                    <p className="text-sm text-muted-foreground">No posts posted to {perfPlatform === 'ig' ? 'Instagram' : 'Facebook'} yet.</p>
+                    <p className="text-sm text-muted-foreground">No posts posted to {perfPlatform === 'ig' ? 'Instagram' : perfPlatform === 'fb' ? 'Facebook' : perfPlatform === 'li' ? 'LinkedIn' : 'any platform'} yet.</p>
                   </div>
                 ) : (<>
 

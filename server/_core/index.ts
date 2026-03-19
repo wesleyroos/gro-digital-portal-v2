@@ -11,6 +11,7 @@ import { registerCampaignAutoAgentRoutes } from "../campaign-auto-agent";
 import { registerCampaignJarvisRoutes } from "../campaign-jarvis";
 import { registerInstagramOAuthRoutes } from "../instagram-oauth";
 import { registerFacebookOAuthRoutes } from "../facebook-oauth";
+import { registerLinkedinOAuthRoutes } from "../linkedin-oauth";
 import { startScheduler, runRecurringInvoiceTick } from "../scheduler";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -49,6 +50,7 @@ async function startServer() {
   registerCampaignJarvisRoutes(app);
   registerInstagramOAuthRoutes(app);
   registerFacebookOAuthRoutes(app);
+  registerLinkedinOAuthRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

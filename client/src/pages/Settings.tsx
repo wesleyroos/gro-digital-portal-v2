@@ -326,6 +326,55 @@ function FbCell({ clientSlug, clientName }: { clientSlug: string; clientName: st
   );
 }
 
+function LiCell({ clientSlug, clientName }: { clientSlug: string; clientName: string }) {
+  const { data, refetch } = trpc.linkedin.getStatus.useQuery({ clientSlug });
+  const disconnect = trpc.linkedin.disconnect.useMutation({
+    onSuccess: () => { refetch(); toast.success(`LinkedIn disconnected for ${clientName}`); },
+    onError: () => toast.error("Failed to disconnect"),
+  });
+  const setTarget = trpc.linkedin.setPostTarget.useMutation({
+    onSuccess: () => { refetch(); toast.success("Post target updated"); },
+    onError: () => toast.error("Failed to update target"),
+  });
+
+  if (!data) return <div className="h-4 w-24 rounded bg-muted animate-pulse" />;
+
+  if (data.connected) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-xs font-medium text-emerald-700">Connected</span>
+        </div>
+        {data.orgName && (
+          <select
+            className="text-[11px] rounded border border-input bg-background px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#0a66c2]"
+            value={data.postTarget}
+            onChange={e => setTarget.mutate({ clientSlug, target: e.target.value as 'personal' | 'organization' })}
+            disabled={setTarget.isPending}
+          >
+            <option value="personal">Personal profile</option>
+            <option value="organization">{data.orgName}</option>
+          </select>
+        )}
+        <div className="mt-0.5">
+          <Button variant="outline" size="sm" className="h-6 text-[11px] px-2"
+            onClick={() => disconnect.mutate({ clientSlug })} disabled={disconnect.isPending}>
+            Disconnect
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Button size="sm" variant="outline" className="h-7 text-xs"
+      onClick={() => { window.location.href = `/api/auth/linkedin/init/${encodeURIComponent(clientSlug)}`; }}>
+      Connect
+    </Button>
+  );
+}
+
 function ClientConnectionsMatrix() {
   const { data: clients } = trpc.invoice.clients.useQuery();
 
@@ -346,19 +395,25 @@ function ClientConnectionsMatrix() {
       <table className="w-full">
         <thead>
           <tr className="border-b border-border">
-            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/3">
+            <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/4">
               Client
             </th>
-            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/3">
+            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/4">
               <div className="flex items-center gap-1.5">
                 <Instagram className="w-3.5 h-3.5 text-pink-500" />
                 Instagram
               </div>
             </th>
-            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/3">
+            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/4">
               <div className="flex items-center gap-1.5">
                 <Facebook className="w-3.5 h-3.5 text-blue-600" />
                 Facebook
+              </div>
+            </th>
+            <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground w-1/4">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-sm font-bold text-[#0a66c2] text-[11px] flex items-center justify-center">in</span>
+                LinkedIn
               </div>
             </th>
           </tr>
@@ -375,6 +430,9 @@ function ClientConnectionsMatrix() {
               </td>
               <td className="px-5 py-4">
                 <FbCell clientSlug={client.clientSlug} clientName={client.clientName} />
+              </td>
+              <td className="px-5 py-4">
+                <LiCell clientSlug={client.clientSlug} clientName={client.clientName} />
               </td>
             </tr>
           ))}
@@ -435,6 +493,14 @@ export default function Settings() {
       const state = params.get("state");
       const client = params.get("client");
       if (state) { setFbSelectState(state); setFbSelectClient(client); }
+    }
+    if (params.get("linkedin") === "connected") {
+      toast.success("LinkedIn connected");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("linkedin") === "error") {
+      toast.error("LinkedIn connection failed");
+      window.history.replaceState({}, "", window.location.pathname);
     }
   }, [location]);
 

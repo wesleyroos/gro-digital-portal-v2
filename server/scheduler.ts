@@ -1,7 +1,8 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, updatePostStatus, updatePostFacebookId, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber } from './db';
 import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia } from './instagram';
 import { postImageToPage, postVideoToPage } from './facebook';
+import { ensureFreshToken, initializeImageUpload, uploadImageBinary, createImagePost, createTextPost } from './linkedin';
 
 async function runSchedulerTick() {
   let posts: Awaited<ReturnType<typeof getPostsDueForPublishing>>;
@@ -61,6 +62,46 @@ async function runSchedulerTick() {
           await updatePostFacebookId(post.id, facebookPostId);
           console.log(`[Scheduler] Post ${post.id} → Facebook ${facebookPostId}`);
           published = true;
+        }
+      }
+
+      // ── LinkedIn ───────────────────────────────────────────────────────────
+      if ((campaign as any).postToLinkedin) {
+        try {
+          const liToken = await ensureFreshToken(campaign.clientSlug);
+          const liTokens = await getLinkedinTokens(campaign.clientSlug);
+          if (!liTokens) {
+            console.warn(`[Scheduler] No LinkedIn tokens for ${campaign.clientSlug}, skipping LI for post ${post.id}`);
+          } else {
+            const authorUrn = liTokens.postTarget === 'organization' && liTokens.orgId
+              ? liTokens.orgId
+              : liTokens.personUrn;
+
+            const liCaption = (post as any).linkedinCaption || caption;
+
+            let linkedinPostId: string;
+            if (!isVideo && mediaUrl) {
+              // Fetch image and upload to LinkedIn
+              const imgRes = await fetch(mediaUrl, { signal: AbortSignal.timeout(30_000) });
+              if (imgRes.ok) {
+                const buffer = Buffer.from(await imgRes.arrayBuffer());
+                const { uploadUrl, imageUrn } = await initializeImageUpload(authorUrn, liToken);
+                await uploadImageBinary(uploadUrl, buffer, liToken);
+                linkedinPostId = await createImagePost(authorUrn, liCaption, imageUrn, liToken);
+              } else {
+                linkedinPostId = await createTextPost(authorUrn, liCaption, liToken);
+              }
+            } else {
+              // Video: text-only fallback for now
+              linkedinPostId = await createTextPost(authorUrn, liCaption, liToken);
+            }
+
+            await updatePostLinkedinId(post.id, linkedinPostId);
+            console.log(`[Scheduler] Post ${post.id} → LinkedIn ${linkedinPostId}`);
+            published = true;
+          }
+        } catch (liErr) {
+          console.error(`[Scheduler] LinkedIn failed for post ${post.id}:`, liErr);
         }
       }
 

@@ -1469,6 +1469,109 @@ export async function updatePostFacebookId(postId: number, facebookPostId: strin
     .where(eq(marketingPosts.id, postId));
 }
 
+// ── LinkedIn tokens ────────────────────────────────────────────────────────────
+
+export async function storeLinkedinTokens(
+  clientSlug: string,
+  accessToken: string,
+  refreshToken: string | null,
+  tokenExpiresAt: Date,
+  personUrn: string,
+  orgId?: string,
+  orgName?: string,
+) {
+  const db = await getDb();
+  if (!db) return;
+  const set: Record<string, unknown> = {
+    linkedinAccessToken: accessToken,
+    linkedinRefreshToken: refreshToken,
+    linkedinTokenExpiresAt: tokenExpiresAt,
+    linkedinPersonUrn: personUrn,
+  };
+  if (orgId) set.linkedinOrganizationId = orgId;
+  if (orgName) set.linkedinOrganizationName = orgName;
+  await db.insert(clientProfiles)
+    .values({ clientSlug, ...set } as any)
+    .onDuplicateKeyUpdate({ set: set as any });
+}
+
+export async function clearLinkedinTokens(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(clientProfiles)
+    .set({
+      linkedinAccessToken: null,
+      linkedinRefreshToken: null,
+      linkedinTokenExpiresAt: null,
+      linkedinPersonUrn: null,
+      linkedinOrganizationId: null,
+      linkedinOrganizationName: null,
+      linkedinPostTarget: 'personal',
+    } as any)
+    .where(eq(clientProfiles.clientSlug, clientSlug));
+}
+
+export async function getLinkedinTokens(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({
+      linkedinAccessToken: (clientProfiles as any).linkedinAccessToken,
+      linkedinRefreshToken: (clientProfiles as any).linkedinRefreshToken,
+      linkedinTokenExpiresAt: (clientProfiles as any).linkedinTokenExpiresAt,
+      linkedinPersonUrn: (clientProfiles as any).linkedinPersonUrn,
+      linkedinOrganizationId: (clientProfiles as any).linkedinOrganizationId,
+      linkedinOrganizationName: (clientProfiles as any).linkedinOrganizationName,
+      linkedinPostTarget: (clientProfiles as any).linkedinPostTarget,
+    })
+    .from(clientProfiles)
+    .where(eq(clientProfiles.clientSlug, clientSlug))
+    .limit(1);
+  if (!result[0]?.linkedinAccessToken) return null;
+  const r = result[0];
+  return {
+    accessToken: r.linkedinAccessToken as string,
+    refreshToken: r.linkedinRefreshToken as string | null,
+    tokenExpiresAt: r.linkedinTokenExpiresAt as Date | null,
+    personUrn: r.linkedinPersonUrn as string,
+    orgId: r.linkedinOrganizationId as string | null,
+    orgName: r.linkedinOrganizationName as string | null,
+    postTarget: (r.linkedinPostTarget ?? 'personal') as 'personal' | 'organization',
+  };
+}
+
+export async function updateLinkedinTokens(clientSlug: string, accessToken: string, refreshToken: string | null, tokenExpiresAt: Date) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(clientProfiles)
+    .set({ linkedinAccessToken: accessToken, linkedinRefreshToken: refreshToken, linkedinTokenExpiresAt: tokenExpiresAt } as any)
+    .where(eq(clientProfiles.clientSlug, clientSlug));
+}
+
+export async function updatePostLinkedinId(postId: number, linkedinPostId: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.update(marketingPosts)
+    .set({ linkedinPostId, postedAt: new Date() } as any)
+    .where(eq(marketingPosts.id, postId));
+}
+
+export async function setLinkedinPostTarget(clientSlug: string, target: 'personal' | 'organization') {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(clientProfiles)
+    .set({ linkedinPostTarget: target } as any)
+    .where(eq(clientProfiles.clientSlug, clientSlug));
+}
+
+export async function updatePostLinkedinCaption(postId: number, linkedinCaption: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.update(marketingPosts)
+    .set({ linkedinCaption } as any)
+    .where(eq(marketingPosts.id, postId));
+}
+
 export async function getCampaignAssetById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

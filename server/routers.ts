@@ -78,6 +78,13 @@ import {
   clearFacebookTokens,
   getFacebookTokens,
   updatePostFacebookId,
+  storeLinkedinTokens,
+  clearLinkedinTokens,
+  getLinkedinTokens,
+  updateLinkedinTokens,
+  updatePostLinkedinId,
+  setLinkedinPostTarget,
+  updatePostLinkedinCaption,
   getCampaignAssets,
   getCampaignAssetById,
   insertCampaignAsset,
@@ -133,6 +140,7 @@ import { storagePut, storageDelete } from "./storage";
 import { createMediaContainer, createVideoMediaContainer, publishMedia, getIgUserInfo, getPostInsights } from "./instagram";
 import { getFacebookPostInsights, postImageToPage, postVideoToPage } from "./facebook";
 import { getPendingFacebookPages, confirmFacebookPage } from "./facebook-oauth";
+import { ensureFreshToken as ensureLinkedinToken, initializeImageUpload, uploadImageBinary, createImagePost as createLinkedinImagePost, createTextPost as createLinkedinTextPost, getPostAnalytics as getLinkedinPostAnalytics } from "./linkedin";
 import { getCalendarEvents } from "./calendar";
 
 function instrumentMailerHtml(html: string, mailerId: number, baseUrl: string): string {
@@ -1254,6 +1262,41 @@ export const appRouter = router({
             }
           }
 
+          // ── LinkedIn ──
+          if ((campaign as any).postToLinkedin) {
+            try {
+              const liToken = await ensureLinkedinToken(campaign.clientSlug);
+              const liTokens = await getLinkedinTokens(campaign.clientSlug);
+              if (liTokens) {
+                const authorUrn = liTokens.postTarget === 'organization' && liTokens.orgId
+                  ? liTokens.orgId
+                  : liTokens.personUrn;
+                const liCaption = (post as any).linkedinCaption || caption;
+                let linkedinPostId: string;
+                if (!isVideo && mediaUrl) {
+                  const imgRes = await fetch(mediaUrl, { signal: AbortSignal.timeout(30_000) });
+                  if (imgRes.ok) {
+                    const buffer = Buffer.from(await imgRes.arrayBuffer());
+                    const { uploadUrl, imageUrn } = await initializeImageUpload(authorUrn, liToken);
+                    await uploadImageBinary(uploadUrl, buffer, liToken);
+                    linkedinPostId = await createLinkedinImagePost(authorUrn, liCaption, imageUrn, liToken);
+                  } else {
+                    linkedinPostId = await createLinkedinTextPost(authorUrn, liCaption, liToken);
+                  }
+                } else {
+                  linkedinPostId = await createLinkedinTextPost(authorUrn, liCaption, liToken);
+                }
+                await updatePostLinkedinId(input.postId, linkedinPostId);
+                if (campaign.postToInstagram === false && !campaign.postToFacebook) {
+                  await updatePostStatus(input.postId, 'posted');
+                }
+                postedTo.push('LinkedIn');
+              }
+            } catch (liErr) {
+              console.error('[publishNow] LinkedIn failed:', liErr);
+            }
+          }
+
           return { postedTo };
         }),
 
@@ -1271,6 +1314,48 @@ export const appRouter = router({
           if (!post || post.campaignId !== campaign.id) throw new TRPCError({ code: 'NOT_FOUND' });
           await updatePostStatus(input.postId, 'approved');
           return { success: true };
+        }),
+
+      // Repurpose a post's caption as a LinkedIn thought-leadership article
+      repurposeForLinkedin: protectedProcedure
+        .input(z.object({ postId: z.number().int() }))
+        .mutation(async ({ ctx, input }) => {
+          const post = await getPostById(input.postId);
+          if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
+          const campaign = await getCampaignById(post.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
+          if (!ENV.anthropicApiKey) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Anthropic API key not configured' });
+          const originalCaption = [post.caption ?? '', post.hashtags ?? ''].filter(Boolean).join('\n\n');
+          if (!originalCaption.trim()) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Post has no caption to repurpose' });
+          const model = (await getSetting('aiModel')) ?? 'claude-sonnet-4-6';
+          const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
+          const message = await anthropic.messages.create({
+            model,
+            max_tokens: 1024,
+            messages: [
+              {
+                role: 'user',
+                content: `Rewrite the following social media caption as a LinkedIn thought-leadership post for ${campaign.brandVoice ? `a brand with this voice: ${campaign.brandVoice}` : 'a professional business'}.
+
+Original caption:
+${originalCaption}
+
+Instructions:
+- Write 2-4 paragraphs in a conversational but authoritative tone
+- Start with a strong hook or insight
+- Expand on the idea with professional context or a brief story
+- End with a question or call-to-action to drive engagement
+- NO excessive hashtags (maximum 3-5, only if relevant)
+- Sound human and genuine, not like marketing copy
+- Return ONLY the LinkedIn post text, nothing else`,
+              },
+            ],
+          });
+          const linkedinCaption = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
+          if (!linkedinCaption) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'AI did not return a LinkedIn caption' });
+          await updatePostLinkedinCaption(input.postId, linkedinCaption);
+          return { linkedinCaption };
         }),
 
       // Public — reject a post via share token
@@ -1292,12 +1377,24 @@ export const appRouter = router({
     }),
 
     setPlatforms: protectedProcedure
-      .input(z.object({ id: z.number().int(), postToInstagram: z.boolean(), postToFacebook: z.boolean() }))
+      .input(z.object({
+        id: z.number().int(),
+        postToInstagram: z.boolean(),
+        postToFacebook: z.boolean(),
+        postToLinkedin: z.boolean().optional(),
+        linkedinPostsPerWeek: z.number().int().optional(),
+      }))
       .mutation(async ({ ctx, input }) => {
         const campaign = await getCampaignById(input.id);
         if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
         assertCampaignAccess(ctx.user, campaign.clientSlug);
-        await updateCampaign(input.id, { postToInstagram: input.postToInstagram, postToFacebook: input.postToFacebook });
+        const updates: Record<string, unknown> = {
+          postToInstagram: input.postToInstagram,
+          postToFacebook: input.postToFacebook,
+        };
+        if (input.postToLinkedin !== undefined) updates.postToLinkedin = input.postToLinkedin;
+        if (input.linkedinPostsPerWeek !== undefined) updates.linkedinPostsPerWeek = input.linkedinPostsPerWeek;
+        await updateCampaign(input.id, updates as any);
         return { success: true };
       }),
 
@@ -1994,6 +2091,39 @@ INSTRUCTIONS:
       .input(z.object({ state: z.string(), pageId: z.string() }))
       .mutation(async ({ input }) => {
         await confirmFacebookPage(input.state, input.pageId);
+        return { success: true };
+      }),
+  }),
+
+  linkedin: router({
+    getStatus: protectedProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .query(async ({ ctx, input }) => {
+        assertClientSlugAccess(ctx.user, input.clientSlug);
+        const tokens = await getLinkedinTokens(input.clientSlug);
+        if (!tokens) return { connected: false, personUrn: null, orgName: null, orgId: null, postTarget: 'personal' as const };
+        return {
+          connected: true,
+          personUrn: tokens.personUrn,
+          orgName: tokens.orgName,
+          orgId: tokens.orgId,
+          postTarget: tokens.postTarget,
+        };
+      }),
+
+    disconnect: protectedProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        assertClientSlugAccess(ctx.user, input.clientSlug);
+        await clearLinkedinTokens(input.clientSlug);
+        return { success: true };
+      }),
+
+    setPostTarget: protectedProcedure
+      .input(z.object({ clientSlug: z.string(), target: z.enum(['personal', 'organization']) }))
+      .mutation(async ({ ctx, input }) => {
+        assertClientSlugAccess(ctx.user, input.clientSlug);
+        await setLinkedinPostTarget(input.clientSlug, input.target);
         return { success: true };
       }),
   }),
