@@ -64,13 +64,13 @@ const menuGroups = [
       { icon: CheckSquare, label: "Tasks", path: "/tasks" },
       { icon: CalendarDays, label: "Calendar", path: "/calendar" },
       { icon: Bot, label: "Agents", path: "/agents" },
-      { icon: Brain, label: "AI Log", path: "/ai-log" },
     ],
   },
 ];
 
 const bottomItems = [
   { icon: Users, label: "Users", path: "/users", roles: ["superAdmin"] as string[] },
+  { icon: Brain, label: "AI Log", path: "/ai-log", roles: ["superAdmin"] as string[] },
   { icon: Settings2, label: "Settings", path: "/settings", roles: undefined },
 ];
 

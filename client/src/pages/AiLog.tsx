@@ -50,7 +50,7 @@ export default function AiLog() {
   }));
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Brain className="w-6 h-6 text-[#2286c2]" />
         <h1 className="text-2xl font-semibold">AI Interaction Log</h1>
