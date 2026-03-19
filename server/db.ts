@@ -805,6 +805,7 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
   const resend = new Resend(apiKey);
   await resend.emails.send({
     from: 'Gro Digital <invoices@grodigital.co.za>',
+    replyTo: 'Wesley <wesley@grodigital.co.za>',
     to: recipientEmail,
     subject: `Invoice ${invoice.invoiceNumber} from Gro Digital`,
 
@@ -812,7 +813,7 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
 
         <!-- Header bar -->
-        <div style="background: #ffffff; padding: 28px 32px 20px; border: 1px solid #e5e7eb; border-bottom: 3px solid #1a56db; border-radius: 12px 12px 0 0;">
+        <div style="background: #ffffff; padding: 28px 32px 20px; border: 1px solid #e5e7eb; border-bottom: 3px solid #2286c2; border-radius: 12px 12px 0 0;">
           <img src="https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773557375019-ei1drt50gii.png"
                alt="Gro Digital" style="height: 32px; display: block;" />
         </div>
@@ -828,18 +829,18 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
 
           <!-- Amount card -->
           <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 22px 26px; margin-bottom: 28px;">
-            <p style="margin: 0 0 6px; font-size: 11px; color: #1a56db; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Amount Due</p>
+            <p style="margin: 0 0 6px; font-size: 11px; color: #2286c2; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Amount Due</p>
             <p style="margin: 0; font-size: 34px; font-weight: 800; color: #111; letter-spacing: -1px;">${formattedAmount}</p>
             ${invoice.paymentTerms ? `<p style="margin: 8px 0 0; font-size: 12px; color: #6b7280;">${invoice.paymentTerms}</p>` : ''}
           </div>
 
-          <a href="${invoiceUrl}" style="display: inline-block; background: #1a56db; color: #fff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 32px; letter-spacing: 0.2px;">
+          <a href="${invoiceUrl}" style="display: inline-block; background: #2286c2; color: #fff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 32px; letter-spacing: 0.2px;">
             View Invoice →
           </a>
 
           <p style="font-size: 12px; color: #9ca3af; margin: 0; padding-top: 24px; border-top: 1px solid #f3f4f6;">
-            Gro Digital (Pty) Ltd &bull; <a href="https://grodigital.co.za" style="color: #1a56db; text-decoration: none;">grodigital.co.za</a><br/>
-            Questions? Simply reply to this email.
+            Gro Digital (Pty) Ltd &bull; <a href="https://grodigital.co.za" style="color: #2286c2; text-decoration: none;">grodigital.co.za</a><br/>
+            Questions? Email <a href="mailto:wesley@grodigital.co.za" style="color: #2286c2; text-decoration: none;">wesley@grodigital.co.za</a>
           </p>
         </div>
       </div>

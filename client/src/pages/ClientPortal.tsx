@@ -24,7 +24,7 @@ function generatePassword(): string {
 }
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
-import { Plus, Shuffle, Copy, Send } from "lucide-react";
+import { Plus, Shuffle, Copy, Send, MoreHorizontal, Pencil, Printer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
   FileText,
@@ -237,6 +238,21 @@ export default function ClientPortal() {
       toast.success("Invoice resent");
     },
     onError: () => toast.error("Failed to resend"),
+  });
+
+  const [deleteInvoiceTarget, setDeleteInvoiceTarget] = useState<{ number: string } | null>(null);
+  const deleteInvoice = trpc.invoice.delete.useMutation({
+    onSuccess: () => {
+      utils.invoice.listByClient.invalidate({ clientSlug: slug });
+      setDeleteInvoiceTarget(null);
+      toast.success("Invoice deleted");
+    },
+    onError: () => toast.error("Failed to delete invoice"),
+  });
+
+  const updateInvoiceStatus = trpc.invoice.updateStatus.useMutation({
+    onSuccess: () => utils.invoice.listByClient.invalidate({ clientSlug: slug }),
+    onError: () => toast.error("Failed to update status"),
   });
 
   const [newUserName, setNewUserName] = useState("");
@@ -1147,6 +1163,24 @@ export default function ClientPortal() {
               </div>
             )}
 
+            {/* Delete invoice confirm */}
+            <AlertDialog open={!!deleteInvoiceTarget} onOpenChange={(o) => { if (!o) setDeleteInvoiceTarget(null); }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {deleteInvoiceTarget?.number}?</AlertDialogTitle>
+                  <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90"
+                    disabled={deleteInvoice.isPending}
+                    onClick={() => deleteInvoiceTarget && deleteInvoice.mutate({ invoiceNumber: deleteInvoiceTarget.number })}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
             {/* Resend invoice modal */}
             <AlertDialog open={!!resendInvoice} onOpenChange={(o) => { if (!o) setResendInvoice(null); }}>
               <AlertDialogContent>
@@ -1203,11 +1237,43 @@ export default function ClientPortal() {
                           <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-foreground whitespace-nowrap">{formatCurrency(inv.totalAmount)}</td>
                           <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
                           <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Resend invoice"
-                              onClick={() => setResendInvoice({ id: inv.id, number: inv.invoiceNumber, email: inv.clientEmail || profile?.email || "" })}>
-                              <Send className="w-3 h-3 text-muted-foreground" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <MoreHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => setResendInvoice({ id: inv.id, number: inv.invoiceNumber, email: inv.clientEmail || profile?.email || "" })}>
+                                  <Send className="w-3.5 h-3.5 mr-2" /> Send to Client
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                  <a href={`/invoice/${inv.invoiceNumber}`} target="_blank" rel="noreferrer" className="flex items-center">
+                                    <Link2 className="w-3.5 h-3.5 mr-2" /> Open Invoice
+                                  </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild>
+                                  <a href={`/invoice/${inv.invoiceNumber}/edit`} className="flex items-center">
+                                    <Pencil className="w-3.5 h-3.5 mr-2" /> Edit
+                                  </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => updateInvoiceStatus.mutate({ invoiceId: inv.id, status: "paid" })} disabled={inv.status === "paid"}>
+                                  Mark as Paid
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateInvoiceStatus.mutate({ invoiceId: inv.id, status: "sent" })} disabled={inv.status === "sent"}>
+                                  Mark as Sent
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateInvoiceStatus.mutate({ invoiceId: inv.id, status: "overdue" })} disabled={inv.status === "overdue"}>
+                                  Mark as Overdue
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteInvoiceTarget({ number: inv.invoiceNumber })}>
+                                  <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </td>
                         </tr>
                       ))}
