@@ -229,6 +229,7 @@ export default function ClientPortal() {
   });
 
   const sendNow = trpc.recurringInvoice.sendNow.useMutation();
+  const generateInvoice = trpc.recurringInvoice.generateInvoice.useMutation();
 
   const [resendInvoice, setResendInvoice] = useState<{ id: number; number: string; email: string } | null>(null);
   const resendEmail = trpc.invoice.sendEmail.useMutation({
@@ -1048,6 +1049,19 @@ export default function ClientPortal() {
                       })()}
                     </div>
                     <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-muted-foreground"
+                        disabled={generateInvoice.isPending}
+                        onClick={() => {
+                          generateInvoice.mutate({ clientSlug: slug }, {
+                            onSuccess: () => {
+                              utils.invoice.listByClient.invalidate({ clientSlug: slug });
+                              toast.success("Invoice generated — check the billing table below");
+                            },
+                            onError: (e) => toast.error(e.message || "Generate failed"),
+                          });
+                        }}>
+                        <Printer className="w-3 h-3" /> {generateInvoice.isPending ? "Generating…" : "Generate invoice"}
+                      </Button>
                       <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
                         disabled={sendNow.isPending}
                         onClick={() => setSendNowConfirmOpen(true)}>

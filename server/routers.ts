@@ -2611,6 +2611,22 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         });
         return { shareToken, alreadySent: false };
       }),
+
+    generateInvoice: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .mutation(async ({ input }) => {
+        const config = await getRecurringInvoiceConfig(input.clientSlug);
+        if (!config) throw new TRPCError({ code: 'NOT_FOUND', message: 'No recurring config for this client' });
+        const invoiceNumber = await getNextInvoiceNumber(input.clientSlug);
+        const baseUrl = ENV.appUrl || process.env.PORTAL_URL || '';
+        const shareToken = await buildAndSendRecurringInvoice(config, {
+          invoiceNumber,
+          status: 'draft',
+          sendEmail: false,
+          baseUrl,
+        });
+        return { shareToken, invoiceNumber };
+      }),
   }),
 });
 
