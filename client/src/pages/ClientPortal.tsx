@@ -190,6 +190,8 @@ export default function ClientPortal() {
   // ── Recurring invoice config ──
   const { data: recurringConfig, refetch: refetchRecurring } =
     trpc.recurringInvoice.getConfig.useQuery({ clientSlug: slug }, { enabled: isAdmin });
+  const { data: nextInvoiceNumber, refetch: refetchNextNumber } =
+    trpc.recurringInvoice.getNextNumber.useQuery({ clientSlug: slug }, { enabled: isAdmin && !!recurringConfig });
 
   const [recurringDraft, setRecurringDraft] = useState({
     enabled: false,
@@ -1045,7 +1047,10 @@ export default function ClientPortal() {
                         const day = recurringConfig.sendDay;
                         let next = new Date(now.getFullYear(), now.getMonth(), day);
                         if (now.getDate() >= day) next = new Date(now.getFullYear(), now.getMonth() + 1, day);
-                        return <p>Next invoice: <span className="text-foreground font-medium">{next.toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</span></p>;
+                        return <>
+                          <p>Next invoice: <span className="text-foreground font-medium">{next.toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</span></p>
+                          {nextInvoiceNumber && <p>Next invoice number: <span className="text-foreground font-medium">{nextInvoiceNumber}</span></p>}
+                        </>;
                       })()}
                     </div>
                     <div className="flex gap-2">
@@ -1055,6 +1060,7 @@ export default function ClientPortal() {
                           generateInvoice.mutate({ clientSlug: slug }, {
                             onSuccess: () => {
                               utils.invoice.listByClient.invalidate({ clientSlug: slug });
+                              refetchNextNumber();
                               toast.success("Invoice generated — check the billing table below");
                             },
                             onError: (e) => toast.error(e.message || "Generate failed"),
@@ -1087,6 +1093,7 @@ export default function ClientPortal() {
                               sendNow.mutate({ clientSlug: slug }, {
                                 onSuccess: () => {
                                   refetchRecurring();
+                                  refetchNextNumber();
                                   utils.invoice.listByClient.invalidate({ clientSlug: slug });
                                   toast.success("Invoice sent — check the billing table below");
                                 },

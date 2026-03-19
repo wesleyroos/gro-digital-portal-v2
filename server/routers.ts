@@ -2574,6 +2574,12 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         return getRecurringInvoiceConfig(input.clientSlug);
       }),
 
+    getNextNumber: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .query(async ({ input }) => {
+        return getNextInvoiceNumber(input.clientSlug);
+      }),
+
     setConfig: adminProcedure
       .input(z.object({
         clientSlug: z.string(),
