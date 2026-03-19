@@ -1219,7 +1219,7 @@ export default function ClientPortal() {
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Date</th>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Amount</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
-                      <th className="px-4 py-2.5"></th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border bg-background">
@@ -1239,7 +1239,7 @@ export default function ClientPortal() {
                           <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                                   <MoreHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
                                 </Button>
                               </DropdownMenuTrigger>
