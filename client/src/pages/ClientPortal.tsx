@@ -228,7 +228,6 @@ export default function ClientPortal() {
     onError: () => toast.error("Failed to save config"),
   });
 
-  const previewNow = trpc.recurringInvoice.previewNow.useMutation();
   const sendNow = trpc.recurringInvoice.sendNow.useMutation();
 
   const [resendInvoice, setResendInvoice] = useState<{ id: number; number: string; email: string } | null>(null);
@@ -1008,11 +1007,20 @@ export default function ClientPortal() {
                   <div className="flex items-center gap-2">
                     <Repeat className="w-4 h-4 text-muted-foreground" />
                     <p className="text-sm font-semibold">Monthly Auto-Invoice</p>
-                    {recurringConfig?.enabled && (
-                      <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Active</span>
-                    )}
-                    {recurringConfig && !recurringConfig.enabled && (
-                      <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">Disabled</span>
+                    {recurringConfig && (
+                      <Switch
+                        checked={recurringConfig.enabled}
+                        onCheckedChange={(v) => setRecurringConfig.mutate({
+                          clientSlug: slug,
+                          enabled: v,
+                          amount: parseFloat(String(recurringConfig.amount)) || 0,
+                          description: recurringConfig.description,
+                          recipientEmail: recurringConfig.recipientEmail || null,
+                          sendDay: recurringConfig.sendDay,
+                          paymentTerms: recurringConfig.paymentTerms,
+                          notes: recurringConfig.notes || null,
+                        }, { onSuccess: refetchRecurring })}
+                      />
                     )}
                   </div>
                   {!editingRecurring && (
@@ -1040,14 +1048,6 @@ export default function ClientPortal() {
                       })()}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
-                        disabled={previewNow.isPending}
-                        onClick={() => previewNow.mutate({ clientSlug: slug }, {
-                          onSuccess: (d) => window.open(`/i/${d.shareToken}`, '_blank'),
-                          onError: () => toast.error("Preview failed"),
-                        })}>
-                        <FileText className="w-3 h-3" /> {previewNow.isPending ? "Generating…" : "Preview"}
-                      </Button>
                       <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"
                         disabled={sendNow.isPending}
                         onClick={() => setSendNowConfirmOpen(true)}>

@@ -2596,25 +2596,6 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         return { success: true };
       }),
 
-    previewNow: adminProcedure
-      .input(z.object({ clientSlug: z.string() }))
-      .mutation(async ({ input }) => {
-        const config = await getRecurringInvoiceConfig(input.clientSlug);
-        if (!config) throw new TRPCError({ code: 'NOT_FOUND', message: 'No recurring config for this client' });
-        const nextNumber = await getNextInvoiceNumber(input.clientSlug);
-        // Use same prefix as real invoice but with PRV suffix so it won't collide
-        const previewNumber = nextNumber.replace(/\d+$/, 'PRV');
-        // Delete any old preview invoice so we always get a fresh one
-        await deleteInvoice(previewNumber);
-        const shareToken = await buildAndSendRecurringInvoice(config, {
-          invoiceNumber: previewNumber,
-          status: 'draft',
-          sendEmail: false,
-          baseUrl: ENV.appUrl || process.env.PORTAL_URL || '',
-        });
-        return { shareToken };
-      }),
-
     sendNow: adminProcedure
       .input(z.object({ clientSlug: z.string() }))
       .mutation(async ({ input }) => {
