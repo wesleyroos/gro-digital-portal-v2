@@ -1057,7 +1057,8 @@ export default function ClientPortal() {
                               sendNow.mutate({ clientSlug: slug }, {
                                 onSuccess: () => {
                                   refetchRecurring();
-                                  toast.success("Invoice sent — check the Monthly Subscriptions section below");
+                                  utils.invoice.listByClient.invalidate({ clientSlug: slug });
+                                  toast.success("Invoice sent — check the billing table below");
                                 },
                                 onError: (e) => toast.error(e.message || "Send failed"),
                               });
