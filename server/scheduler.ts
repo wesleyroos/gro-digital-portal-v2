@@ -172,7 +172,8 @@ export async function runRecurringInvoiceTick() {
       }
 
       const monthStr = String(currentMonth).padStart(2, '0');
-      const invoiceNumber = `REC-${config.clientSlug.toUpperCase()}-${currentYear}-${monthStr}`;
+      const slugPart = config.clientSlug.toUpperCase().slice(0, 16).replace(/-+$/, '');
+      const invoiceNumber = `REC-${slugPart}-${currentYear}-${monthStr}`;
       const baseUrl = ENV.appUrl || process.env.PORTAL_URL || '';
 
       await buildAndSendRecurringInvoice(config, { invoiceNumber, status: 'sent', sendEmail: true, baseUrl });

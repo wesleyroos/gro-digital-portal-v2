@@ -2600,7 +2600,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .mutation(async ({ input }) => {
         const config = await getRecurringInvoiceConfig(input.clientSlug);
         if (!config) throw new TRPCError({ code: 'NOT_FOUND', message: 'No recurring config for this client' });
-        const previewNumber = `REC-PREVIEW-${input.clientSlug.toUpperCase()}`;
+        const previewNumber = `PRV-${input.clientSlug.toUpperCase().slice(0, 28)}`;
         // Delete any old preview invoice so we always get a fresh one
         await deleteInvoice(previewNumber);
         const shareToken = await buildAndSendRecurringInvoice(config, {
@@ -2620,7 +2620,8 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
-        const invoiceNumber = `REC-${input.clientSlug.toUpperCase()}-${year}-${month}`;
+        const slugPart = input.clientSlug.toUpperCase().slice(0, 16).replace(/-+$/, '');
+        const invoiceNumber = `REC-${slugPart}-${year}-${month}`;
         // If already sent this month, just return the existing invoice's share token
         const existing = await getInvoiceByNumber(invoiceNumber);
         if (existing) {
