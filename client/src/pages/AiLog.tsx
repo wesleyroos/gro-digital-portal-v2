@@ -6,10 +6,12 @@ const SOURCE_META: Record<string, { label: string; color: string }> = {
   mcp:                    { label: "MCP",            color: "bg-purple-100 text-purple-700" },
   campaign_jarvis:        { label: "Jarvis",         color: "bg-blue-100 text-blue-700" },
   campaign_auto_agent:    { label: "Auto Agent",     color: "bg-indigo-100 text-indigo-700" },
+  campaign_strategy_chat: { label: "Strategy Chat",  color: "bg-violet-100 text-violet-700" },
   campaign_image_prompt:  { label: "Image Prompt",   color: "bg-pink-100 text-pink-700" },
   mailer_chat:            { label: "Mailer Chat",    color: "bg-orange-100 text-orange-700" },
   outreach_discover:      { label: "Outreach",       color: "bg-green-100 text-green-700" },
   outreach_email_draft:   { label: "Email Draft",    color: "bg-teal-100 text-teal-700" },
+  feedback_chat:          { label: "Feedback",       color: "bg-slate-100 text-slate-700" },
 };
 
 function SourceBadge({ source }: { source: string }) {

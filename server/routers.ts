@@ -1370,6 +1370,7 @@ Instructions:
           const linkedinCaption = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
           if (!linkedinCaption) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'AI did not return a LinkedIn caption' });
           await updatePostLinkedinCaption(input.postId, linkedinCaption);
+          insertAiInteraction({ source: 'campaign_strategy_chat', toolName: 'repurposeToLinkedin', inputSummary: `postId:${input.postId}`, clientSlug: campaign.clientSlug }).catch(() => {});
           return { linkedinCaption };
         }),
 
@@ -1662,6 +1663,7 @@ DESIGN REQUIREMENTS:
           const baseUrl = `${ctx.req.protocol}://${ctx.req.get('host')}`;
           const finalHtml = html.replace(/__VIEW_IN_BROWSER_URL__/g, `${baseUrl}/m/${mailer.id}`);
           await updateCampaignMailer(mailer.id, { subject, previewText: previewText ?? null, htmlContent: finalHtml });
+          insertAiInteraction({ source: 'mailer_chat', toolName: 'mailer.generate', inputSummary: `campaignId:${input.campaignId} subject:${subject.slice(0, 80)}`, clientSlug: campaign.clientSlug }).catch(() => {});
           return { ...mailer, subject, previewText: previewText ?? null, htmlContent: finalHtml };
         }),
 

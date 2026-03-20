@@ -1133,6 +1133,7 @@ User info: name="${user.name}", role="${user.role}"`;
           }).catch(e => console.warn("[FeedbackChat] Email notify failed:", e));
         }
 
+        db.insertAiInteraction({ source: 'feedback_chat', toolName: 'feedback.submit', inputSummary: `${input.type}: ${input.title.slice(0, 100)}` }).catch(() => {});
         const textBlock = response.content.find(b => b.type === "text");
         const reply = textBlock?.type === "text" ? textBlock.text : "Got it! I've logged that for the team. Thanks for your feedback!";
         res.json({ reply, submitted: true });
@@ -1291,6 +1292,7 @@ INSTRUCTIONS:
         ? (textPart ? `${textPart}\n[HTML updated]` : "[HTML updated]")
         : textPart;
       await db.insertMailerChatMessage(mailerId, "assistant", toSave);
+      db.insertAiInteraction({ source: 'mailer_chat', toolName: 'mailer.chat.stream', inputSummary: `mailerId:${mailerId} hasHtml:${hasHtml}` }).catch(() => {});
       // Send base64Map so client can restore placeholders locally (no server-side restore needed)
       res.write(`data: ${JSON.stringify({ done: true, hasHtml, base64Map })}\n\n`);
     } catch (e) {
