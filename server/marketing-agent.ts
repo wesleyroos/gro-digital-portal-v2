@@ -320,6 +320,18 @@ export function registerCampaignAgentRoutes(app: Express) {
         ...newMessages,
       ]);
 
+      // Log tool calls that modified the campaign
+      const toolsUsed = newMessages
+        .filter(m => m.role === 'tool' && m.toolName)
+        .map(m => m.toolName as string);
+      const campaign = await db.getCampaignById(campaignId);
+      db.insertAiInteraction({
+        source: 'campaign_strategy_chat',
+        toolName: toolsUsed.length > 0 ? toolsUsed.join(', ') : 'strategy.chat',
+        inputSummary: message.trim().slice(0, 512),
+        clientSlug: campaign?.clientSlug ?? undefined,
+      }).catch(() => {});
+
       res.json({ reply });
     } catch (e) {
       console.error('[Campaign] Relay error:', e);
@@ -481,6 +493,12 @@ Return ONLY a valid JSON array — no explanation, no preamble, no markdown code
       await db.updateCampaign(campaignId, { status: 'approval' });
 
       console.log(`[Campaign/CalGen] Created ${posts.length} posts for campaign ${campaignId}`);
+      db.insertAiInteraction({
+        source: 'campaign_strategy_chat',
+        toolName: 'generate_calendar',
+        inputSummary: `campaignId:${campaignId} posts:${posts.length}`,
+        clientSlug: campaign.clientSlug,
+      }).catch(() => {});
       res.json({ count: posts.length });
     } catch (e) {
       console.error('[Campaign/CalGen] Error:', e);
