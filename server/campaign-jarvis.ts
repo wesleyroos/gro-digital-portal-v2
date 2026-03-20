@@ -521,6 +521,14 @@ async function runJarvis(campaignId: number, goals: string | undefined, res: Res
     ? `Image model: ${savedPrefs.imageModel}, Style: ${savedPrefs.imageStyle}, Aspect ratio: ${savedPrefs.imageAspectRatio}`
     : 'None saved yet';
 
+  // Build active channel list from campaign flags
+  const activeChannels: string[] = [];
+  if (campaign.postToInstagram) activeChannels.push(`Instagram (${igConnected ? 'connected' : 'NOT CONNECTED'})`);
+  if (campaign.postToFacebook) activeChannels.push(`Facebook (${fbConnected ? 'connected' : 'NOT CONNECTED'})`);
+  if (campaign.postToLinkedin) activeChannels.push('LinkedIn Personal (token stored in DB)');
+  if ((campaign as Record<string, unknown>).postToEmail) activeChannels.push('Email (subscriber list via Resend)');
+  const channelList = activeChannels.length > 0 ? activeChannels.join(', ') : 'None selected';
+
   const systemPrompt = `You are Jarvis, an autonomous marketing campaign agent for GRO Digital.
 You communicate with the user via send_message and request_approval.
 Keep send_message text brief (1-2 sentences, conversational).
@@ -529,8 +537,7 @@ TODAY: ${new Date().toISOString().slice(0, 10)}
 CAMPAIGN: ${campaign.name} (ID: ${campaignId})
 STATUS: ${campaign.status}
 CLIENT: ${clientProfile?.name ?? campaign.clientSlug} (slug: ${campaign.clientSlug})
-Instagram: ${igConnected ? 'connected' : 'NOT CONNECTED'}
-Facebook: ${fbConnected ? 'connected' : 'NOT CONNECTED'}
+ACTIVE CHANNELS: ${channelList}
 Client notes: ${clientProfile?.notes?.slice(0, 200) ?? 'none'}
 Total campaigns for this client: ${allCampaigns.length}
 Goals: ${goals ?? 'None specified'}
@@ -566,7 +573,7 @@ RULES:
 - Use send_message to narrate — never just think out loud
 - NEVER activate the campaign without explicit human approval via request_approval first
 - Use request_approval for: image batch continuation, campaign activation
-- If Instagram not connected, set postToInstagram=false when relevant
+- Tailor the strategy and content to the active channels listed above
 - Never make up brand info — explain what context you used`;
 
   const messages: Anthropic.MessageParam[] = [

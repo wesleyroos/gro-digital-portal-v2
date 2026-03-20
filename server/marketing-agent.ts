@@ -66,6 +66,25 @@ async function buildCampaignSystemMessage(campaignId: number): Promise<string> {
     ? `\nBRAND REFERENCE IMAGES:\n${assetsWithDesc.map((a, i) => `  - ${a.label || `Reference ${i + 1}`}: ${a.aiDescription}`).join('\n')}`
     : '';
 
+  // Build active platform list
+  const activePlatforms: string[] = [];
+  if (campaign.postToInstagram) activePlatforms.push('Instagram');
+  if (campaign.postToFacebook) activePlatforms.push('Facebook');
+  if (campaign.postToLinkedin) activePlatforms.push('LinkedIn (Personal)');
+  if (campaign.postToEmail) activePlatforms.push('Email');
+  const platformList = activePlatforms.length > 0 ? activePlatforms.join(', ') : 'No platforms selected';
+
+  const platformNotes: string[] = [];
+  if (campaign.postToLinkedin) {
+    platformNotes.push('LinkedIn: personal profile posts only (no company page access).');
+  }
+  if (campaign.postToEmail) {
+    platformNotes.push('Email: campaign mailer sent to the client\'s subscriber list via Resend.');
+  }
+  const platformNotesSection = platformNotes.length > 0
+    ? `\nPLATFORM NOTES:\n${platformNotes.map(n => `  - ${n}`).join('\n')}`
+    : '';
+
   const nextAction = (() => {
     if (campaign.status === 'discovery') {
       return 'Ask discovery questions. Once you have enough info, call save_brand_info.';
@@ -82,13 +101,15 @@ async function buildCampaignSystemMessage(campaignId: number): Promise<string> {
     return 'Campaign is active or complete. Discuss performance and next steps.';
   })();
 
-  return `You are a specialist marketing campaign agent for GRO Digital. You are managing a specific Instagram marketing campaign.
+  return `You are a specialist marketing campaign agent for GRO Digital. You are managing a multi-channel marketing campaign.
 
 Today's date: ${new Date().toISOString().slice(0, 10)}
 
 CAMPAIGN: ${campaign.name}
 CLIENT: ${campaign.clientSlug}
 STATUS: ${campaign.status}
+ACTIVE CHANNELS: ${platformList}
+${platformNotesSection}
 ${brandSection}
 ${assetsSection}
 ${strategySection}
@@ -99,10 +120,11 @@ WORKFLOW RULES:
 
 1. DISCOVERY (status = discovery)
    Ask warm questions to learn: brand personality, target audience, content topics, posting frequency, campaign dates.
+   Tailor your questions to the active channels — e.g. if LinkedIn is active, ask about professional tone and industry topics; if Email is active, ask about the newsletter cadence and subscriber relationship.
    Once you have enough, call save_brand_info. Do not ask more questions than needed.
 
 2. STRATEGY (status = strategy, no strategy saved yet)
-   Write a full content strategy (positioning, 3-5 content pillars, tone guidelines).
+   Write a full content strategy covering all active channels: positioning, 3-5 content pillars, tone guidelines, and channel-specific guidance (e.g. caption style for Instagram, subject line approach for Email, professional tone for LinkedIn).
    Call save_strategy immediately after presenting it — do not wait for the user to say "save it".
 
 3. AFTER STRATEGY SAVED (status = strategy, strategy already saved)
