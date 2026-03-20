@@ -5,8 +5,22 @@ import * as db from './db';
 type ToolCall = { id: string; type: string; function: { name: string; arguments: string } };
 type AnyMessage = Record<string, unknown>;
 
-// Only 2 tools in the chat agent — calendar generation is a separate endpoint
+// Tools available to the campaign strategy chat agent
 const CAMPAIGN_AGENT_TOOLS = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'browse_website',
+      description: 'Fetch and read the text content of any public website URL. Use this whenever the user shares a URL or you need to research a client\'s business.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'The full URL to fetch (must start with http:// or https://)' },
+        },
+        required: ['url'],
+      },
+    },
+  },
   {
     type: 'function' as const,
     function: {
@@ -119,6 +133,7 @@ YOUR NEXT ACTION: ${nextAction}
 WORKFLOW RULES:
 
 1. DISCOVERY (status = discovery)
+   If the user shares a URL at any point, immediately call browse_website to read it before responding — always do this first.
    Ask warm questions to learn: brand personality, target audience, content topics, posting frequency, campaign dates.
    Tailor your questions to the active channels — e.g. if LinkedIn is active, ask about professional tone and industry topics; if Email is active, ask about the newsletter cadence and subscriber relationship.
    Once you have enough, call save_brand_info. Do not ask more questions than needed.
@@ -137,12 +152,44 @@ WORKFLOW RULES:
 Plain text only in responses. No markdown.`;
 }
 
+async function browseWebsite(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GROBot/1.0)' },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return `Failed to fetch ${url}: HTTP ${res.status}`;
+    const html = await res.text();
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 5000);
+    return text || 'Page fetched but no readable text found.';
+  } catch (e) {
+    return `Could not fetch ${url}: ${String(e)}`;
+  }
+}
+
 async function executeCampaignTool(
   name: string,
   args: Record<string, unknown>,
   campaignId: number,
 ): Promise<string> {
   try {
+    if (name === 'browse_website') {
+      const url = String(args.url ?? '');
+      if (!url.startsWith('http')) return 'Invalid URL — must start with http:// or https://';
+      return await browseWebsite(url);
+    }
+
     if (name === 'save_brand_info') {
       const themes = Array.isArray(args.contentThemes)
         ? (args.contentThemes as string[]).join(', ')
