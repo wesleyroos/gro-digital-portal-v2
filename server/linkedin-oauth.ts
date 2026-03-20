@@ -37,7 +37,7 @@ export function registerLinkedinOAuthRoutes(app: Express) {
     authUrl.searchParams.set('client_id', ENV.linkedinClientId);
     authUrl.searchParams.set('redirect_uri', ENV.linkedinRedirectUri);
     authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('scope', 'openid profile w_member_social w_organization_social');
+    authUrl.searchParams.set('scope', 'openid profile w_member_social');
 
     res.redirect(302, authUrl.toString());
   });
