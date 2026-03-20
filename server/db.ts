@@ -1223,7 +1223,15 @@ export async function getCampaignById(id: number) {
   return result[0] ?? null;
 }
 
-export async function createCampaign(data: { clientSlug: string; name: string; createdBy?: string }) {
+export async function createCampaign(data: {
+  clientSlug: string;
+  name: string;
+  createdBy?: string;
+  postToInstagram?: boolean;
+  postToFacebook?: boolean;
+  postToLinkedin?: boolean;
+  postToEmail?: boolean;
+}) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
   const result = await db.insert(marketingCampaigns).values({
@@ -1231,6 +1239,10 @@ export async function createCampaign(data: { clientSlug: string; name: string; c
     name: data.name,
     status: 'discovery',
     createdBy: data.createdBy ?? null,
+    postToInstagram: data.postToInstagram ?? true,
+    postToFacebook: data.postToFacebook ?? false,
+    postToLinkedin: data.postToLinkedin ?? false,
+    postToEmail: data.postToEmail ?? false,
   }).$returningId();
   return result[0].id;
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Megaphone, Plus, ArrowRight, Trash2, CheckCircle2, XCircle, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Search, X, Sparkles } from "lucide-react";
+import { Megaphone, Plus, ArrowRight, Trash2, AlertCircle, ChevronUp, ChevronDown, ChevronsUpDown, Search, X, Sparkles, Instagram, Facebook, Linkedin, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,20 +15,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import CampaignAutoAgentModal from "@/components/CampaignAutoAgentModal";
-
-function ReadinessItem({ label, ok, note, warn }: { label: string; ok: boolean; note?: string; warn?: boolean }) {
-  const Icon = ok ? CheckCircle2 : warn ? AlertCircle : XCircle;
-  const color = ok ? "text-emerald-600" : warn ? "text-amber-500" : "text-red-500";
-  return (
-    <div className="flex items-center gap-2">
-      <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
-      <span className="text-xs text-foreground">{label}</span>
-      {note && <span className="text-xs text-muted-foreground ml-auto">{note}</span>}
-    </div>
-  );
-}
 
 const STATUS_LABELS: Record<string, string> = {
   discovery: "Discovery",
@@ -63,6 +52,12 @@ export default function Marketing() {
   const [newName, setNewName] = useState("");
   const [newClientSlug, setNewClientSlug] = useState("");
 
+  // Platform toggles for new campaign
+  const [toggleIG, setToggleIG] = useState(false);
+  const [toggleFB, setToggleFB] = useState(false);
+  const [toggleLI, setToggleLI] = useState(false);
+  const [toggleEmail, setToggleEmail] = useState(false);
+
   // Pre-fill clientSlug for client users once auth loads
   useEffect(() => {
     if (isClient && user?.clientSlug) setNewClientSlug(user.clientSlug);
@@ -90,10 +85,29 @@ export default function Marketing() {
     { clientSlug: newClientSlug },
     { enabled: !!newClientSlug }
   );
+  const { data: liStatus } = trpc.linkedin.getStatus.useQuery(
+    { clientSlug: newClientSlug },
+    { enabled: !!newClientSlug }
+  );
   const { data: segmentStatus } = trpc.campaign.mailer.getSegmentStatus.useQuery(
     { clientSlug: newClientSlug },
     { enabled: !!newClientSlug }
   );
+  // Auto-set toggles based on connection status when client or statuses change
+  useEffect(() => {
+    setToggleIG(!!igStatus?.connected);
+    setToggleFB(!!fbStatus?.connected);
+    setToggleLI(!!liStatus?.connected);
+    setToggleEmail(!!segmentStatus?.segmentId);
+  }, [igStatus?.connected, fbStatus?.connected, liStatus?.connected, segmentStatus?.segmentId]);
+
+  // Reset toggles when client changes
+  useEffect(() => {
+    if (!newClientSlug) {
+      setToggleIG(false); setToggleFB(false); setToggleLI(false); setToggleEmail(false);
+    }
+  }, [newClientSlug]);
+
   const createMutation = trpc.campaign.create.useMutation({
     onSuccess: (data) => {
       refetch();
@@ -169,7 +183,14 @@ export default function Marketing() {
 
   function handleCreate() {
     if (!newName.trim() || !newClientSlug) return;
-    createMutation.mutate({ clientSlug: newClientSlug, name: newName.trim() });
+    createMutation.mutate({
+      clientSlug: newClientSlug,
+      name: newName.trim(),
+      postToInstagram: toggleIG,
+      postToFacebook: toggleFB,
+      postToLinkedin: toggleLI,
+      postToEmail: toggleEmail,
+    });
   }
 
   function toggleSort(key: SortKey) {
@@ -470,28 +491,57 @@ export default function Marketing() {
           </div>
 
           {newClientSlug && (
-            <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Client Readiness</p>
-              <ReadinessItem
-                label="Instagram connected"
-                ok={!!igStatus?.connected}
-                note={igStatus?.connected ? igStatus.username ?? undefined : "Connect in Settings"}
-              />
-              <ReadinessItem
-                label="Facebook connected"
-                ok={!!fbStatus?.connected}
-                note={fbStatus?.connected ? fbStatus.pageName ?? undefined : "Connect in Settings"}
-              />
-              <ReadinessItem
-                label="Subscriber list"
-                ok={!!segmentStatus?.segmentId}
-                note={
-                  segmentStatus?.segmentId
+            <div className="rounded-lg border bg-muted/40 p-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Campaign Components</p>
+              {[
+                {
+                  icon: Instagram,
+                  label: "Instagram",
+                  connected: !!igStatus?.connected,
+                  note: igStatus?.connected ? igStatus.username ?? undefined : undefined,
+                  toggle: toggleIG,
+                  setToggle: setToggleIG,
+                },
+                {
+                  icon: Facebook,
+                  label: "Facebook",
+                  connected: !!fbStatus?.connected,
+                  note: fbStatus?.connected ? fbStatus.pageName ?? undefined : undefined,
+                  toggle: toggleFB,
+                  setToggle: setToggleFB,
+                },
+                {
+                  icon: Linkedin,
+                  label: "LinkedIn (Personal)",
+                  connected: !!liStatus?.connected,
+                  note: liStatus?.connected ? liStatus.personUrn?.replace("urn:li:person:", "") ?? undefined : undefined,
+                  toggle: toggleLI,
+                  setToggle: setToggleLI,
+                },
+                {
+                  icon: Mail,
+                  label: "Email",
+                  connected: !!segmentStatus?.segmentId,
+                  note: segmentStatus?.segmentId
                     ? `${segmentStatus.subscriberCount} subscriber${segmentStatus.subscriberCount === 1 ? "" : "s"}`
-                    : "Set up in campaign mailer"
-                }
-                warn={!segmentStatus?.segmentId}
-              />
+                    : undefined,
+                  toggle: toggleEmail,
+                  setToggle: setToggleEmail,
+                },
+              ].map(({ icon: Icon, label, connected, note, toggle, setToggle }) => (
+                <div key={label} className="flex items-center gap-2 py-1">
+                  <Icon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                  <span className="text-xs text-foreground flex-1">{label}</span>
+                  {!connected && toggle && (
+                    <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+                  )}
+                  {note && <span className="text-xs text-muted-foreground">{note}</span>}
+                  {!connected && !note && (
+                    <span className="text-xs text-muted-foreground">Not connected</span>
+                  )}
+                  <Switch checked={toggle} onCheckedChange={setToggle} className="ml-1 scale-90" />
+                </div>
+              ))}
             </div>
           )}
           <DialogFooter>

@@ -260,6 +260,7 @@ export const marketingCampaigns = mysqlTable("marketing_campaigns", {
   postToInstagram: boolean("postToInstagram").default(true).notNull(),
   postToFacebook: boolean("postToFacebook").default(false).notNull(),
   postToLinkedin: boolean("postToLinkedin").default(false).notNull(),
+  postToEmail: boolean("postToEmail").default(false).notNull(),
   linkedinPostsPerWeek: int("linkedinPostsPerWeek").default(2),
   createdBy: varchar("createdBy", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

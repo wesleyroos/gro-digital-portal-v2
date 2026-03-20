@@ -845,10 +845,25 @@ export const appRouter = router({
       }),
 
     create: protectedProcedure
-      .input(z.object({ clientSlug: z.string().min(1), name: z.string().min(1) }))
+      .input(z.object({
+        clientSlug: z.string().min(1),
+        name: z.string().min(1),
+        postToInstagram: z.boolean().optional(),
+        postToFacebook: z.boolean().optional(),
+        postToLinkedin: z.boolean().optional(),
+        postToEmail: z.boolean().optional(),
+      }))
       .mutation(async ({ ctx, input }) => {
         const clientSlug = ctx.user.role === 'client' ? ctx.user.clientSlug! : input.clientSlug;
-        const id = await createCampaign({ clientSlug, name: input.name, createdBy: ctx.user.name ?? ctx.user.email ?? null });
+        const id = await createCampaign({
+          clientSlug,
+          name: input.name,
+          createdBy: ctx.user.name ?? ctx.user.email ?? null,
+          postToInstagram: input.postToInstagram,
+          postToFacebook: input.postToFacebook,
+          postToLinkedin: input.postToLinkedin,
+          postToEmail: input.postToEmail,
+        });
         return { id };
       }),
 
