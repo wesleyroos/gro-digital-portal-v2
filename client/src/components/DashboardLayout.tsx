@@ -103,6 +103,11 @@ export default function DashboardLayout({
     return null;
   }
 
+  if (user.role === 'client') {
+    window.location.replace("/portal");
+    return null;
+  }
+
   return (
     <SidebarProvider
       style={

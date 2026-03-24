@@ -240,7 +240,7 @@ async function recoverMissingSentCount(campaignId: number, clientSlug: string): 
     const segmentId = await getResendSegmentId(clientSlug);
     if (!segmentId) return;
     const resend = new Resend(ENV.resendApiKey);
-    const res = await resend.contacts.list({ segmentId, limit: 1000 });
+    const res = await resend.contacts.list({ segmentId, limit: 100 });
     const sentCount = res?.data?.data?.length ?? 0;
     if (sentCount > 0) {
       await Promise.all(missing.map(m => updateCampaignMailer(m.id, { sentCount })));
@@ -2040,9 +2040,9 @@ INSTRUCTIONS:
 
           // Record how many were sent to
           try {
-            const countRes = await resend.contacts.list({ segmentId, limit: 1000 });
+            const countRes = await resend.contacts.list({ segmentId, limit: 100 });
             const sentCount = countRes?.data?.data?.length ?? 0;
-            await updateCampaignMailer(input.mailerId, { sentCount });
+            if (sentCount > 0) await updateCampaignMailer(input.mailerId, { sentCount });
           } catch { /* best effort */ }
 
           return { broadcastId };

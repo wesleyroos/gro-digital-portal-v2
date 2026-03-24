@@ -2328,13 +2328,14 @@ export default function MarketingCampaignWorkspace() {
                 </div>
               );
               const rows = mailerAnalytics ?? [];
-              // Summary stats only from sent mailers
+              // Summary stats only from sent mailers with known recipient counts
               const sentRows = rows.filter(r => r.mailer.status === 'sent');
-              const totalSent = sentRows.reduce((s, r) => s + r.sentCount, 0);
+              const ratedRows = sentRows.filter(r => r.sentCount > 0);
+              const totalSent = ratedRows.reduce((s, r) => s + r.sentCount, 0);
               const totalOpens = sentRows.reduce((s, r) => s + r.opens, 0);
               const totalClicks = sentRows.reduce((s, r) => s + r.clicks, 0);
-              const avgOpenRate = totalSent > 0 ? ((totalOpens / totalSent) * 100).toFixed(1) : null;
-              const avgClickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : null;
+              const avgOpenRate = totalSent > 0 ? ((ratedRows.reduce((s, r) => s + r.opens, 0) / totalSent) * 100).toFixed(1) : null;
+              const avgClickRate = totalSent > 0 ? ((ratedRows.reduce((s, r) => s + r.clicks, 0) / totalSent) * 100).toFixed(1) : null;
 
               if (!rows.length) return (
                 <div className="space-y-4">
