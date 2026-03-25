@@ -1558,6 +1558,28 @@ function gdSubmitAccept(token) {
   }
 
 
+  // Image proxy — GET /api/proxy-image?url=<encoded> — server-side fetch bypasses browser CORS
+  app.get('/api/proxy-image', async (req: Request, res: Response) => {
+    const url = typeof req.query.url === 'string' ? req.query.url : null;
+    if (!url) { res.status(400).json({ error: 'url required' }); return; }
+    // Only allow proxying from our own R2 bucket
+    if (!url.startsWith('https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/')) {
+      res.status(403).json({ error: 'Forbidden' }); return;
+    }
+    try {
+      const upstream = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      if (!upstream.ok) { res.status(502).json({ error: 'Upstream error' }); return; }
+      const contentType = upstream.headers.get('content-type') ?? 'image/jpeg';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('Content-Disposition', `attachment; filename="image.${contentType.split('/')[1] ?? 'jpg'}"`);
+      const buf = await upstream.arrayBuffer();
+      res.end(Buffer.from(buf));
+    } catch {
+      res.status(502).json({ error: 'Failed to fetch image' });
+    }
+  });
+
   registerGoogleOAuthRoutes(app);
 
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {

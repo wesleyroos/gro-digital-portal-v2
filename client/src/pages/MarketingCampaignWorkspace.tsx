@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronRight, Mail, Undo2 } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronLeft, ChevronRight, Mail, Undo2 } from "lucide-react";
 import CampaignJarvisPanel from "@/components/CampaignJarvisPanel";
 import {
   Dialog,
@@ -105,6 +105,24 @@ export default function MarketingCampaignWorkspace() {
   const [jarvisOpen, setJarvisOpen] = useState(false);
   const [autoStartJarvis, setAutoStartJarvis] = useState(false);
 
+  // Lightbox keyboard navigation
+  useEffect(() => {
+    if (!lightboxUrl) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxUrl(null);
+      } else if (e.key === 'ArrowRight') {
+        const idx = lightboxImages.indexOf(lightboxUrl);
+        if (idx !== -1 && idx < lightboxImages.length - 1) setLightboxUrl(lightboxImages[idx + 1]);
+      } else if (e.key === 'ArrowLeft') {
+        const idx = lightboxImages.indexOf(lightboxUrl);
+        if (idx > 0) setLightboxUrl(lightboxImages[idx - 1]);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightboxUrl, lightboxImages]);
+
   // Open Jarvis automatically when ?jarvis=start is in the URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -147,6 +165,7 @@ export default function MarketingCampaignWorkspace() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
   const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "li" | "mailers">("all");
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -628,11 +647,12 @@ export default function MarketingCampaignWorkspace() {
 
   async function downloadImage(url: string, postId: number) {
     try {
-      const res = await fetch(url);
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl);
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `post-${postId}.png`;
+      a.download = `post-${postId}.jpg`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch {
@@ -1293,10 +1313,10 @@ export default function MarketingCampaignWorkspace() {
                             src={post.imageUrl}
                             alt="Post"
                             className="w-full h-full object-cover cursor-zoom-in"
-                            onClick={() => setLightboxUrl(post.imageUrl!)}
+                            onClick={() => { const imgs = posts.filter(p => p.imageUrl).map(p => p.imageUrl!); setLightboxImages(imgs); setLightboxUrl(post.imageUrl!); }}
                           />
                           {/* Hover overlay: download + replace */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2" onClick={() => setLightboxUrl(post.imageUrl!)}>
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2" onClick={() => { const imgs = posts.filter(p => p.imageUrl).map(p => p.imageUrl!); setLightboxImages(imgs); setLightboxUrl(post.imageUrl!); }}>
                             <button
                               onClick={e => { e.stopPropagation(); downloadImage(post.imageUrl!, post.id); }}
                               className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-gray-800 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
@@ -2563,7 +2583,7 @@ export default function MarketingCampaignWorkspace() {
                                       src={post.imageUrl}
                                       alt=""
                                       className="w-full h-full object-cover cursor-zoom-in"
-                                      onClick={() => setLightboxUrl(post.imageUrl!)}
+                                      onClick={() => { const imgs = posts.filter(p => p.imageUrl).map(p => p.imageUrl!); setLightboxImages(imgs); setLightboxUrl(post.imageUrl!); }}
                                     />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
@@ -2643,25 +2663,51 @@ export default function MarketingCampaignWorkspace() {
       </Tabs>
 
       {/* ── Image Lightbox ──────────────────────────────────────────────── */}
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <button
-            className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+      {lightboxUrl && (() => {
+        const currentIdx = lightboxImages.indexOf(lightboxUrl);
+        const hasPrev = currentIdx > 0;
+        const hasNext = currentIdx !== -1 && currentIdx < lightboxImages.length - 1;
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
             onClick={() => setLightboxUrl(null)}
           >
-            <X className="w-5 h-5" />
-          </button>
-          <img
-            src={lightboxUrl}
-            alt="Full size"
-            className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
-            onClick={e => e.stopPropagation()}
-          />
-        </div>
-      )}
+            <button
+              className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+              onClick={() => setLightboxUrl(null)}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {hasPrev && (
+              <button
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+                onClick={e => { e.stopPropagation(); setLightboxUrl(lightboxImages[currentIdx - 1]); }}
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+            {hasNext && (
+              <button
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+                onClick={e => { e.stopPropagation(); setLightboxUrl(lightboxImages[currentIdx + 1]); }}
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+            {lightboxImages.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm tabular-nums">
+                {currentIdx + 1} / {lightboxImages.length}
+              </div>
+            )}
+            <img
+              src={lightboxUrl}
+              alt="Full size"
+              className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+        );
+      })()}
 
       {/* ── Analytics Modal ─────────────────────────────────────────────── */}
       <Dialog open={!!analyticsPostId} onOpenChange={open => { if (!open) setAnalyticsPostId(null); }}>
