@@ -105,24 +105,6 @@ export default function MarketingCampaignWorkspace() {
   const [jarvisOpen, setJarvisOpen] = useState(false);
   const [autoStartJarvis, setAutoStartJarvis] = useState(false);
 
-  // Lightbox keyboard navigation
-  useEffect(() => {
-    if (!lightboxUrl) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setLightboxUrl(null);
-      } else if (e.key === 'ArrowRight') {
-        const idx = lightboxImages.indexOf(lightboxUrl);
-        if (idx !== -1 && idx < lightboxImages.length - 1) setLightboxUrl(lightboxImages[idx + 1]);
-      } else if (e.key === 'ArrowLeft') {
-        const idx = lightboxImages.indexOf(lightboxUrl);
-        if (idx > 0) setLightboxUrl(lightboxImages[idx - 1]);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [lightboxUrl, lightboxImages]);
-
   // Open Jarvis automatically when ?jarvis=start is in the URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -166,6 +148,25 @@ export default function MarketingCampaignWorkspace() {
   const [analyticsPostId, setAnalyticsPostId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+
+  // Lightbox keyboard navigation — must be after lightboxUrl/lightboxImages declarations
+  useEffect(() => {
+    if (!lightboxUrl) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxUrl(null);
+      } else if (e.key === 'ArrowRight') {
+        const idx = lightboxImages.indexOf(lightboxUrl);
+        if (idx !== -1 && idx < lightboxImages.length - 1) setLightboxUrl(lightboxImages[idx + 1]);
+      } else if (e.key === 'ArrowLeft') {
+        const idx = lightboxImages.indexOf(lightboxUrl);
+        if (idx > 0) setLightboxUrl(lightboxImages[idx - 1]);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightboxUrl, lightboxImages]);
+
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
   const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "li" | "mailers">("all");
   const [showShareDialog, setShowShareDialog] = useState(false);
