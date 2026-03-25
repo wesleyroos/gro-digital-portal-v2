@@ -802,6 +802,10 @@ export default function MarketingCampaignWorkspace() {
     );
   }
 
+  const lightboxIdx = lightboxUrl ? lightboxImages.indexOf(lightboxUrl) : -1;
+  const lightboxHasPrev = lightboxIdx > 0;
+  const lightboxHasNext = lightboxIdx !== -1 && lightboxIdx < lightboxImages.length - 1;
+
   return (
     <div className="flex h-[calc(100vh-64px)] gap-0">
       {/* Main workspace */}
@@ -2663,51 +2667,46 @@ export default function MarketingCampaignWorkspace() {
       </Tabs>
 
       {/* ── Image Lightbox ──────────────────────────────────────────────── */}
-      {lightboxUrl && (() => {
-        const currentIdx = lightboxImages.indexOf(lightboxUrl);
-        const hasPrev = currentIdx > 0;
-        const hasNext = currentIdx !== -1 && currentIdx < lightboxImages.length - 1;
-        return (
-          <div
-            className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
             onClick={() => setLightboxUrl(null)}
           >
+            <X className="w-5 h-5" />
+          </button>
+          {lightboxHasPrev && (
             <button
-              className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
-              onClick={() => setLightboxUrl(null)}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+              onClick={e => { e.stopPropagation(); setLightboxUrl(lightboxImages[lightboxIdx - 1]); }}
             >
-              <X className="w-5 h-5" />
+              <ChevronLeft className="w-6 h-6" />
             </button>
-            {hasPrev && (
-              <button
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
-                onClick={e => { e.stopPropagation(); setLightboxUrl(lightboxImages[currentIdx - 1]); }}
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            )}
-            {hasNext && (
-              <button
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
-                onClick={e => { e.stopPropagation(); setLightboxUrl(lightboxImages[currentIdx + 1]); }}
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            )}
-            {lightboxImages.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm tabular-nums">
-                {currentIdx + 1} / {lightboxImages.length}
-              </div>
-            )}
-            <img
-              src={lightboxUrl}
-              alt="Full size"
-              className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
-              onClick={e => e.stopPropagation()}
-            />
-          </div>
-        );
-      })()}
+          )}
+          {lightboxHasNext && (
+            <button
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+              onClick={e => { e.stopPropagation(); setLightboxUrl(lightboxImages[lightboxIdx + 1]); }}
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
+          {lightboxImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm tabular-nums">
+              {lightboxIdx + 1} / {lightboxImages.length}
+            </div>
+          )}
+          <img
+            src={lightboxUrl}
+            alt="Full size"
+            className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* ── Analytics Modal ─────────────────────────────────────────────── */}
       <Dialog open={!!analyticsPostId} onOpenChange={open => { if (!open) setAnalyticsPostId(null); }}>
