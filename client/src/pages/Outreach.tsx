@@ -7,9 +7,9 @@ import {
   useSensors,
   DragOverlay,
   useDroppable,
-  useDraggable,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -578,14 +578,14 @@ function KanbanCardContent({ prospect, isDragging = false }: { prospect: Prospec
   );
 }
 
-function DraggableCard({ prospect, onClick }: { prospect: Prospect; onClick: () => void }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: prospect.id });
+function SortableCard({ prospect, onClick }: { prospect: Prospect; onClick: () => void }) {
+  const { attributes, listeners, setNodeRef, isDragging, transform, transition } = useSortable({ id: prospect.id });
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
 
   return (
     <div
       ref={setNodeRef}
-      style={{ opacity: isDragging ? 0.3 : 1 }}
+      style={{ transform: transform ? `translate3d(${transform.x}px,${transform.y}px,0)` : undefined, transition, opacity: isDragging ? 0.3 : 1 }}
       {...listeners}
       {...attributes}
       onPointerDown={(e) => {
@@ -600,7 +600,7 @@ function DraggableCard({ prospect, onClick }: { prospect: Prospect; onClick: () 
         }
       }}
     >
-      <KanbanCardContent prospect={prospect} />
+      <KanbanCardContent prospect={prospect} isDragging={isDragging} />
     </div>
   );
 }
@@ -610,11 +610,13 @@ function DroppableColumn({
   prospects,
   onCardClick,
   isOver,
+  onSort,
 }: {
   col: typeof COLUMNS[number];
   prospects: Prospect[];
   onCardClick: (p: Prospect) => void;
   isOver: boolean;
+  onSort: (by: "score" | "email") => void;
 }) {
   const { setNodeRef } = useDroppable({ id: col.status });
 
@@ -622,25 +624,31 @@ function DroppableColumn({
     <div className="flex-shrink-0 w-64">
       <div className={`flex items-center justify-between px-3 py-2 rounded-t-lg border ${col.headerBg} mb-2`}>
         <span className={`text-xs font-semibold uppercase tracking-wide ${col.color}`}>{col.label}</span>
-        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${col.headerBg} ${col.color} border`}>
-          {prospects.length}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${col.headerBg} ${col.color} border`}>
+            {prospects.length}
+          </span>
+          <button onClick={() => onSort("score")} title="Sort by lead score" className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1">↓ Score</button>
+          <button onClick={() => onSort("email")} title="Email first" className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1">✉</button>
+        </div>
       </div>
       <div
         ref={setNodeRef}
         className={`space-y-2 min-h-[120px] rounded-lg transition-colors p-1 -m-1
           ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
       >
-        {prospects.length === 0 ? (
-          <div className={`border-2 border-dashed rounded-lg p-4 text-center text-xs transition-colors
-            ${isOver ? "border-primary/30 text-primary/50" : "border-muted text-muted-foreground/50"}`}>
-            Drop here
-          </div>
-        ) : (
-          prospects.map((p) => (
-            <DraggableCard key={p.id} prospect={p} onClick={() => onCardClick(p)} />
-          ))
-        )}
+        <SortableContext items={prospects.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+          {prospects.length === 0 ? (
+            <div className={`border-2 border-dashed rounded-lg p-4 text-center text-xs transition-colors
+              ${isOver ? "border-primary/30 text-primary/50" : "border-muted text-muted-foreground/50"}`}>
+              Drop here
+            </div>
+          ) : (
+            prospects.map((p) => (
+              <SortableCard key={p.id} prospect={p} onClick={() => onCardClick(p)} />
+            ))
+          )}
+        </SortableContext>
       </div>
     </div>
   );
@@ -652,16 +660,43 @@ function KanbanBoard({ prospects, onRefresh }: { prospects: Prospect[]; onRefres
   const [selected, setSelected] = useState<Prospect | null>(null);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [overId, setOverId] = useState<ProspectStatus | null>(null);
+  const [columnOrders, setColumnOrders] = useState<Record<string, number[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("prospect_column_orders") ?? "{}"); } catch { return {}; }
+  });
+
+  function getOrdered(status: ProspectStatus): Prospect[] {
+    const col = prospects.filter((p) => p.status === status);
+    const order = columnOrders[status];
+    if (!order?.length) return col;
+    const mapped = order.map((id) => col.find((p) => p.id === id)).filter(Boolean) as Prospect[];
+    const rest = col.filter((p) => !order.includes(p.id));
+    return [...mapped, ...rest];
+  }
+
+  function saveOrder(status: ProspectStatus, ordered: Prospect[]) {
+    const next = { ...columnOrders, [status]: ordered.map((p) => p.id) };
+    setColumnOrders(next);
+    localStorage.setItem("prospect_column_orders", JSON.stringify(next));
+  }
+
+  function sortColumn(status: ProspectStatus, by: "score" | "email") {
+    const col = prospects.filter((p) => p.status === status);
+    const sorted = [...col].sort((a, b) => {
+      if (by === "email") {
+        if (a.contactEmail && !b.contactEmail) return -1;
+        if (!a.contactEmail && b.contactEmail) return 1;
+      }
+      return (b.leadScore ?? 0) - (a.leadScore ?? 0);
+    });
+    saveOrder(status, sorted);
+  }
 
   const updateStatus = trpc.outreach.prospect.update.useMutation({
     onSuccess: onRefresh,
     onError: (e) => toast.error(e.message),
   });
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
-
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const activeProspect = activeId ? prospects.find((p) => p.id === activeId) : null;
 
   function handleDragEnd(event: DragEndEvent) {
@@ -669,10 +704,25 @@ function KanbanBoard({ prospects, onRefresh }: { prospects: Prospect[]; onRefres
     setActiveId(null);
     setOverId(null);
     if (!over) return;
-    const newStatus = over.id as ProspectStatus;
-    const prospect = prospects.find((p) => p.id === active.id);
-    if (!prospect || prospect.status === newStatus) return;
-    updateStatus.mutate({ id: prospect.id, status: newStatus });
+
+    const dragged = prospects.find((p) => p.id === active.id);
+    if (!dragged) return;
+
+    // Cross-column move: over.id is a status string
+    if (typeof over.id === "string") {
+      const newStatus = over.id as ProspectStatus;
+      if (dragged.status !== newStatus) updateStatus.mutate({ id: dragged.id, status: newStatus });
+      return;
+    }
+
+    // Within-column reorder: over.id is a prospect id number
+    const overProspect = prospects.find((p) => p.id === over.id);
+    if (!overProspect || dragged.status !== overProspect.status) return;
+    const ordered = getOrdered(dragged.status);
+    const oldIdx = ordered.findIndex((p) => p.id === active.id);
+    const newIdx = ordered.findIndex((p) => p.id === over.id);
+    if (oldIdx === newIdx) return;
+    saveOrder(dragged.status, arrayMove(ordered, oldIdx, newIdx));
   }
 
   return (
@@ -680,7 +730,7 @@ function KanbanBoard({ prospects, onRefresh }: { prospects: Prospect[]; onRefres
       <DndContext
         sensors={sensors}
         onDragStart={({ active }) => setActiveId(active.id as number)}
-        onDragOver={({ over }) => setOverId(over ? over.id as ProspectStatus : null)}
+        onDragOver={({ over }) => setOverId(over && typeof over.id === "string" ? over.id as ProspectStatus : null)}
         onDragEnd={handleDragEnd}
         onDragCancel={() => { setActiveId(null); setOverId(null); }}
       >
@@ -689,9 +739,10 @@ function KanbanBoard({ prospects, onRefresh }: { prospects: Prospect[]; onRefres
             <DroppableColumn
               key={col.status}
               col={col}
-              prospects={prospects.filter((p) => p.status === col.status)}
+              prospects={getOrdered(col.status)}
               onCardClick={setSelected}
               isOver={overId === col.status}
+              onSort={(by) => sortColumn(col.status, by)}
             />
           ))}
         </div>
