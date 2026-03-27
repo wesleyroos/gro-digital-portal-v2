@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   DndContext,
   PointerSensor,
@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import {
   Search, Loader2, ExternalLink, Trash2, Mail, Wand2, Send,
   CheckCheck, Plus, AlertTriangle, Gauge, Globe, Phone, MapPin, Building2,
-  Star, Link2, FolderSearch, Sparkles,
+  Star, Link2, FolderSearch, Sparkles, Bot, StopCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -709,10 +709,213 @@ function SearchHistory({ history, onSelect }: { history: string[]; onSelect: (v:
   );
 }
 
+// ── Agent Mode ───────────────────────────────────────────────────────────────
+
+type AgentBusiness = {
+  businessName: string; address: string; phone: string; website: string;
+  pageSpeedScore: number | null; contactEmail: string; issues: string[];
+  businessContext: string; leadScore: number;
+  googleRating: number | null; googleReviewCount: number | null;
+};
+type AgentLog = { icon: string; message: string; ts: Date };
+
+function AgentMode({ onImported }: { onImported: () => void }) {
+  const [criteria, setCriteria] = useState("");
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+  const [logs, setLogs] = useState<AgentLog[]>([]);
+  const [businesses, setBusinesses] = useState<AgentBusiness[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const esRef = useRef<EventSource | null>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
+  const agentHistory = useSearchHistory("agent");
+
+  const importProspects = trpc.outreach.importProspects.useMutation({
+    onSuccess: (data) => { toast.success(`Imported ${data.count} prospects`); onImported(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
+  useEffect(() => () => { esRef.current?.close(); }, []);
+
+  function addLog(icon: string, message: string) {
+    setLogs((prev) => [...prev, { icon, message, ts: new Date() }]);
+  }
+
+  function runAgent() {
+    if (!criteria.trim() || running) return;
+    agentHistory.push(criteria.trim());
+    setRunning(true);
+    setDone(false);
+    setLogs([]);
+    setBusinesses([]);
+    setSelected(new Set());
+
+    esRef.current?.close();
+    const es = new EventSource(`/api/outreach/agent?criteria=${encodeURIComponent(criteria.trim())}`);
+    esRef.current = es;
+
+    es.onmessage = (e) => {
+      const event = JSON.parse(e.data) as { type: string; icon?: string; message?: string; business?: AgentBusiness; count?: number };
+      if (event.type === "log") addLog(event.icon ?? "•", event.message ?? "");
+      if (event.type === "business" && event.business) {
+        setBusinesses((prev) => {
+          const idx = prev.length;
+          setSelected((s) => { const n = new Set(s); n.add(idx); return n; });
+          return [...prev, event.business!];
+        });
+      }
+      if (event.type === "done") { setDone(true); setRunning(false); es.close(); }
+      if (event.type === "error") { addLog("❌", event.message ?? "Unknown error"); setRunning(false); es.close(); }
+    };
+    es.onerror = () => { if (running) addLog("❌", "Connection lost"); setRunning(false); es.close(); };
+  }
+
+  function stopAgent() {
+    esRef.current?.close();
+    setRunning(false);
+    addLog("⏹", "Stopped by user");
+  }
+
+  function handleImport() {
+    const toImport = businesses
+      .filter((_, i) => selected.has(i))
+      .map((b) => ({
+        businessName: b.businessName,
+        address: b.address || undefined,
+        contactPhone: b.phone || undefined,
+        contactEmail: b.contactEmail || undefined,
+        website: b.website || undefined,
+        pageSpeedScore: b.pageSpeedScore,
+        issues: JSON.stringify(b.issues),
+        businessContext: b.businessContext || undefined,
+        leadScore: b.leadScore,
+        googleRating: b.googleRating != null ? String(b.googleRating) : undefined,
+        googleReviewCount: b.googleReviewCount ?? undefined,
+      }));
+    importProspects.mutate({ prospects: toImport });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm text-muted-foreground mb-3">
+          One search. The agent automatically finds businesses across Google Places and SA directories, enriches each one, and reports everything in real time.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            placeholder='e.g. "industrial suppliers Gauteng" or "gyms in Cape Town"'
+            value={criteria}
+            onChange={(e) => setCriteria(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !running) runAgent(); }}
+            className="max-w-md"
+            disabled={running}
+          />
+          {running ? (
+            <Button variant="destructive" onClick={stopAgent}>
+              <StopCircle className="h-4 w-4 mr-2" /> Stop
+            </Button>
+          ) : (
+            <Button onClick={runAgent} disabled={!criteria.trim()}>
+              <Bot className="h-4 w-4 mr-2" /> Run Agent
+            </Button>
+          )}
+        </div>
+        <SearchHistory history={agentHistory.history} onSelect={(v) => { setCriteria(v); }} />
+      </div>
+
+      {(logs.length > 0 || businesses.length > 0) && (
+        <div className="grid grid-cols-5 gap-4 min-h-[400px]">
+          {/* Live log */}
+          <div className="col-span-2 border rounded-lg bg-zinc-950 p-3 overflow-y-auto max-h-[520px] flex flex-col gap-0.5">
+            {logs.map((log, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs font-mono leading-relaxed">
+                <span className="shrink-0 opacity-40 tabular-nums">{log.ts.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+                <span className="shrink-0">{log.icon}</span>
+                <span className="text-zinc-300 break-words min-w-0">{log.message}</span>
+              </div>
+            ))}
+            {running && (
+              <div className="flex items-center gap-2 text-xs font-mono text-zinc-500 mt-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> working...
+              </div>
+            )}
+            <div ref={logEndRef} />
+          </div>
+
+          {/* Businesses */}
+          <div className="col-span-3 overflow-y-auto max-h-[520px] space-y-2 pr-1">
+            {businesses.length === 0 && running && (
+              <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Searching...
+              </div>
+            )}
+            {businesses.map((b, i) => (
+              <label key={i} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${selected.has(i) ? "bg-muted/30 border-primary/30" : "hover:bg-muted/20"}`}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(i)}
+                  onChange={() => {
+                    setSelected((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
+                  }}
+                  className="mt-1 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-medium text-sm">{b.businessName}</span>
+                    <LeadScoreBadge score={b.leadScore} />
+                    <ScoreBadge score={b.pageSpeedScore} issues={b.issues} />
+                    <IssueBadges issues={b.issues.filter((iss) => !iss.startsWith("Score:"))} />
+                  </div>
+                  {b.address && <p className="text-xs text-muted-foreground">{b.address}</p>}
+                  {b.businessContext && <p className="text-xs text-muted-foreground/80 mt-0.5 line-clamp-2">{b.businessContext}</p>}
+                  <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                    {b.phone && <span>{b.phone}</span>}
+                    {b.googleRating != null && (
+                      <span className="flex items-center gap-1"><Star className="h-3 w-3" /> {b.googleRating}{b.googleReviewCount != null && ` (${b.googleReviewCount})`}</span>
+                    )}
+                    {b.contactEmail && <span className="text-blue-600">{b.contactEmail}</span>}
+                    {b.website && (
+                      <a href={b.website} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 hover:text-foreground">
+                        {b.website.replace(/^https?:\/\//, "").replace(/\/$/, "")} <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {businesses.length > 0 && (
+        <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{businesses.length} businesses found</span>
+            <button
+              onClick={() => setSelected(selected.size === businesses.length ? new Set() : new Set(businesses.map((_, i) => i)))}
+              className="text-xs text-muted-foreground underline underline-offset-2"
+            >
+              {selected.size === businesses.length ? "Deselect all" : "Select all"}
+            </button>
+          </div>
+          <Button disabled={selected.size === 0 || importProspects.isPending} onClick={handleImport}>
+            {importProspects.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+            Import {selected.size} selected
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Discover Tab ─────────────────────────────────────────────────────────────
 
 function DiscoverTab({ onImported }: { onImported: () => void }) {
-  const [discoverMode, setDiscoverMode] = useState<"places" | "directory" | "find">("places");
+  const [discoverMode, setDiscoverMode] = useState<"places" | "directory" | "find" | "agent">("places");
 
   // Places mode state
   const [criteria, setCriteria] = useState("");
@@ -816,6 +1019,12 @@ function DiscoverTab({ onImported }: { onImported: () => void }) {
           className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors ${discoverMode === "find" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
         >
           <FolderSearch className="h-3.5 w-3.5" /> Find Directories
+        </button>
+        <button
+          onClick={() => setDiscoverMode("agent")}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors ${discoverMode === "agent" ? "bg-primary text-primary-foreground shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Bot className="h-3.5 w-3.5" /> Agent
         </button>
       </div>
 
@@ -953,6 +1162,11 @@ function DiscoverTab({ onImported }: { onImported: () => void }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Agent mode */}
+      {discoverMode === "agent" && (
+        <AgentMode onImported={onImported} />
       )}
     </div>
   );

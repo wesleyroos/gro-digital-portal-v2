@@ -8,6 +8,7 @@ import { scrypt, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
+import { runOutreachAgent } from "../outreach-agent";
 import { ENV } from "./env";
 
 const scryptAsync = promisify(scrypt);
@@ -1621,6 +1622,36 @@ function gdSubmitAccept(token) {
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
       res.status(500).json({ error: "OAuth callback failed" });
+    }
+  });
+
+  // ── Outreach agent SSE stream ────────────────────────────────────────────────
+  app.get('/api/outreach/agent', async (req: Request, res: Response) => {
+    const user = await sdk.authenticateRequest(req);
+    if (!user || (user.role !== 'admin' && user.role !== 'superAdmin')) {
+      res.status(401).json({ error: 'Unauthorized' }); return;
+    }
+
+    const criteria = ((req.query.criteria as string) ?? '').trim();
+    if (!criteria) { res.status(400).json({ error: 'criteria required' }); return; }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const emit = (event: object) => {
+      if (!res.writableEnded) res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    req.on('close', () => { if (!res.writableEnded) res.end(); });
+
+    try {
+      await runOutreachAgent(criteria, emit);
+    } catch (e) {
+      emit({ type: 'error', message: String(e) });
+    } finally {
+      if (!res.writableEnded) res.end();
     }
   });
 }
