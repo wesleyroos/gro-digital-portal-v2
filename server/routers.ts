@@ -2557,13 +2557,46 @@ ${markdown.slice(0, 8000)}`,
           return { candidates: [] };
         }
 
-        // Enrich each listing with PageSpeed + Firecrawl + lead score (same pipeline as discover)
+        // Enrich each listing: first look up on Google Places to get website/rating/reviews,
+        // then run PageSpeed + Firecrawl pipeline on whatever website we find
         const enriched = await Promise.all(listings.slice(0, 20).map(async (listing) => {
-          const website = listing.website ?? '';
+          let website = listing.website ?? '';
+          let phone = listing.phone ?? '';
+          let address = listing.address ?? '';
+          let googleRating: number | null = null;
+          let googleReviewCount: number | null = null;
           let pageSpeedScore: number | null = null;
           let contactEmail = '';
           let businessContext = '';
           const issues: string[] = [];
+
+          // Look up on Google Places to fill in missing website/phone/rating
+          if (ENV.googlePlacesApiKey) {
+            try {
+              const query = [listing.name, listing.address].filter(Boolean).join(' ');
+              const plRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+                method: 'POST',
+                signal: AbortSignal.timeout(8_000),
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Goog-Api-Key': ENV.googlePlacesApiKey,
+                  'X-Goog-FieldMask': 'places.websiteUri,places.nationalPhoneNumber,places.formattedAddress,places.rating,places.userRatingCount',
+                },
+                body: JSON.stringify({ textQuery: query, maxResultCount: 1 }),
+              });
+              if (plRes.ok) {
+                const plData = await plRes.json() as { places?: Array<{ websiteUri?: string; nationalPhoneNumber?: string; formattedAddress?: string; rating?: number; userRatingCount?: number }> };
+                const place = plData.places?.[0];
+                if (place) {
+                  if (place.websiteUri && !website) website = place.websiteUri;
+                  if (place.nationalPhoneNumber && !phone) phone = place.nationalPhoneNumber;
+                  if (place.formattedAddress && !address) address = place.formattedAddress;
+                  if (typeof place.rating === 'number') googleRating = place.rating;
+                  if (typeof place.userRatingCount === 'number') googleReviewCount = place.userRatingCount;
+                }
+              }
+            } catch { /* ignore */ }
+          }
 
           if (!website) {
             issues.push('No website');
@@ -2589,18 +2622,20 @@ ${markdown.slice(0, 8000)}`,
             } catch { /* ignore */ }
 
             let scrapedContent = '';
-            try {
-              const fcScrape = await fetch('https://api.firecrawl.dev/v1/scrape', {
-                method: 'POST',
-                signal: AbortSignal.timeout(20_000),
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ENV.firecrawlApiKey}` },
-                body: JSON.stringify({ url: website, formats: ['markdown'] }),
-              });
-              if (fcScrape.ok) {
-                const d = await fcScrape.json() as { data?: { markdown?: string } };
-                scrapedContent = d.data?.markdown ?? '';
-              }
-            } catch { /* ignore */ }
+            if (ENV.firecrawlApiKey) {
+              try {
+                const fcScrape = await fetch('https://api.firecrawl.dev/v1/scrape', {
+                  method: 'POST',
+                  signal: AbortSignal.timeout(20_000),
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ENV.firecrawlApiKey}` },
+                  body: JSON.stringify({ url: website, formats: ['markdown'] }),
+                });
+                if (fcScrape.ok) {
+                  const d = await fcScrape.json() as { success?: boolean; data?: { markdown?: string } };
+                  if (d.success !== false) scrapedContent = d.data?.markdown ?? '';
+                }
+              } catch { /* ignore */ }
+            }
 
             if (!scrapedContent) {
               try {
@@ -2628,6 +2663,16 @@ ${markdown.slice(0, 8000)}`,
           }
 
           let leadScore = 0;
+          if (googleReviewCount) {
+            if (googleReviewCount >= 200) leadScore += 30;
+            else if (googleReviewCount >= 50) leadScore += 20;
+            else if (googleReviewCount >= 10) leadScore += 10;
+            else leadScore += 5;
+          }
+          if (googleRating) {
+            if (googleRating >= 3.5 && googleRating <= 4.5) leadScore += 10;
+            else if (googleRating > 4.5) leadScore += 5;
+          }
           if (issues.includes('No website')) leadScore += 30;
           else {
             if (pageSpeedScore !== null && pageSpeedScore < 30) leadScore += 25;
@@ -2635,21 +2680,21 @@ ${markdown.slice(0, 8000)}`,
             if (issues.includes('No SSL')) leadScore += 15;
           }
           if (contactEmail) leadScore += 10;
-          if (listing.phone) leadScore += 5;
+          if (phone) leadScore += 5;
           if (businessContext) leadScore += 10;
 
           return {
             businessName: listing.name,
-            address: listing.address ?? '',
-            phone: listing.phone ?? '',
+            address,
+            phone,
             website,
             pageSpeedScore,
             contactEmail,
             issues,
             businessContext,
             leadScore,
-            googleRating: null,
-            googleReviewCount: null,
+            googleRating,
+            googleReviewCount,
           };
         }));
 
