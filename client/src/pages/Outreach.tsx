@@ -674,6 +674,41 @@ function CandidateList({
   );
 }
 
+// ── Search history ────────────────────────────────────────────────────────────
+
+function useSearchHistory(key: string, max = 8) {
+  const storageKey = `outreach_history_${key}`;
+  const [history, setHistory] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) ?? "[]"); } catch { return []; }
+  });
+  const push = (val: string) => {
+    if (!val.trim()) return;
+    setHistory((prev) => {
+      const next = [val, ...prev.filter((v) => v !== val)].slice(0, max);
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+  return { history, push };
+}
+
+function SearchHistory({ history, onSelect }: { history: string[]; onSelect: (v: string) => void }) {
+  if (history.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-2">
+      {history.map((v) => (
+        <button
+          key={v}
+          onClick={() => onSelect(v)}
+          className="text-xs px-2 py-0.5 rounded-full border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors truncate max-w-[220px]"
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── Discover Tab ─────────────────────────────────────────────────────────────
 
 function DiscoverTab({ onImported }: { onImported: () => void }) {
@@ -683,15 +718,18 @@ function DiscoverTab({ onImported }: { onImported: () => void }) {
   const [criteria, setCriteria] = useState("");
   const [placeCandidates, setPlaceCandidates] = useState<Candidate[]>([]);
   const [placeSelected, setPlaceSelected] = useState<Set<number>>(new Set());
+  const placesHistory = useSearchHistory("places");
 
   // Directory mode state
   const [directoryUrl, setDirectoryUrl] = useState("");
   const [dirCandidates, setDirCandidates] = useState<Candidate[]>([]);
   const [dirSelected, setDirSelected] = useState<Set<number>>(new Set());
+  const directoryHistory = useSearchHistory("directory");
 
   // Find directories mode state
   const [findCriteria, setFindCriteria] = useState("");
   const [directories, setDirectories] = useState<Directory[]>([]);
+  const findHistory = useSearchHistory("find");
 
   const discover = trpc.outreach.discover.useMutation({
     onSuccess: (data) => {
@@ -793,15 +831,18 @@ function DiscoverTab({ onImported }: { onImported: () => void }) {
               value={criteria}
               onChange={(e) => setCriteria(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && criteria.trim() && !discover.isPending)
+                if (e.key === "Enter" && criteria.trim() && !discover.isPending) {
+                  placesHistory.push(criteria.trim());
                   discover.mutate({ criteria: criteria.trim() });
+                }
               }}
               className="max-w-md"
             />
-            <Button onClick={() => discover.mutate({ criteria: criteria.trim() })} disabled={!criteria.trim() || discover.isPending}>
+            <Button onClick={() => { placesHistory.push(criteria.trim()); discover.mutate({ criteria: criteria.trim() }); }} disabled={!criteria.trim() || discover.isPending}>
               {discover.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enriching…</> : <><Search className="h-4 w-4 mr-2" />Discover</>}
             </Button>
           </div>
+          <SearchHistory history={placesHistory.history} onSelect={(v) => setCriteria(v)} />
           {discover.isPending && (
             <p className="text-xs text-muted-foreground">Fetching businesses, running PageSpeed checks, and scraping websites for context — this takes 20–40 seconds…</p>
           )}
@@ -830,17 +871,20 @@ function DiscoverTab({ onImported }: { onImported: () => void }) {
               value={directoryUrl}
               onChange={(e) => setDirectoryUrl(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && directoryUrl.trim() && !crawlDirectory.isPending)
+                if (e.key === "Enter" && directoryUrl.trim() && !crawlDirectory.isPending) {
+                  directoryHistory.push(directoryUrl.trim());
                   crawlDirectory.mutate({ url: directoryUrl.trim() });
+                }
               }}
               className="max-w-lg"
             />
-            <Button onClick={() => crawlDirectory.mutate({ url: directoryUrl.trim() })} disabled={!directoryUrl.trim() || crawlDirectory.isPending}>
+            <Button onClick={() => { directoryHistory.push(directoryUrl.trim()); crawlDirectory.mutate({ url: directoryUrl.trim() }); }} disabled={!directoryUrl.trim() || crawlDirectory.isPending}>
               {crawlDirectory.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Crawling…</> : <><Link2 className="h-4 w-4 mr-2" />Crawl</>}
             </Button>
           </div>
+          <SearchHistory history={directoryHistory.history} onSelect={(v) => setDirectoryUrl(v)} />
           {crawlDirectory.isPending && (
-            <p className="text-xs text-muted-foreground">Scraping directory page and enriching each business — this may take a minute…</p>
+            <p className="text-xs text-muted-foreground">Scraping directory page, looking up each business on Google Places, and enriching — this may take a minute…</p>
           )}
           {dirCandidates.length > 0 && (
             <CandidateList
@@ -867,15 +911,18 @@ function DiscoverTab({ onImported }: { onImported: () => void }) {
               value={findCriteria}
               onChange={(e) => setFindCriteria(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && findCriteria.trim() && !findDirectories.isPending)
+                if (e.key === "Enter" && findCriteria.trim() && !findDirectories.isPending) {
+                  findHistory.push(findCriteria.trim());
                   findDirectories.mutate({ criteria: findCriteria.trim() });
+                }
               }}
               className="max-w-md"
             />
-            <Button onClick={() => findDirectories.mutate({ criteria: findCriteria.trim() })} disabled={!findCriteria.trim() || findDirectories.isPending}>
+            <Button onClick={() => { findHistory.push(findCriteria.trim()); findDirectories.mutate({ criteria: findCriteria.trim() }); }} disabled={!findCriteria.trim() || findDirectories.isPending}>
               {findDirectories.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Finding…</> : <><FolderSearch className="h-4 w-4 mr-2" />Find</>}
             </Button>
           </div>
+          <SearchHistory history={findHistory.history} onSelect={(v) => setFindCriteria(v)} />
           {directories.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm font-medium">Suggested searches — open in Google, find a good listing page, then paste the URL into "Crawl Directory"</p>
