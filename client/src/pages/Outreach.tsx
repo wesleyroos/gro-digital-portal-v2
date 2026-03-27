@@ -586,9 +586,9 @@ function KanbanBoard({ prospects, onRefresh }: { prospects: Prospect[]; onRefres
 
       {selected && (
         <ProspectModal
-          prospect={selected}
+          prospect={prospects.find((p) => p.id === selected.id) ?? selected}
           onClose={() => setSelected(null)}
-          onRefresh={() => { setSelected(null); onRefresh(); }}
+          onRefresh={() => { onRefresh(); }}
         />
       )}
     </>
