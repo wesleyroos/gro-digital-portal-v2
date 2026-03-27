@@ -150,6 +150,10 @@ function ProspectModal({
   const [websiteInput, setWebsiteInput] = useState(prospect.website ?? "");
   const [editingContactName, setEditingContactName] = useState(false);
   const [contactNameInput, setContactNameInput] = useState(prospect.contactName ?? "");
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(prospect.contactPhone ?? "");
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressInput, setAddressInput] = useState(prospect.address ?? "");
 
   const updateProspect = trpc.outreach.prospect.update.useMutation({
     onSuccess: (_data, vars) => {
@@ -157,6 +161,8 @@ function ProspectModal({
       if (vars.notes !== undefined) setEditingNotes(false);
       if (vars.website !== undefined) setEditingWebsite(false);
       if (vars.contactName !== undefined) setEditingContactName(false);
+      if (vars.contactPhone !== undefined) setEditingPhone(false);
+      if (vars.address !== undefined) setEditingAddress(false);
       onRefresh();
     },
     onError: (e) => toast.error(e.message),
@@ -227,18 +233,42 @@ function ProspectModal({
         <div className="space-y-4 pt-1">
           {/* Details */}
           <div className="space-y-1.5 text-sm">
-            {prospect.address && (
-              <div className="flex items-start gap-2 text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>{prospect.address}</span>
-              </div>
-            )}
-            {prospect.contactPhone && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="h-3.5 w-3.5 shrink-0" />
-                <span>{prospect.contactPhone}</span>
-              </div>
-            )}
+            <div className="flex items-start gap-2 text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              {editingAddress ? (
+                <div className="flex gap-2 flex-1">
+                  <Input value={addressInput} onChange={(e) => setAddressInput(e.target.value)} className="h-7 text-sm" autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") updateProspect.mutate({ id: prospect.id, address: addressInput.trim() || null }); if (e.key === "Escape") setEditingAddress(false); }} />
+                  <Button size="sm" className="h-7 text-xs" onClick={() => updateProspect.mutate({ id: prospect.id, address: addressInput.trim() || null })} disabled={updateProspect.isPending}>Save</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingAddress(false)}>Cancel</Button>
+                </div>
+              ) : prospect.address ? (
+                <div className="flex items-center gap-2">
+                  <span>{prospect.address}</span>
+                  <button onClick={() => { setAddressInput(prospect.address ?? ""); setEditingAddress(true); }} className="text-xs text-muted-foreground hover:text-foreground underline shrink-0">edit</button>
+                </div>
+              ) : (
+                <button onClick={() => { setAddressInput(""); setEditingAddress(true); }} className="text-sm italic hover:text-foreground">Add address</button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Phone className="h-3.5 w-3.5 shrink-0" />
+              {editingPhone ? (
+                <div className="flex gap-2 flex-1">
+                  <Input value={phoneInput} onChange={(e) => setPhoneInput(e.target.value)} placeholder="010 000 0000" className="h-7 text-sm" autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") updateProspect.mutate({ id: prospect.id, contactPhone: phoneInput.trim() || null }); if (e.key === "Escape") setEditingPhone(false); }} />
+                  <Button size="sm" className="h-7 text-xs" onClick={() => updateProspect.mutate({ id: prospect.id, contactPhone: phoneInput.trim() || null })} disabled={updateProspect.isPending}>Save</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingPhone(false)}>Cancel</Button>
+                </div>
+              ) : prospect.contactPhone ? (
+                <div className="flex items-center gap-2">
+                  <span>{prospect.contactPhone}</span>
+                  <button onClick={() => { setPhoneInput(prospect.contactPhone ?? ""); setEditingPhone(true); }} className="text-xs text-muted-foreground hover:text-foreground underline shrink-0">edit</button>
+                </div>
+              ) : (
+                <button onClick={() => { setPhoneInput(""); setEditingPhone(true); }} className="text-sm italic hover:text-foreground">Add phone</button>
+              )}
+            </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Globe className="h-3.5 w-3.5 shrink-0" />
               {editingWebsite ? (
