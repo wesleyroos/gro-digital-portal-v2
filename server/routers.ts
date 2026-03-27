@@ -2501,7 +2501,6 @@ Only return JSON, no explanation.`,
 
         // Scrape the directory page to get its content
         let markdown = '';
-        let debugInfo = '';
         try {
           const fcRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
             method: 'POST',
@@ -2512,28 +2511,21 @@ Only return JSON, no explanation.`,
             },
             body: JSON.stringify({ url: input.url, formats: ['markdown'], onlyMainContent: false }),
           });
-          const fcText = await fcRes.text();
-          debugInfo += `Firecrawl status: ${fcRes.status}. Body: ${fcText.slice(0, 300)}. `;
           if (fcRes.ok) {
-            const fcData = JSON.parse(fcText) as { success?: boolean; data?: { markdown?: string } };
+            const fcData = await fcRes.json() as { success?: boolean; data?: { markdown?: string } };
             if (fcData.success !== false) markdown = fcData.data?.markdown ?? '';
           }
-        } catch (e) {
-          debugInfo += `Firecrawl threw: ${String(e)}. `;
-        }
+        } catch { /* ignore timeout */ }
 
         // Fallback: raw fetch if Firecrawl failed or returned nothing
         if (!markdown) {
           try {
             const raw = await fetch(input.url, { signal: AbortSignal.timeout(15_000) });
-            debugInfo += `Raw fetch status: ${raw.status}. `;
             if (raw.ok) markdown = await raw.text();
-          } catch (e) {
-            debugInfo += `Raw fetch threw: ${String(e)}.`;
-          }
+          } catch { /* ignore */ }
         }
 
-        if (!markdown) throw new TRPCError({ code: 'UNPROCESSABLE_CONTENT', message: `Could not extract content from that URL. Debug: ${debugInfo}` });
+        if (!markdown) throw new TRPCError({ code: 'UNPROCESSABLE_CONTENT', message: 'Could not extract content from that URL — the site may be unreachable, heavily JS-rendered, or behind bot protection. Try a different directory page.' });
 
         // Claude extracts business listings from the directory markdown
         const extraction = await anthropic.messages.create({
@@ -2675,24 +2667,31 @@ ${markdown.slice(0, 8000)}`,
           max_tokens: 1024,
           messages: [{
             role: 'user',
-            content: `For the outreach criteria "${input.criteria}", suggest 5 real online directories or listing pages where I can find businesses matching this criteria in South Africa.
+            content: `For the outreach criteria "${input.criteria}", suggest 6 Google search queries that would find online directories or listing pages for these businesses in South Africa.
 
-Focus on:
-- South African business directories (Yellow Pages SA, Hello Peter, local industry associations)
-- Review/listing sites (Google Maps category pages, TripAdvisor, etc.)
-- Industry-specific directories relevant to the business type
-- City or region-specific business listings
+Focus on queries that would surface:
+- South African business directories (yellowpages.co.za, helloPeter, bizdb.co.za)
+- Industry association member directories
+- Regional/city business listing pages
+- B2B supplier directories
 
-Return a JSON array of objects with: { title: string, url: string, description: string }
-Only return real, likely-valid URLs. Return JSON only — no markdown, no explanation.`,
+Return a JSON array of objects with: { title: string, query: string, description: string }
+Where "query" is the exact Google search string (e.g. 'site:yellowpages.co.za "industrial suppliers" Gauteng').
+Return JSON only — no markdown, no explanation.`,
           }],
         });
 
         try {
           const raw = (result.content[0] as { type: string; text: string }).text;
           const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-          const dirs = JSON.parse(stripped) as Array<{ title: string; url: string; description: string }>;
-          return { directories: Array.isArray(dirs) ? dirs : [] };
+          const dirs = JSON.parse(stripped) as Array<{ title: string; query: string; description: string }>;
+          return { directories: Array.isArray(dirs) ? dirs.map(d => ({
+            title: d.title,
+            url: `https://www.google.com/search?q=${encodeURIComponent(d.query)}`,
+            description: d.description,
+            isSearchQuery: true,
+            query: d.query,
+          })) : [] };
         } catch {
           return { directories: [] };
         }
