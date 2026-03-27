@@ -763,9 +763,10 @@ function AgentMode({ onImported }: { onImported: () => void }) {
       if (event.type === "log") addLog(event.icon ?? "•", event.message ?? "");
       if (event.type === "business" && event.business) {
         setBusinesses((prev) => {
-          const idx = prev.length;
-          setSelected((s) => { const n = new Set(s); n.add(idx); return n; });
-          return [...prev, event.business!];
+          const next = [...prev, event.business!].sort((a, b) => (b.leadScore ?? 0) - (a.leadScore ?? 0));
+          // rebuild selected to select all
+          setSelected(new Set(next.map((_, i) => i)));
+          return next;
         });
       }
       if (event.type === "done") { setDone(true); setRunning(false); es.close(); }

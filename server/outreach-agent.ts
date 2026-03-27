@@ -58,7 +58,11 @@ async function enrichBusiness(
           'X-Goog-Api-Key': ENV.googlePlacesApiKey,
           'X-Goog-FieldMask': 'places.websiteUri,places.nationalPhoneNumber,places.formattedAddress,places.rating,places.userRatingCount',
         },
-        body: JSON.stringify({ textQuery: query, maxResultCount: 1 }),
+        body: JSON.stringify({
+        textQuery: query,
+        maxResultCount: 1,
+        locationBias: { circle: { center: { latitude: -29.0, longitude: 25.0 }, radius: 1_500_000 } },
+      }),
       });
       if (plRes.ok) {
         const plData = await plRes.json() as { places?: Array<{ websiteUri?: string; nationalPhoneNumber?: string; formattedAddress?: string; rating?: number; userRatingCount?: number }> };
@@ -211,7 +215,16 @@ export async function runOutreachAgent(criteria: string, emit: EmitFn) {
         'X-Goog-Api-Key': ENV.googlePlacesApiKey,
         'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.rating,places.userRatingCount',
       },
-      body: JSON.stringify({ textQuery: criteria, maxResultCount: 20 }),
+      body: JSON.stringify({
+        textQuery: criteria,
+        maxResultCount: 20,
+        locationRestriction: {
+          rectangle: {
+            low: { latitude: -35.0, longitude: 16.0 },
+            high: { latitude: -22.0, longitude: 33.0 },
+          },
+        },
+      }),
     });
     if (placesRes.ok) {
       const data = await placesRes.json() as { places?: Array<{ displayName?: { text?: string }; formattedAddress?: string; websiteUri?: string; nationalPhoneNumber?: string; rating?: number; userRatingCount?: number }> };
