@@ -2500,19 +2500,32 @@ Only return JSON, no explanation.`,
         const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
 
         // Scrape the directory page to get its content
-        const fcRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
-          method: 'POST',
-          signal: AbortSignal.timeout(30_000),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ENV.firecrawlApiKey}`,
-          },
-          body: JSON.stringify({ url: input.url, formats: ['markdown'] }),
-        });
-        if (!fcRes.ok) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to scrape directory page' });
-        const fcData = await fcRes.json() as { data?: { markdown?: string } };
-        const markdown = fcData.data?.markdown ?? '';
-        if (!markdown) throw new TRPCError({ code: 'UNPROCESSABLE_CONTENT', message: 'No content extracted from that URL' });
+        let markdown = '';
+        try {
+          const fcRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            signal: AbortSignal.timeout(30_000),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${ENV.firecrawlApiKey}`,
+            },
+            body: JSON.stringify({ url: input.url, formats: ['markdown'], onlyMainContent: false }),
+          });
+          if (fcRes.ok) {
+            const fcData = await fcRes.json() as { success?: boolean; data?: { markdown?: string } };
+            if (fcData.success !== false) markdown = fcData.data?.markdown ?? '';
+          }
+        } catch { /* ignore timeout */ }
+
+        // Fallback: raw fetch if Firecrawl failed or returned nothing
+        if (!markdown) {
+          try {
+            const raw = await fetch(input.url, { signal: AbortSignal.timeout(15_000) });
+            if (raw.ok) markdown = await raw.text();
+          } catch { /* ignore */ }
+        }
+
+        if (!markdown) throw new TRPCError({ code: 'UNPROCESSABLE_CONTENT', message: 'Could not extract content from that URL — the page may be behind a login or bot protection' });
 
         // Claude extracts business listings from the directory markdown
         const extraction = await anthropic.messages.create({
