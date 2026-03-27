@@ -2501,6 +2501,7 @@ Only return JSON, no explanation.`,
 
         // Scrape the directory page to get its content
         let markdown = '';
+        let debugInfo = '';
         try {
           const fcRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
             method: 'POST',
@@ -2511,21 +2512,28 @@ Only return JSON, no explanation.`,
             },
             body: JSON.stringify({ url: input.url, formats: ['markdown'], onlyMainContent: false }),
           });
+          const fcText = await fcRes.text();
+          debugInfo += `Firecrawl status: ${fcRes.status}. Body: ${fcText.slice(0, 300)}. `;
           if (fcRes.ok) {
-            const fcData = await fcRes.json() as { success?: boolean; data?: { markdown?: string } };
+            const fcData = JSON.parse(fcText) as { success?: boolean; data?: { markdown?: string } };
             if (fcData.success !== false) markdown = fcData.data?.markdown ?? '';
           }
-        } catch { /* ignore timeout */ }
+        } catch (e) {
+          debugInfo += `Firecrawl threw: ${String(e)}. `;
+        }
 
         // Fallback: raw fetch if Firecrawl failed or returned nothing
         if (!markdown) {
           try {
             const raw = await fetch(input.url, { signal: AbortSignal.timeout(15_000) });
+            debugInfo += `Raw fetch status: ${raw.status}. `;
             if (raw.ok) markdown = await raw.text();
-          } catch { /* ignore */ }
+          } catch (e) {
+            debugInfo += `Raw fetch threw: ${String(e)}.`;
+          }
         }
 
-        if (!markdown) throw new TRPCError({ code: 'UNPROCESSABLE_CONTENT', message: 'Could not extract content from that URL — the page may be behind a login or bot protection' });
+        if (!markdown) throw new TRPCError({ code: 'UNPROCESSABLE_CONTENT', message: `Could not extract content from that URL. Debug: ${debugInfo}` });
 
         // Claude extracts business listings from the directory markdown
         const extraction = await anthropic.messages.create({
