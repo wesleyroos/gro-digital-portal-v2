@@ -187,8 +187,14 @@ function ProspectModal({
     onError: (e) => toast.error(e.message),
   });
 
+  const hunterKey = `hunter_searched:${prospect.id}`;
+  const [hunterSearchedAt, setHunterSearchedAt] = useState<string | null>(() => localStorage.getItem(hunterKey));
+
   const hunterLookup = trpc.outreach.hunterLookup.useMutation({
     onSuccess: (data) => {
+      const ts = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+      localStorage.setItem(hunterKey, ts);
+      setHunterSearchedAt(ts);
       if (data.found) {
         toast.success(`Found: ${data.email}${data.contactName ? ` (${data.contactName})` : ""}`);
         onRefresh();
@@ -347,25 +353,49 @@ function ProspectModal({
                 <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingEmail(false)}>Cancel</Button>
               </div>
             ) : prospect.contactEmail ? (
-              <button onClick={() => { setEmailInput(prospect.contactEmail ?? ""); setEditingEmail(true); }} className="text-sm text-blue-600 hover:underline">
-                {prospect.contactEmail}
-              </button>
+              <div className="space-y-1.5">
+                <button onClick={() => { setEmailInput(prospect.contactEmail ?? ""); setEditingEmail(true); }} className="text-sm text-blue-600 hover:underline block">
+                  {prospect.contactEmail}
+                </button>
+                {prospect.website && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => hunterLookup.mutate({ prospectId: prospect.id })}
+                      disabled={hunterLookup.isPending}
+                    >
+                      {hunterLookup.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
+                      {hunterSearchedAt ? "Search Hunter.io again" : "Enhance via Hunter.io"}
+                    </Button>
+                    {hunterSearchedAt && (
+                      <span className="text-xs text-muted-foreground">Searched {hunterSearchedAt}</span>
+                    )}
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={() => { setEmailInput(""); setEditingEmail(true); }} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5" /> Add email address
                 </button>
                 {prospect.website && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => hunterLookup.mutate({ prospectId: prospect.id })}
-                    disabled={hunterLookup.isPending}
-                  >
-                    {hunterLookup.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
-                    Find via Hunter.io
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => hunterLookup.mutate({ prospectId: prospect.id })}
+                      disabled={hunterLookup.isPending}
+                    >
+                      {hunterLookup.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
+                      {hunterSearchedAt ? "Search Hunter.io again" : "Find via Hunter.io"}
+                    </Button>
+                    {hunterSearchedAt && (
+                      <span className="text-xs text-muted-foreground">Searched {hunterSearchedAt} — no result</span>
+                    )}
+                  </div>
                 )}
               </div>
             )}
