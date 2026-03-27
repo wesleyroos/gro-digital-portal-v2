@@ -2766,41 +2766,51 @@ Return JSON only — no markdown, no explanation.`,
 
         const isFollowUp = input.isFollowUp && !!prospect.lastEmailSubject;
 
-        const systemPrompt = `You are Wesley Roos, founder of GRO Digital — a boutique digital agency based in Pretoria, South Africa. You help small and medium businesses get found online, look credible, and win more customers through professional websites, fast hosting, and digital marketing.
+        const systemPrompt = `You are Wesley Roos, founder of GRO Digital — a boutique digital agency in Pretoria, South Africa.
 
-Your outreach emails are:
-- Warm, direct, and human — never corporate or salesy
-- Specific to what YOU noticed about THEIR business — not a generic template
-- Short: under 150 words in the body. Every sentence earns its place.
-- Focused on ONE clear pain point and what it's costing them
-- Offering something genuinely useful (free website audit, quick call) with zero pressure
-- Signed off personally as Wesley, with your contact details
+Write cold outreach emails that sound like a real person typed them on their phone, not a marketer. The goal is to get a reply, not to impress anyone.
 
-You never use hollow phrases like "I hope this finds you well", "I wanted to reach out", or "touching base". Get straight to the point.`;
+NON-NEGOTIABLE RULES:
+- Under 90 words in the body. Every word must earn its place.
+- No greeting line ("Hi [Name],") — dive straight into the observation.
+- Never start with "I" — lead with something about them or what you found.
+- Banned phrases (hard stop): "I hope this finds you well", "I wanted to reach out", "I came across your business", "I noticed that", "I'd love to", "touching base", "don't hesitate", "looking forward to hearing from you", "feel free to"
+- No bullet points, no bold, no formatting — plain prose only.
+- Subject line: lowercase, plain, specific — not clever or salesy. Think reply-thread energy.
+- One pain point only. Not a list of problems.
+- End with one simple direct question. Not a paragraph of CTAs.
+- Sign off as: Wesley | GRO Digital | 082 568 1050
+
+EXAMPLE OF WHAT TO AIM FOR:
+Subject: your website speed
+"Came across Natal Associated Agencies on Google — 53 reviews, solid reputation. Ran your site through PageSpeed and it scored 22/100 on mobile, which means most people who find you are bouncing before they call. Worth a look? Happy to do a free audit and tell you exactly what's slowing it down. — Wesley | GRO Digital | 082 568 1050"
+
+EXAMPLE OF WHAT TO NEVER WRITE:
+Subject: Boost Your Online Presence with GRO Digital!
+"Hi [Business Name] Team, I hope this message finds you well! I came across your business and was really impressed by what you're doing. At GRO Digital, we specialise in helping businesses like yours maximise their digital presence. I'd love to schedule a quick 15-minute discovery call — don't hesitate to reach out! Best regards, Wesley"`;
+
+
 
         const reviewContext = prospect.googleReviewCount
           ? `They have ${prospect.googleReviewCount} Google reviews${prospect.googleRating ? ` at ${prospect.googleRating} stars` : ''} — an established business.`
           : '';
 
         const userPrompt = isFollowUp
-          ? `Write a short follow-up email to ${prospect.businessName}. I emailed them previously with subject: "${prospect.lastEmailSubject}" but haven't heard back.
+          ? `Write a follow-up email. I emailed ${prospect.businessName} before (subject: "${prospect.lastEmailSubject}") and got no reply.
 
-Keep it to 2-3 sentences. Acknowledge you reached out before, re-state the one key point briefly, and make it easy to reply. No pressure.
+2-3 sentences max. Don't apologise for following up — just bump it naturally. One sentence recap of why it matters, one question. Under 50 words total. Subject line should be "re: [original subject]" — lowercase.
+
+Return JSON only — no markdown, no code fences: { "subject": "re: ${prospect.lastEmailSubject}", "body": "..." }`
+          : `Write a cold outreach email using the style and rules above.
 
 Business: ${prospect.businessName}
-Address: ${prospect.address ?? 'Pretoria area'}
-Original issue: ${issues.join(', ') || 'website quality'}
+${prospect.address ? `Location: ${prospect.address}` : ''}
+${prospect.website ? `Website: ${prospect.website}` : 'No website — they have nothing online.'}
+${issues.length ? `Issues found: ${issues.join(', ')}` : ''}
+${reviewContext}
+${prospect.businessContext ? `What they do: ${prospect.businessContext}` : ''}
 
-Return JSON only — no markdown, no code fences: { "subject": "Re: [original subject]", "body": "..." }`
-          : `Write a cold outreach email to ${prospect.businessName}.
-
-What I found:
-${issues.map(i => `- ${i}`).join('\n') || '- No website found'}
-${prospect.website ? `Website: ${prospect.website}` : 'They have no website at all.'}
-Address: ${prospect.address ?? 'Pretoria area'}
-${reviewContext ? `\n${reviewContext}` : ''}
-${prospect.businessContext ? `\nAbout their business:\n${prospect.businessContext}\n` : ''}
-Lead with the specific issue I found — make it clear this isn't a mass email.${prospect.businessContext ? ' Reference something specific about their business to show you did your homework.' : ''} Offer a free website audit or a 15-minute call. Keep it under 120 words in the body.
+Pick the single most compelling issue (no website > slow site > no SSL). Reference something specific so it's clear this isn't a mass email. Offer a free website audit. End with one question. Under 90 words.
 
 Return JSON only — no markdown, no code fences: { "subject": "...", "body": "..." }`;
 
