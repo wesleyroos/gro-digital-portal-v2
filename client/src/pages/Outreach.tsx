@@ -215,7 +215,8 @@ function ProspectModal({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+        <div className="px-6 pt-6 pb-4 border-b">
         <DialogHeader>
           <div className="flex items-start justify-between gap-2 pr-6">
             <div>
@@ -229,8 +230,9 @@ function ProspectModal({
             </div>
           </div>
         </DialogHeader>
+        </div>
 
-        <div className="space-y-4 pt-1">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* Details */}
           <div className="space-y-1.5 text-sm">
             <div className="flex items-start gap-2 text-muted-foreground">
@@ -498,9 +500,12 @@ function ProspectModal({
             </div>
           )}
 
-          {/* Actions */}
+        </div>
+
+        {/* Sticky footer — always visible regardless of scroll */}
+        <div className="border-t px-6 py-3 flex flex-wrap gap-2 bg-background shrink-0">
           {!draft && (
-            <div className="border-t pt-4 flex flex-wrap gap-2">
+            <>
               {prospect.status === "new" && (
                 <Button size="sm" variant="outline" onClick={() => draftEmail.mutate({ prospectId: prospect.id })} disabled={draftEmail.isPending}>
                   {draftEmail.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
@@ -538,7 +543,7 @@ function ProspectModal({
               >
                 <Trash2 className="h-4 w-4 mr-1.5" /> Delete
               </Button>
-            </div>
+            </>
           )}
         </div>
       </DialogContent>
