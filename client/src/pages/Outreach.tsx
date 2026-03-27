@@ -146,9 +146,19 @@ function ProspectModal({
   const [emailInput, setEmailInput] = useState(prospect.contactEmail ?? "");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState(prospect.notes ?? "");
+  const [editingWebsite, setEditingWebsite] = useState(false);
+  const [websiteInput, setWebsiteInput] = useState(prospect.website ?? "");
+  const [editingContactName, setEditingContactName] = useState(false);
+  const [contactNameInput, setContactNameInput] = useState(prospect.contactName ?? "");
 
   const updateProspect = trpc.outreach.prospect.update.useMutation({
-    onSuccess: () => { setEditingEmail(false); setEditingNotes(false); onRefresh(); },
+    onSuccess: (_data, vars) => {
+      if (vars.contactEmail !== undefined) setEditingEmail(false);
+      if (vars.notes !== undefined) setEditingNotes(false);
+      if (vars.website !== undefined) setEditingWebsite(false);
+      if (vars.contactName !== undefined) setEditingContactName(false);
+      onRefresh();
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -223,15 +233,36 @@ function ProspectModal({
                 <span>{prospect.contactPhone}</span>
               </div>
             )}
-            {prospect.website && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Globe className="h-3.5 w-3.5 shrink-0" />
-                <a href={prospect.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground hover:underline">
-                  {prospect.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Globe className="h-3.5 w-3.5 shrink-0" />
+              {editingWebsite ? (
+                <div className="flex gap-2 flex-1">
+                  <Input
+                    value={websiteInput}
+                    onChange={(e) => setWebsiteInput(e.target.value)}
+                    placeholder="https://example.co.za"
+                    className="h-7 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") updateProspect.mutate({ id: prospect.id, website: websiteInput.trim() });
+                      if (e.key === "Escape") setEditingWebsite(false);
+                    }}
+                  />
+                  <Button size="sm" className="h-7 text-xs" onClick={() => updateProspect.mutate({ id: prospect.id, website: websiteInput.trim() })} disabled={updateProspect.isPending}>Save</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingWebsite(false)}>Cancel</Button>
+                </div>
+              ) : prospect.website ? (
+                <div className="flex items-center gap-2">
+                  <a href={prospect.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground hover:underline">
+                    {prospect.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <button onClick={() => { setWebsiteInput(prospect.website ?? ""); setEditingWebsite(true); }} className="text-xs text-muted-foreground hover:text-foreground underline">edit</button>
+                </div>
+              ) : (
+                <button onClick={() => { setWebsiteInput(""); setEditingWebsite(true); }} className="text-sm italic hover:text-foreground">Add website</button>
+              )}
+            </div>
             {prospect.industry && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Building2 className="h-3.5 w-3.5 shrink-0" />
@@ -268,6 +299,32 @@ function ProspectModal({
               <p className="text-sm text-muted-foreground leading-relaxed">{prospect.businessContext}</p>
             </div>
           )}
+
+          {/* Contact name */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Contact name</p>
+            {editingContactName ? (
+              <div className="flex gap-2">
+                <Input
+                  value={contactNameInput}
+                  onChange={(e) => setContactNameInput(e.target.value)}
+                  placeholder="e.g. Kevin Smith"
+                  className="h-8 text-sm"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") updateProspect.mutate({ id: prospect.id, contactName: contactNameInput.trim() || null });
+                    if (e.key === "Escape") setEditingContactName(false);
+                  }}
+                />
+                <Button size="sm" className="h-8" onClick={() => updateProspect.mutate({ id: prospect.id, contactName: contactNameInput.trim() || null })} disabled={updateProspect.isPending}>Save</Button>
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingContactName(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <button onClick={() => { setContactNameInput(prospect.contactName ?? ""); setEditingContactName(true); }} className="text-sm text-left hover:text-foreground">
+                {prospect.contactName || <span className="text-muted-foreground italic">Add contact name</span>}
+              </button>
+            )}
+          </div>
 
           {/* Email */}
           <div>
