@@ -13,13 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import {
   Search, Loader2, ExternalLink, Trash2, Mail, Wand2, Send,
-  CheckCheck, Plus, AlertTriangle, Gauge, Globe, Phone, MapPin, Building2
+  CheckCheck, Plus, AlertTriangle, Gauge, Globe, Phone, MapPin, Building2,
+  Star, Link2, FolderSearch, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -37,6 +37,10 @@ type Prospect = {
   industry: string | null;
   pageSpeedScore: number | null;
   issues: string | null;
+  businessContext: string | null;
+  leadScore: number | null;
+  googleRating: string | null;
+  googleReviewCount: number | null;
   status: ProspectStatus;
   lastEmailSubject: string | null;
   lastEmailBody: string | null;
@@ -53,7 +57,13 @@ type Candidate = {
   pageSpeedScore: number | null;
   contactEmail: string;
   issues: string[];
+  businessContext: string;
+  leadScore: number;
+  googleRating: number | null;
+  googleReviewCount: number | null;
 };
+
+type Directory = { title: string; url: string; description: string };
 
 // ── Column config ─────────────────────────────────────────────────────────────
 
@@ -101,6 +111,19 @@ function IssueBadges({ issues }: { issues: string[] }) {
         </span>
       ))}
     </>
+  );
+}
+
+function LeadScoreBadge({ score }: { score: number }) {
+  const color = score >= 70
+    ? "bg-green-50 text-green-700 border-green-200"
+    : score >= 40
+    ? "bg-amber-50 text-amber-700 border-amber-200"
+    : "bg-red-50 text-red-700 border-red-200";
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border font-medium ${color}`}>
+      <Sparkles className="h-3 w-3" /> {score}
+    </span>
   );
 }
 
@@ -154,6 +177,18 @@ function ProspectModal({
     onError: (e) => toast.error(e.message),
   });
 
+  const hunterLookup = trpc.outreach.hunterLookup.useMutation({
+    onSuccess: (data) => {
+      if (data.found) {
+        toast.success(`Found: ${data.email}${data.contactName ? ` (${data.contactName})` : ""}`);
+        onRefresh();
+      } else {
+        toast.info("No emails found via Hunter.io for this domain");
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const col = COLUMNS.find((c) => c.status === prospect.status)!;
 
   return (
@@ -163,9 +198,12 @@ function ProspectModal({
           <div className="flex items-start justify-between gap-2 pr-6">
             <div>
               <DialogTitle className="text-lg">{prospect.businessName}</DialogTitle>
-              <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_BADGE[prospect.status]}`}>
-                {col.label}
-              </span>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className={`inline-block text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_BADGE[prospect.status]}`}>
+                  {col.label}
+                </span>
+                {prospect.leadScore != null && <LeadScoreBadge score={prospect.leadScore} />}
+              </div>
             </div>
           </div>
         </DialogHeader>
@@ -200,6 +238,16 @@ function ProspectModal({
                 <span>{prospect.industry}</span>
               </div>
             )}
+            {(prospect.googleReviewCount != null || prospect.googleRating != null) && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Star className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {prospect.googleRating != null && `${prospect.googleRating} stars`}
+                  {prospect.googleRating != null && prospect.googleReviewCount != null && " · "}
+                  {prospect.googleReviewCount != null && `${prospect.googleReviewCount} reviews`}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Issues */}
@@ -210,6 +258,14 @@ function ProspectModal({
                 <ScoreBadge score={prospect.pageSpeedScore} issues={issues} />
                 <IssueBadges issues={issues.filter((i) => !i.startsWith("Score:"))} />
               </div>
+            </div>
+          )}
+
+          {/* Business context */}
+          {prospect.businessContext && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">About this business</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{prospect.businessContext}</p>
             </div>
           )}
 
@@ -238,9 +294,23 @@ function ProspectModal({
                 {prospect.contactEmail}
               </button>
             ) : (
-              <button onClick={() => { setEmailInput(""); setEditingEmail(true); }} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5">
-                <Mail className="h-3.5 w-3.5" /> Add email address
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={() => { setEmailInput(""); setEditingEmail(true); }} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5" /> Add email address
+                </button>
+                {prospect.website && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => hunterLookup.mutate({ prospectId: prospect.id })}
+                    disabled={hunterLookup.isPending}
+                  >
+                    {hunterLookup.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
+                    Find via Hunter.io
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
@@ -366,9 +436,12 @@ function KanbanCardContent({ prospect, isDragging = false }: { prospect: Prospec
   return (
     <div className={`w-full text-left bg-card border rounded-lg p-3 space-y-2 group transition-all
       ${isDragging ? "shadow-xl rotate-1 opacity-90 cursor-grabbing" : "hover:shadow-md hover:border-foreground/20 cursor-grab"}`}>
-      <p className="font-medium text-sm leading-snug group-hover:text-primary transition-colors select-none">
-        {prospect.businessName}
-      </p>
+      <div className="flex items-start justify-between gap-1">
+        <p className="font-medium text-sm leading-snug group-hover:text-primary transition-colors select-none">
+          {prospect.businessName}
+        </p>
+        {prospect.leadScore != null && <LeadScoreBadge score={prospect.leadScore} />}
+      </div>
       {prospect.address && (
         <p className="text-xs text-muted-foreground line-clamp-1 select-none">{prospect.address}</p>
       )}
@@ -400,11 +473,9 @@ function DraggableCard({ prospect, onClick }: { prospect: Prospect; onClick: () 
       {...attributes}
       onPointerDown={(e) => {
         dragStartPos.current = { x: e.clientX, y: e.clientY };
-        // Call the dnd-kit listener too
         if (listeners?.onPointerDown) listeners.onPointerDown(e);
       }}
       onClick={(e) => {
-        // Only fire click if pointer didn't move much (wasn't a drag)
         if (dragStartPos.current) {
           const dx = Math.abs(e.clientX - dragStartPos.current.x);
           const dy = Math.abs(e.clientY - dragStartPos.current.y);
@@ -524,19 +595,128 @@ function KanbanBoard({ prospects, onRefresh }: { prospects: Prospect[]; onRefres
   );
 }
 
+// ── Candidate list (shared between discovery modes) ────────────────────────────
+
+function CandidateList({
+  candidates,
+  selected,
+  onToggle,
+  onSelectAll,
+  onImport,
+  importing,
+}: {
+  candidates: Candidate[];
+  selected: Set<number>;
+  onToggle: (i: number) => void;
+  onSelectAll: () => void;
+  onImport: () => void;
+  importing: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h3 className="font-medium text-sm">{candidates.length} businesses found</h3>
+          <button
+            onClick={onSelectAll}
+            className="text-xs text-muted-foreground underline underline-offset-2"
+          >
+            {selected.size === candidates.length ? "Deselect all" : "Select all"}
+          </button>
+        </div>
+        <Button size="sm" disabled={selected.size === 0 || importing} onClick={onImport}>
+          {importing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+          Import {selected.size} selected
+        </Button>
+      </div>
+
+      <div className="divide-y border rounded-lg">
+        {candidates.map((c, i) => (
+          <label key={i} className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/30 transition-colors ${selected.has(i) ? "bg-muted/20" : ""}`}>
+            <input
+              type="checkbox"
+              checked={selected.has(i)}
+              onChange={() => onToggle(i)}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span className="font-medium text-sm">{c.businessName}</span>
+                <LeadScoreBadge score={c.leadScore} />
+                <ScoreBadge score={c.pageSpeedScore} issues={c.issues} />
+                <IssueBadges issues={c.issues.filter((iss) => !iss.startsWith("Score:"))} />
+              </div>
+              <p className="text-xs text-muted-foreground">{c.address}</p>
+              {c.businessContext && (
+                <p className="text-xs text-muted-foreground/80 mt-0.5 line-clamp-2">{c.businessContext}</p>
+              )}
+              <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+                {c.phone && <span>{c.phone}</span>}
+                {c.googleRating != null && (
+                  <span className="flex items-center gap-1">
+                    <Star className="h-3 w-3" /> {c.googleRating}
+                    {c.googleReviewCount != null && ` (${c.googleReviewCount})`}
+                  </span>
+                )}
+                {c.contactEmail && <span className="text-blue-600">{c.contactEmail}</span>}
+                {c.website && (
+                  <a href={c.website} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 hover:text-foreground">
+                    {c.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Discover Tab ─────────────────────────────────────────────────────────────
 
 function DiscoverTab({ onImported }: { onImported: () => void }) {
+  const [discoverMode, setDiscoverMode] = useState<"places" | "directory" | "find">("places");
+
+  // Places mode state
   const [criteria, setCriteria] = useState("");
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [placeCandidates, setPlaceCandidates] = useState<Candidate[]>([]);
+  const [placeSelected, setPlaceSelected] = useState<Set<number>>(new Set());
+
+  // Directory mode state
+  const [directoryUrl, setDirectoryUrl] = useState("");
+  const [dirCandidates, setDirCandidates] = useState<Candidate[]>([]);
+  const [dirSelected, setDirSelected] = useState<Set<number>>(new Set());
+
+  // Find directories mode state
+  const [findCriteria, setFindCriteria] = useState("");
+  const [directories, setDirectories] = useState<Directory[]>([]);
 
   const discover = trpc.outreach.discover.useMutation({
     onSuccess: (data) => {
       const list = (data.candidates ?? []) as Candidate[];
-      setCandidates(list);
-      setSelected(new Set(list.map((_, i) => i)));
-      if (list.length === 0) toast.info("No businesses with issues found. Try a different search.");
+      setPlaceCandidates(list);
+      setPlaceSelected(new Set(list.map((_, i) => i)));
+      if (list.length === 0) toast.info("No businesses found. Try a different search.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const crawlDirectory = trpc.outreach.crawlDirectory.useMutation({
+    onSuccess: (data) => {
+      const list = (data.candidates ?? []) as Candidate[];
+      setDirCandidates(list);
+      setDirSelected(new Set(list.map((_, i) => i)));
+      if (list.length === 0) toast.info("No businesses extracted from that page.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const findDirectories = trpc.outreach.findDirectories.useMutation({
+    onSuccess: (data) => {
+      setDirectories(data.directories ?? []);
+      if ((data.directories ?? []).length === 0) toast.info("No directories found. Try different criteria.");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -544,106 +724,188 @@ function DiscoverTab({ onImported }: { onImported: () => void }) {
   const importProspects = trpc.outreach.importProspects.useMutation({
     onSuccess: (data) => {
       toast.success(`Imported ${data.count} prospect${data.count !== 1 ? "s" : ""}`);
-      setCandidates([]);
-      setSelected(new Set());
+      setPlaceCandidates([]);
+      setDirCandidates([]);
+      setPlaceSelected(new Set());
+      setDirSelected(new Set());
       onImported();
     },
     onError: (e) => toast.error(e.message),
   });
 
-  function handleImport() {
-    const toImport = candidates
-      .filter((_, i) => selected.has(i))
+  function buildImportPayload(candidates: Candidate[], sel: Set<number>) {
+    return candidates
+      .filter((_, i) => sel.has(i))
       .map((c) => ({
         businessName: c.businessName,
-        address: c.address,
-        contactPhone: c.phone,
+        address: c.address || undefined,
+        contactPhone: c.phone || undefined,
         contactEmail: c.contactEmail || undefined,
         website: c.website || undefined,
         pageSpeedScore: c.pageSpeedScore,
         issues: JSON.stringify(c.issues),
+        businessContext: c.businessContext || undefined,
+        leadScore: c.leadScore,
+        googleRating: c.googleRating != null ? String(c.googleRating) : undefined,
+        googleReviewCount: c.googleReviewCount ?? undefined,
       }));
-    importProspects.mutate({ prospects: toImport });
+  }
+
+  function toggleCandidate(sel: Set<number>, i: number, setSel: (s: Set<number>) => void) {
+    const next = new Set(sel);
+    next.has(i) ? next.delete(i) : next.add(i);
+    setSel(next);
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground mb-3">
-          Search for businesses. We'll check their website speed and only show ones that need help.
-        </p>
-        <div className="flex gap-2">
-          <Input
-            placeholder='e.g. "Gyms in Pretoria" or "Restaurants in Cape Town"'
-            value={criteria}
-            onChange={(e) => setCriteria(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && criteria.trim() && !discover.isPending)
-                discover.mutate({ criteria: criteria.trim() });
-            }}
-            className="max-w-md"
-          />
-          <Button onClick={() => discover.mutate({ criteria: criteria.trim() })} disabled={!criteria.trim() || discover.isPending}>
-            {discover.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Checking scores…</> : <><Search className="h-4 w-4 mr-2" />Discover</>}
-          </Button>
-        </div>
-        {discover.isPending && (
-          <p className="text-xs text-muted-foreground mt-2">Fetching businesses and running PageSpeed checks — this takes 15–30 seconds…</p>
-        )}
+      {/* Mode selector */}
+      <div className="flex gap-1 border rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setDiscoverMode("places")}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors ${discoverMode === "places" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Search className="h-3.5 w-3.5" /> Search Places
+        </button>
+        <button
+          onClick={() => setDiscoverMode("directory")}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors ${discoverMode === "directory" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Link2 className="h-3.5 w-3.5" /> Crawl Directory
+        </button>
+        <button
+          onClick={() => setDiscoverMode("find")}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors ${discoverMode === "find" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <FolderSearch className="h-3.5 w-3.5" /> Find Directories
+        </button>
       </div>
 
-      {candidates.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h3 className="font-medium text-sm">{candidates.length} businesses with issues found</h3>
-              <button
-                onClick={() => selected.size === candidates.length ? setSelected(new Set()) : setSelected(new Set(candidates.map((_, i) => i)))}
-                className="text-xs text-muted-foreground underline underline-offset-2"
-              >
-                {selected.size === candidates.length ? "Deselect all" : "Select all"}
-              </button>
-            </div>
-            <Button size="sm" disabled={selected.size === 0 || importProspects.isPending} onClick={handleImport}>
-              {importProspects.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-              Import {selected.size} selected
+      {/* Search Places */}
+      {discoverMode === "places" && (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Search for businesses by type and location. Each result is enriched with PageSpeed scores, Firecrawl content analysis, and a lead quality score.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder='e.g. "Gyms in Pretoria" or "Restaurants in Cape Town"'
+              value={criteria}
+              onChange={(e) => setCriteria(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && criteria.trim() && !discover.isPending)
+                  discover.mutate({ criteria: criteria.trim() });
+              }}
+              className="max-w-md"
+            />
+            <Button onClick={() => discover.mutate({ criteria: criteria.trim() })} disabled={!criteria.trim() || discover.isPending}>
+              {discover.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enriching…</> : <><Search className="h-4 w-4 mr-2" />Discover</>}
             </Button>
           </div>
+          {discover.isPending && (
+            <p className="text-xs text-muted-foreground">Fetching businesses, running PageSpeed checks, and scraping websites for context — this takes 20–40 seconds…</p>
+          )}
+          {placeCandidates.length > 0 && (
+            <CandidateList
+              candidates={placeCandidates}
+              selected={placeSelected}
+              onToggle={(i) => toggleCandidate(placeSelected, i, setPlaceSelected)}
+              onSelectAll={() => setPlaceSelected(placeSelected.size === placeCandidates.length ? new Set() : new Set(placeCandidates.map((_, i) => i)))}
+              onImport={() => importProspects.mutate({ prospects: buildImportPayload(placeCandidates, placeSelected) })}
+              importing={importProspects.isPending}
+            />
+          )}
+        </div>
+      )}
 
-          <div className="divide-y border rounded-lg">
-            {candidates.map((c, i) => (
-              <label key={i} className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/30 transition-colors ${selected.has(i) ? "bg-muted/20" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={selected.has(i)}
-                  onChange={() => {
-                    const next = new Set(selected);
-                    next.has(i) ? next.delete(i) : next.add(i);
-                    setSelected(next);
-                  }}
-                  className="mt-1"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="font-medium text-sm">{c.businessName}</span>
-                    <ScoreBadge score={c.pageSpeedScore} issues={c.issues} />
-                    <IssueBadges issues={c.issues.filter((iss) => !iss.startsWith("Score:"))} />
-                  </div>
-                  <p className="text-xs text-muted-foreground">{c.address}</p>
-                  <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
-                    {c.phone && <span>{c.phone}</span>}
-                    {c.contactEmail && <span className="text-blue-600">{c.contactEmail}</span>}
-                    {c.website && (
-                      <a href={c.website} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 hover:text-foreground">
-                        {c.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </label>
-            ))}
+      {/* Crawl Directory */}
+      {discoverMode === "directory" && (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Paste a URL to any directory or listing page (Yellow Pages, TripAdvisor, industry listings, etc.) and we'll extract all the businesses from it.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="https://www.yellowpages.co.za/find/gyms/pretoria"
+              value={directoryUrl}
+              onChange={(e) => setDirectoryUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && directoryUrl.trim() && !crawlDirectory.isPending)
+                  crawlDirectory.mutate({ url: directoryUrl.trim() });
+              }}
+              className="max-w-lg"
+            />
+            <Button onClick={() => crawlDirectory.mutate({ url: directoryUrl.trim() })} disabled={!directoryUrl.trim() || crawlDirectory.isPending}>
+              {crawlDirectory.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Crawling…</> : <><Link2 className="h-4 w-4 mr-2" />Crawl</>}
+            </Button>
           </div>
+          {crawlDirectory.isPending && (
+            <p className="text-xs text-muted-foreground">Scraping directory page and enriching each business — this may take a minute…</p>
+          )}
+          {dirCandidates.length > 0 && (
+            <CandidateList
+              candidates={dirCandidates}
+              selected={dirSelected}
+              onToggle={(i) => toggleCandidate(dirSelected, i, setDirSelected)}
+              onSelectAll={() => setDirSelected(dirSelected.size === dirCandidates.length ? new Set() : new Set(dirCandidates.map((_, i) => i)))}
+              onImport={() => importProspects.mutate({ prospects: buildImportPayload(dirCandidates, dirSelected) })}
+              importing={importProspects.isPending}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Find Directories */}
+      {discoverMode === "find" && (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Describe the type of business you're targeting and we'll suggest relevant directory pages to crawl.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder='e.g. "Gyms in Pretoria" or "Cape Town restaurants"'
+              value={findCriteria}
+              onChange={(e) => setFindCriteria(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && findCriteria.trim() && !findDirectories.isPending)
+                  findDirectories.mutate({ criteria: findCriteria.trim() });
+              }}
+              className="max-w-md"
+            />
+            <Button onClick={() => findDirectories.mutate({ criteria: findCriteria.trim() })} disabled={!findCriteria.trim() || findDirectories.isPending}>
+              {findDirectories.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Finding…</> : <><FolderSearch className="h-4 w-4 mr-2" />Find</>}
+            </Button>
+          </div>
+          {directories.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Suggested directories — click a URL to crawl it</p>
+              <div className="divide-y border rounded-lg">
+                {directories.map((dir, i) => (
+                  <div key={i} className="p-3 space-y-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{dir.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{dir.description}</p>
+                        <p className="text-xs text-blue-600 truncate mt-1">{dir.url}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={() => {
+                          setDiscoverMode("directory");
+                          setDirectoryUrl(dir.url);
+                          crawlDirectory.mutate({ url: dir.url });
+                        }}
+                      >
+                        <Link2 className="h-3.5 w-3.5 mr-1.5" /> Crawl
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -682,7 +944,7 @@ function ProspectsTab() {
 
       {prospects.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground text-sm">
-          No prospects yet. Use the Discover tab to find businesses with poor websites.
+          No prospects yet. Use the Discover tab to find businesses.
         </div>
       ) : (
         <KanbanBoard prospects={prospects as Prospect[]} onRefresh={refetch} />
@@ -725,7 +987,7 @@ export default function Outreach() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Outreach</h1>
-        <p className="text-muted-foreground text-sm mt-1">Find businesses with poor web presence and send targeted outreach.</p>
+        <p className="text-muted-foreground text-sm mt-1">Find and enrich prospects, then send AI-personalized outreach.</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

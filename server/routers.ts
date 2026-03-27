@@ -2213,6 +2213,10 @@ INSTRUCTIONS:
           industry: z.string().nullable().optional(),
           pageSpeedScore: z.number().nullable().optional(),
           issues: z.string().nullable().optional(),
+          businessContext: z.string().nullable().optional(),
+          leadScore: z.number().nullable().optional(),
+          googleRating: z.string().nullable().optional(),
+          googleReviewCount: z.number().nullable().optional(),
           status: z.enum(['new', 'emailed', 'replied', 'converted']).optional(),
           notes: z.string().nullable().optional(),
         }))
@@ -2271,20 +2275,23 @@ Only return JSON, no explanation.`,
             headers: {
               'Content-Type': 'application/json',
               'X-Goog-Api-Key': ENV.googlePlacesApiKey,
-              'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber',
+              'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.rating,places.userRatingCount',
             },
             body: JSON.stringify({ textQuery: query, maxResultCount: 20 }),
           },
         );
-        const placesData = await placesRes.json() as { places?: Array<{ displayName?: { text?: string }; formattedAddress?: string; websiteUri?: string; nationalPhoneNumber?: string }> };
+        const placesData = await placesRes.json() as { places?: Array<{ displayName?: { text?: string }; formattedAddress?: string; websiteUri?: string; nationalPhoneNumber?: string; rating?: number; userRatingCount?: number }> };
         const places = placesData.places ?? [];
 
-        // Enrich each place: PageSpeed score + email scrape (in parallel, best-effort)
+        // Enrich each place: PageSpeed score + Firecrawl scrape + email + business context (in parallel, best-effort)
         const enriched = await Promise.all(places.map(async (place) => {
           const website = place.websiteUri ?? '';
           let pageSpeedScore: number | null = null;
           let contactEmail = '';
+          let businessContext = '';
           const issues: string[] = [];
+          const googleRating = place.rating ?? null;
+          const googleReviewCount = place.userRatingCount ?? null;
 
           if (!website) {
             issues.push('No website');
@@ -2307,29 +2314,93 @@ Only return JSON, no explanation.`,
               }
             } catch { /* ignore timeout / fetch errors */ }
 
-            // Scrape homepage for email address + check real SSL by following redirects
+            // SSL check via HEAD request
             try {
-              const homeRes = await fetch(website, { signal: AbortSignal.timeout(5_000) });
-              // Check the final URL after redirects — Google Places often stores http:// for sites that redirect to https://
-              if (!homeRes.url.startsWith('https://')) {
+              const headRes = await fetch(website, { method: 'HEAD', signal: AbortSignal.timeout(5_000), redirect: 'follow' });
+              if (!headRes.url.startsWith('https://')) {
                 issues.push('No SSL');
               }
-              if (homeRes.ok) {
-                const html = await homeRes.text();
-                const emails = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
-                // Filter out common false-positives (image files, w3c schema refs, etc.)
-                const filtered = emails.filter(e =>
-                  !e.includes('.png') && !e.includes('.jpg') && !e.includes('.gif') &&
-                  !e.includes('w3.org') && !e.includes('schema.org') && !e.includes('example.')
-                );
-                if (filtered.length > 0) contactEmail = filtered[0];
-              }
             } catch { /* ignore */ }
+
+            // Firecrawl scrape for rich content (falls back to raw fetch if unavailable)
+            let scrapedContent = '';
+            if (ENV.firecrawlApiKey) {
+              try {
+                const fcRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+                  method: 'POST',
+                  signal: AbortSignal.timeout(20_000),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${ENV.firecrawlApiKey}`,
+                  },
+                  body: JSON.stringify({ url: website, formats: ['markdown'] }),
+                });
+                if (fcRes.ok) {
+                  const fcData = await fcRes.json() as { data?: { markdown?: string } };
+                  scrapedContent = fcData.data?.markdown ?? '';
+                }
+              } catch { /* ignore timeout */ }
+            }
+
+            // Fallback to raw fetch if Firecrawl unavailable or failed
+            if (!scrapedContent) {
+              try {
+                const homeRes = await fetch(website, { signal: AbortSignal.timeout(5_000) });
+                if (homeRes.ok) scrapedContent = await homeRes.text();
+              } catch { /* ignore */ }
+            }
+
+            // Extract emails from scraped content
+            if (scrapedContent) {
+              const emails = scrapedContent.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
+              const filtered = emails.filter(e =>
+                !e.includes('.png') && !e.includes('.jpg') && !e.includes('.gif') &&
+                !e.includes('w3.org') && !e.includes('schema.org') && !e.includes('example.')
+              );
+              if (filtered.length > 0) contactEmail = filtered[0];
+            }
+
+            // Claude summarizes Firecrawl content → business context (only if we have meaningful content)
+            if (scrapedContent && scrapedContent.length > 100 && ENV.firecrawlApiKey) {
+              try {
+                const summary = await anthropic.messages.create({
+                  model: 'claude-sonnet-4-6',
+                  max_tokens: 200,
+                  messages: [{
+                    role: 'user',
+                    content: `Summarize this business website in 2-3 sentences. What do they do, who do they serve, and what services/products do they offer? Be specific and concise.\n\n${scrapedContent.slice(0, 4000)}`,
+                  }],
+                });
+                businessContext = (summary.content[0] as { type: string; text: string }).text.trim();
+              } catch { /* ignore */ }
+            }
           }
 
-          // Only return businesses with issues (no website or score < 50)
-          const hasIssues = issues.length > 0 || (pageSpeedScore !== null && pageSpeedScore < 50);
-          if (!hasIssues) return null;
+          // Compute lead score (0-100)
+          let leadScore = 0;
+          // Reviews: up to 30 pts (log scale: 10+ reviews=10pts, 50+=20pts, 200+=30pts)
+          if (googleReviewCount) {
+            if (googleReviewCount >= 200) leadScore += 30;
+            else if (googleReviewCount >= 50) leadScore += 20;
+            else if (googleReviewCount >= 10) leadScore += 10;
+            else leadScore += 5;
+          }
+          // Rating: 10 pts for the "sweet spot" (3.5-4.5 = established but imperfect)
+          if (googleRating) {
+            if (googleRating >= 3.5 && googleRating <= 4.5) leadScore += 10;
+            else if (googleRating > 4.5) leadScore += 5;
+          }
+          // Website issues severity
+          if (issues.includes('No website')) leadScore += 30;
+          else {
+            if (pageSpeedScore !== null && pageSpeedScore < 30) leadScore += 25;
+            else if (pageSpeedScore !== null && pageSpeedScore < 50) leadScore += 10;
+            if (issues.includes('No SSL')) leadScore += 15;
+          }
+          // Actionability signals
+          if (contactEmail) leadScore += 10;
+          if (place.nationalPhoneNumber) leadScore += 5;
+          if (businessContext) leadScore += 10;
 
           return {
             businessName: place.displayName?.text ?? '',
@@ -2339,10 +2410,14 @@ Only return JSON, no explanation.`,
             pageSpeedScore,
             contactEmail,
             issues,
+            businessContext,
+            leadScore,
+            googleRating,
+            googleReviewCount,
           };
         }));
 
-        const candidates = enriched.filter(Boolean);
+        const candidates = enriched.filter(Boolean).sort((a, b) => (b!.leadScore ?? 0) - (a!.leadScore ?? 0));
         return { candidates };
       }),
 
@@ -2356,12 +2431,250 @@ Only return JSON, no explanation.`,
           website: z.string().optional(),
           pageSpeedScore: z.number().nullable().optional(),
           issues: z.string().optional(),
+          businessContext: z.string().optional(),
+          leadScore: z.number().optional(),
+          googleRating: z.string().optional(),
+          googleReviewCount: z.number().optional(),
         })),
       }))
       .mutation(async ({ input }) => {
         if (input.prospects.length === 0) return { count: 0 };
         await bulkCreateProspects(input.prospects);
         return { count: input.prospects.length };
+      }),
+
+    hunterLookup: adminProcedure
+      .input(z.object({ prospectId: z.number() }))
+      .mutation(async ({ input }) => {
+        if (!ENV.hunterApiKey) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Hunter.io API key not configured' });
+        const prospect = await getProspectById(input.prospectId);
+        if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
+        if (!prospect.website) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Prospect has no website' });
+
+        let domain: string;
+        try {
+          domain = new URL(prospect.website).hostname.replace(/^www\./, '');
+        } catch {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid website URL' });
+        }
+
+        const hunterRes = await fetch(
+          `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${ENV.hunterApiKey}&limit=5`,
+          { signal: AbortSignal.timeout(10_000) },
+        );
+        if (!hunterRes.ok) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Hunter.io request failed' });
+
+        const hunterData = await hunterRes.json() as {
+          data?: {
+            emails?: Array<{ value: string; first_name?: string; last_name?: string; position?: string; confidence?: number }>;
+          };
+          meta?: { results?: number };
+        };
+
+        const emails = hunterData.data?.emails ?? [];
+        if (emails.length === 0) return { found: false, email: null, contactName: null };
+
+        const ranked = [...emails].sort((a, b) => {
+          const score = (e: typeof emails[0]) => {
+            const pos = (e.position ?? '').toLowerCase();
+            if (pos.includes('owner') || pos.includes('founder') || pos.includes('ceo') || pos.includes('director')) return 3;
+            if (pos.includes('manager') || pos.includes('head')) return 2;
+            return 1;
+          };
+          return score(b) - score(a) || (b.confidence ?? 0) - (a.confidence ?? 0);
+        });
+
+        const best = ranked[0];
+        const contactName = [best.first_name, best.last_name].filter(Boolean).join(' ') || null;
+        await updateProspect(input.prospectId, {
+          contactEmail: best.value,
+          ...(contactName ? { contactName } : {}),
+        });
+        return { found: true, email: best.value, contactName };
+      }),
+
+    crawlDirectory: adminProcedure
+      .input(z.object({ url: z.string().url() }))
+      .mutation(async ({ input }) => {
+        if (!ENV.firecrawlApiKey) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Firecrawl API key not configured' });
+        const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
+
+        // Scrape the directory page to get its content
+        const fcRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          method: 'POST',
+          signal: AbortSignal.timeout(30_000),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ENV.firecrawlApiKey}`,
+          },
+          body: JSON.stringify({ url: input.url, formats: ['markdown'] }),
+        });
+        if (!fcRes.ok) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to scrape directory page' });
+        const fcData = await fcRes.json() as { data?: { markdown?: string } };
+        const markdown = fcData.data?.markdown ?? '';
+        if (!markdown) throw new TRPCError({ code: 'UNPROCESSABLE_CONTENT', message: 'No content extracted from that URL' });
+
+        // Claude extracts business listings from the directory markdown
+        const extraction = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 2048,
+          messages: [{
+            role: 'user',
+            content: `Extract all business listings from this directory page. Return a JSON array of objects with:
+{ name: string, website?: string, phone?: string, address?: string }
+
+Only include businesses where you can extract at least a name. If no website is visible, omit it.
+Return JSON array only — no markdown, no explanation.
+
+Directory content:
+${markdown.slice(0, 8000)}`,
+          }],
+        });
+
+        let listings: Array<{ name: string; website?: string; phone?: string; address?: string }> = [];
+        try {
+          const raw = (extraction.content[0] as { type: string; text: string }).text;
+          const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+          listings = JSON.parse(stripped);
+        } catch {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to parse business listings from directory' });
+        }
+
+        if (!Array.isArray(listings) || listings.length === 0) {
+          return { candidates: [] };
+        }
+
+        // Enrich each listing with PageSpeed + Firecrawl + lead score (same pipeline as discover)
+        const enriched = await Promise.all(listings.slice(0, 20).map(async (listing) => {
+          const website = listing.website ?? '';
+          let pageSpeedScore: number | null = null;
+          let contactEmail = '';
+          let businessContext = '';
+          const issues: string[] = [];
+
+          if (!website) {
+            issues.push('No website');
+          } else {
+            try {
+              const psRes = await fetch(
+                `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(website)}&strategy=mobile`,
+                { signal: AbortSignal.timeout(10_000) },
+              );
+              if (psRes.ok) {
+                const psData = await psRes.json() as { lighthouseResult?: { categories?: { performance?: { score?: number } } } };
+                const rawScore = psData.lighthouseResult?.categories?.performance?.score;
+                if (typeof rawScore === 'number') {
+                  pageSpeedScore = Math.round(rawScore * 100);
+                  if (pageSpeedScore < 50) issues.push(`Score: ${pageSpeedScore}/100`);
+                }
+              }
+            } catch { /* ignore */ }
+
+            try {
+              const headRes = await fetch(website, { method: 'HEAD', signal: AbortSignal.timeout(5_000), redirect: 'follow' });
+              if (!headRes.url.startsWith('https://')) issues.push('No SSL');
+            } catch { /* ignore */ }
+
+            let scrapedContent = '';
+            try {
+              const fcScrape = await fetch('https://api.firecrawl.dev/v1/scrape', {
+                method: 'POST',
+                signal: AbortSignal.timeout(20_000),
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ENV.firecrawlApiKey}` },
+                body: JSON.stringify({ url: website, formats: ['markdown'] }),
+              });
+              if (fcScrape.ok) {
+                const d = await fcScrape.json() as { data?: { markdown?: string } };
+                scrapedContent = d.data?.markdown ?? '';
+              }
+            } catch { /* ignore */ }
+
+            if (!scrapedContent) {
+              try {
+                const homeRes = await fetch(website, { signal: AbortSignal.timeout(5_000) });
+                if (homeRes.ok) scrapedContent = await homeRes.text();
+              } catch { /* ignore */ }
+            }
+
+            if (scrapedContent) {
+              const emails = scrapedContent.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
+              const filtered = emails.filter(e => !e.includes('.png') && !e.includes('.jpg') && !e.includes('w3.org') && !e.includes('schema.org') && !e.includes('example.'));
+              if (filtered.length > 0) contactEmail = filtered[0];
+            }
+
+            if (scrapedContent && scrapedContent.length > 100) {
+              try {
+                const summary = await anthropic.messages.create({
+                  model: 'claude-sonnet-4-6',
+                  max_tokens: 200,
+                  messages: [{ role: 'user', content: `Summarize this business website in 2-3 sentences. What do they do, who do they serve, and what services do they offer?\n\n${scrapedContent.slice(0, 4000)}` }],
+                });
+                businessContext = (summary.content[0] as { type: string; text: string }).text.trim();
+              } catch { /* ignore */ }
+            }
+          }
+
+          let leadScore = 0;
+          if (issues.includes('No website')) leadScore += 30;
+          else {
+            if (pageSpeedScore !== null && pageSpeedScore < 30) leadScore += 25;
+            else if (pageSpeedScore !== null && pageSpeedScore < 50) leadScore += 10;
+            if (issues.includes('No SSL')) leadScore += 15;
+          }
+          if (contactEmail) leadScore += 10;
+          if (listing.phone) leadScore += 5;
+          if (businessContext) leadScore += 10;
+
+          return {
+            businessName: listing.name,
+            address: listing.address ?? '',
+            phone: listing.phone ?? '',
+            website,
+            pageSpeedScore,
+            contactEmail,
+            issues,
+            businessContext,
+            leadScore,
+            googleRating: null,
+            googleReviewCount: null,
+          };
+        }));
+
+        const candidates = enriched.filter(Boolean).sort((a, b) => (b!.leadScore ?? 0) - (a!.leadScore ?? 0));
+        return { candidates };
+      }),
+
+    findDirectories: adminProcedure
+      .input(z.object({ criteria: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey });
+
+        const result = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          messages: [{
+            role: 'user',
+            content: `For the outreach criteria "${input.criteria}", suggest 5 real online directories or listing pages where I can find businesses matching this criteria in South Africa.
+
+Focus on:
+- South African business directories (Yellow Pages SA, Hello Peter, local industry associations)
+- Review/listing sites (Google Maps category pages, TripAdvisor, etc.)
+- Industry-specific directories relevant to the business type
+- City or region-specific business listings
+
+Return a JSON array of objects with: { title: string, url: string, description: string }
+Only return real, likely-valid URLs. Return JSON only — no markdown, no explanation.`,
+          }],
+        });
+
+        try {
+          const raw = (result.content[0] as { type: string; text: string }).text;
+          const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+          const dirs = JSON.parse(stripped) as Array<{ title: string; url: string; description: string }>;
+          return { directories: Array.isArray(dirs) ? dirs : [] };
+        } catch {
+          return { directories: [] };
+        }
       }),
 
     draftEmail: adminProcedure
@@ -2387,6 +2700,10 @@ Your outreach emails are:
 
 You never use hollow phrases like "I hope this finds you well", "I wanted to reach out", or "touching base". Get straight to the point.`;
 
+        const reviewContext = prospect.googleReviewCount
+          ? `They have ${prospect.googleReviewCount} Google reviews${prospect.googleRating ? ` at ${prospect.googleRating} stars` : ''} — an established business.`
+          : '';
+
         const userPrompt = isFollowUp
           ? `Write a short follow-up email to ${prospect.businessName}. I emailed them previously with subject: "${prospect.lastEmailSubject}" but haven't heard back.
 
@@ -2403,8 +2720,9 @@ What I found:
 ${issues.map(i => `- ${i}`).join('\n') || '- No website found'}
 ${prospect.website ? `Website: ${prospect.website}` : 'They have no website at all.'}
 Address: ${prospect.address ?? 'Pretoria area'}
-
-Lead with the specific issue I found — make it clear this isn't a mass email. Offer a free website audit or a 15-minute call. Keep it under 120 words in the body.
+${reviewContext ? `\n${reviewContext}` : ''}
+${prospect.businessContext ? `\nAbout their business:\n${prospect.businessContext}\n` : ''}
+Lead with the specific issue I found — make it clear this isn't a mass email.${prospect.businessContext ? ' Reference something specific about their business to show you did your homework.' : ''} Offer a free website audit or a 15-minute call. Keep it under 120 words in the body.
 
 Return JSON only — no markdown, no code fences: { "subject": "...", "body": "..." }`;
 
