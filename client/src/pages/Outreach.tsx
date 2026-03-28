@@ -298,7 +298,21 @@ function ProspectModal({
                   <button onClick={() => { setWebsiteInput(prospect.website ?? ""); setEditingWebsite(true); }} className="text-xs text-muted-foreground hover:text-foreground underline">edit</button>
                 </div>
               ) : (
-                <button onClick={() => { setWebsiteInput(""); setEditingWebsite(true); }} className="text-sm italic hover:text-foreground">Add website</button>
+                <div className="flex flex-col gap-1.5">
+                  <button onClick={() => { setWebsiteInput(""); setEditingWebsite(true); }} className="text-sm italic hover:text-foreground text-left">Add website</button>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: "Google", url: `https://www.google.com/search?q=${encodeURIComponent(prospect.businessName)}` },
+                      { label: "Maps", url: `https://www.google.com/maps/search/${encodeURIComponent(prospect.businessName + (prospect.address ? " " + prospect.address : ""))}` },
+                      { label: "Facebook", url: `https://www.facebook.com/search/top?q=${encodeURIComponent(prospect.businessName)}` },
+                    ].map(({ label, url }) => (
+                      <a key={label} href={url} target="_blank" rel="noopener noreferrer"
+                        className="text-xs px-2 py-0.5 rounded border border-muted hover:border-foreground/30 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex items-center gap-1">
+                        {label} <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
             {prospect.industry && (
