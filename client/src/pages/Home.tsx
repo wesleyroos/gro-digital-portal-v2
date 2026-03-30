@@ -1,6 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { Link } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertCircle, CheckCircle2, Repeat, CalendarDays, Wrench,
@@ -62,6 +63,7 @@ function NewTaskForm() {
 }
 
 export default function Home() {
+  const { user } = useAuth();
   const { data: me } = trpc.auth.me.useQuery();
   const isLoggedIn = !!me;
 
@@ -96,7 +98,7 @@ export default function Home() {
     <div className="space-y-6">
 
       {/* ── Top stat row ── */}
-      {metrics && (
+      {metrics && user?.role === "superAdmin" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <Card className="shadow-sm border-blue-200/80 bg-gradient-to-br from-blue-50 to-white">
             <CardContent className="p-4 sm:p-6">
