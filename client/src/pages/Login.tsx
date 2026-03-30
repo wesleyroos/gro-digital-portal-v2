@@ -43,13 +43,6 @@ export default function Login() {
         window.location.href = "/"; return;
       }
 
-      const adminRes = await fetch("/api/auth/password-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (adminRes.ok) { window.location.href = "/"; return; }
-
       setError("Invalid email or password.");
     } catch {
       setError("Something went wrong — please try again.");
