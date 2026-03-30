@@ -63,7 +63,7 @@ const menuGroups = [
     items: [
       { icon: CheckSquare, label: "Tasks", path: "/tasks" },
       { icon: CalendarDays, label: "Calendar", path: "/calendar" },
-      { icon: Bot, label: "Agents", path: "/agents" },
+      { icon: Bot, label: "Agents", path: "/agents", roles: ["superAdmin"] as string[] },
     ],
   },
 ];
@@ -229,7 +229,7 @@ function DashboardLayoutContent({
                   {group.label}
                 </SidebarGroupLabel>
                 <SidebarMenu className="px-2 pb-2">
-                  {group.items.map(item => {
+                  {group.items.filter(item => !('roles' in item) || !item.roles || item.roles.includes(user?.role ?? "")).map(item => {
                     const isActive = location === item.path;
                     return (
                       <SidebarMenuItem key={item.path}>
@@ -326,7 +326,7 @@ function DashboardLayoutContent({
         )}
         <main className="flex-1 p-8">{children}</main>
       </SidebarInset>
-      <HenryWidget />
+      {user?.role === "superAdmin" && <HenryWidget />}
       <FeedbackWidget />
     </>
   );
