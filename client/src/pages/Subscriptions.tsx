@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Pencil, Trash2, Repeat, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 type SubType = "monthly" | "annual";
 type SubStatus = "active" | "paused" | "cancelled";
@@ -48,6 +49,7 @@ const STATUS_CONFIG: Record<SubStatus, { label: string; className: string }> = {
 };
 
 export default function Subscriptions() {
+  const { user } = useAuth();
   const utils = trpc.useUtils();
   const { data: subs = [], isLoading } = trpc.subscription.list.useQuery();
   const { data: existingClients = [] } = trpc.invoice.clients.useQuery();
@@ -125,7 +127,7 @@ export default function Subscriptions() {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      {user?.role === "superAdmin" && <div className="grid grid-cols-3 gap-4">
         <Card className="shadow-sm">
           <CardContent className="p-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">MRR</p>
@@ -144,7 +146,7 @@ export default function Subscriptions() {
             <p className="text-2xl font-bold font-mono text-foreground">{formatCurrency(arr)}</p>
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
       {/* Table */}
       <Card className="shadow-sm">

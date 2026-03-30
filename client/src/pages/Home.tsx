@@ -97,6 +97,11 @@ export default function Home() {
   return (
     <div className="space-y-6">
 
+      {/* ── Welcome ── */}
+      {user?.name && (
+        <p className="text-lg font-semibold text-foreground">Welcome back, {user.name.split(" ")[0]}.</p>
+      )}
+
       {/* ── Top stat row ── */}
       {metrics && user?.role === "superAdmin" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
