@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1928,4 +1928,43 @@ export async function getInvoiceForClientInMonth(clientSlug: string, year: numbe
     )
     .limit(1);
   return result[0] ?? null;
+}
+
+export async function getProjects() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(projects).orderBy(desc(projects.updatedAt));
+}
+
+export async function upsertProject(data: {
+  name: string;
+  repoPath: string;
+  lastCommitMessage?: string;
+  lastCommitAt?: Date;
+  branch?: string;
+  currentFocus?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .insert(projects)
+    .values({
+      name: data.name,
+      repoPath: data.repoPath,
+      lastCommitMessage: data.lastCommitMessage ?? null,
+      lastCommitAt: data.lastCommitAt ?? null,
+      branch: data.branch ?? null,
+      currentFocus: data.currentFocus ?? null,
+      commitCount: 1,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        name: data.name,
+        lastCommitMessage: data.lastCommitMessage ?? null,
+        lastCommitAt: data.lastCommitAt ?? null,
+        branch: data.branch ?? null,
+        ...(data.currentFocus !== undefined ? { currentFocus: data.currentFocus } : {}),
+        commitCount: sql`commitCount + 1`,
+      },
+    });
 }

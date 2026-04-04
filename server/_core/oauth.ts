@@ -1390,6 +1390,33 @@ INSTRUCTIONS:
 </html>`);
   });
 
+  // Project sync — POST /api/projects/sync (called by git post-commit hook)
+  app.post("/api/projects/sync", async (req: Request, res: Response) => {
+    const auth = req.headers["authorization"];
+    if (!auth || auth !== `Bearer ${ENV.mcpApiKey}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const { name, repoPath, lastCommitMessage, branch, currentFocus } = req.body || {};
+    if (!name || !repoPath) {
+      res.status(400).json({ error: "name and repoPath are required" });
+      return;
+    }
+    try {
+      await db.upsertProject({
+        name: String(name),
+        repoPath: String(repoPath),
+        lastCommitMessage: lastCommitMessage ? String(lastCommitMessage) : undefined,
+        lastCommitAt: new Date(),
+        branch: branch ? String(branch) : undefined,
+        currentFocus: currentFocus ? String(currentFocus) : undefined,
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to sync project" });
+    }
+  });
+
   // Accept proposal — POST /api/proposals/:token/accept
   app.post("/api/proposals/:token/accept", async (req: Request, res: Response) => {
     const { token } = req.params;

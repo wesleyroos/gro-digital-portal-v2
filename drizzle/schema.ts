@@ -469,6 +469,27 @@ export type AiInteraction = typeof aiInteractions.$inferSelect;
 export type InsertAiInteraction = typeof aiInteractions.$inferInsert;
 
 /**
+ * Projects — tracks active Claude Code / VS Code sessions and their build progress.
+ * Auto-updated via git post-commit hook from any project repo.
+ */
+export const projects = mysqlTable("projects", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  repoPath: varchar("repoPath", { length: 512 }).notNull().unique(),
+  status: mysqlEnum("status", ["active", "paused", "done"]).default("active").notNull(),
+  currentFocus: text("currentFocus"),
+  lastCommitMessage: text("lastCommitMessage"),
+  lastCommitAt: timestamp("lastCommitAt"),
+  branch: varchar("branch", { length: 255 }),
+  commitCount: int("commitCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = typeof projects.$inferInsert;
+
+/**
  * User activity log — login events, page views, and key actions.
  */
 export const userActivity = mysqlTable("userActivity", {

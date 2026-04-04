@@ -127,6 +127,8 @@ import {
   touchUserSeen,
   insertAiInteraction,
   getAiInteractions,
+  getProjects,
+  upsertProject,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
 import Anthropic from "@anthropic-ai/sdk";
@@ -3202,6 +3204,24 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .input(z.object({ limit: z.number().min(1).max(1000).default(200) }))
       .query(async ({ input }) => {
         return getAiInteractions(input.limit);
+      }),
+  }),
+
+  projects: router({
+    list: adminProcedure.query(async () => {
+      return getProjects();
+    }),
+
+    update: adminProcedure
+      .input(z.object({
+        repoPath: z.string(),
+        status: z.enum(["active", "paused", "done"]).optional(),
+        currentFocus: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const name = input.repoPath.split("/").pop() ?? input.repoPath;
+        await upsertProject({ name, repoPath: input.repoPath, currentFocus: input.currentFocus });
+        return { success: true };
       }),
   }),
 });
