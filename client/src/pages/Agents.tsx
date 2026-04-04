@@ -44,7 +44,7 @@ type PHeartbeatRun = {
   finishedAt?: string;
 };
 type PCostSummary = {
-  totalCents?: number;
+  spendCents?: number;
   budgetCents?: number;
   [key: string]: unknown;
 };
@@ -441,7 +441,7 @@ export default function Agents() {
   });
 
   const activeTasks = issues.filter(i => i.status !== "done" && i.status !== "closed");
-  const totalSpent = (costs as PCostSummary | undefined)?.totalCents ?? 0;
+  const totalSpent = (costs as PCostSummary | undefined)?.spendCents ?? 0;
   const totalBudget = (costs as PCostSummary | undefined)?.budgetCents ?? agents.reduce((s, a) => s + (a.budgetMonthlyCents ?? 0), 0);
   const remaining = totalBudget - totalSpent;
 

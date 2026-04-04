@@ -739,7 +739,7 @@ export const appRouter = router({
     costs: superAdminProcedure
       .input(z.object({ companyId: z.string() }))
       .query(async ({ input }) => {
-        return callPaperclip<unknown>(`/api/companies/${input.companyId}/costs`);
+        return callPaperclip<unknown>(`/api/companies/${input.companyId}/costs/summary`);
       }),
 
     heartbeatRuns: superAdminProcedure
