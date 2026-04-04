@@ -1,5 +1,4 @@
 import { Resend } from 'resend';
-import { callPaperclip } from './paperclip';
 import { buildAndSendRecurringInvoice } from './scheduler';
 import sharp from 'sharp';
 import { COOKIE_NAME } from "@shared/const";
@@ -710,95 +709,6 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await setSetting('aiModel', input.model);
         return { model: input.model };
-      }),
-  }),
-
-  paperclip: router({
-    companies: superAdminProcedure.query(async () => {
-      return callPaperclip<unknown[]>("/api/companies");
-    }),
-
-    agents: superAdminProcedure
-      .input(z.object({ companyId: z.string() }))
-      .query(async ({ input }) => {
-        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/agents`);
-      }),
-
-    agentDetail: superAdminProcedure
-      .input(z.object({ agentId: z.string() }))
-      .query(async ({ input }) => {
-        return callPaperclip<unknown>(`/api/agents/${input.agentId}`);
-      }),
-
-    issues: superAdminProcedure
-      .input(z.object({ companyId: z.string(), assigneeAgentId: z.string().optional() }))
-      .query(async ({ input }) => {
-        const qs = input.assigneeAgentId ? `?assigneeAgentId=${input.assigneeAgentId}` : "";
-        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/issues${qs}`);
-      }),
-
-    costs: superAdminProcedure
-      .input(z.object({ companyId: z.string() }))
-      .query(async ({ input }) => {
-        return callPaperclip<unknown>(`/api/companies/${input.companyId}/costs/summary`);
-      }),
-
-    heartbeatRuns: superAdminProcedure
-      .input(z.object({ companyId: z.string() }))
-      .query(async ({ input }) => {
-        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/heartbeat-runs`);
-      }),
-
-    goals: superAdminProcedure
-      .input(z.object({ companyId: z.string() }))
-      .query(async ({ input }) => {
-        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/goals`);
-      }),
-
-    wakeAgent: superAdminProcedure
-      .input(z.object({ agentId: z.string() }))
-      .mutation(async ({ input }) => {
-        return callPaperclip<unknown>(`/api/agents/${input.agentId}/wakeup`, { method: "POST" });
-      }),
-
-    pauseAgent: superAdminProcedure
-      .input(z.object({ agentId: z.string() }))
-      .mutation(async ({ input }) => {
-        return callPaperclip<unknown>(`/api/agents/${input.agentId}/pause`, { method: "POST" });
-      }),
-
-    resumeAgent: superAdminProcedure
-      .input(z.object({ agentId: z.string() }))
-      .mutation(async ({ input }) => {
-        return callPaperclip<unknown>(`/api/agents/${input.agentId}/resume`, { method: "POST" });
-      }),
-
-    createIssue: superAdminProcedure
-      .input(z.object({
-        companyId: z.string(),
-        title: z.string(),
-        description: z.string().optional(),
-        priority: z.enum(["low", "medium", "high"]).optional(),
-        assigneeId: z.string().optional(),
-      }))
-      .mutation(async ({ input }) => {
-        const { companyId, ...body } = input;
-        return callPaperclip<unknown>(`/api/companies/${companyId}/issues`, { method: "POST", body });
-      }),
-
-    issueComments: superAdminProcedure
-      .input(z.object({ issueId: z.string() }))
-      .query(async ({ input }) => {
-        return callPaperclip<unknown[]>(`/api/issues/${input.issueId}/comments?order=asc&limit=200`);
-      }),
-
-    addComment: superAdminProcedure
-      .input(z.object({ issueId: z.string(), body: z.string().min(1) }))
-      .mutation(async ({ input }) => {
-        return callPaperclip<unknown>(`/api/issues/${input.issueId}/comments`, {
-          method: "POST",
-          body: { body: input.body },
-        });
       }),
   }),
 

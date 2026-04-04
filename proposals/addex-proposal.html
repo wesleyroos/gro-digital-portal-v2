@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Addex — Website Rebuild Proposal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      background: #fff;
+      color: #111;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 800px; margin: 0 auto; padding: 0 40px 80px; }
+
+    /* ── Top bar ── */
+    .topbar {
+      border-bottom: 1px solid #e5e5e5;
+      padding: 18px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 56px;
+    }
+    .topbar-left { font-size: 12px; color: #999; letter-spacing: 0.03em; }
+    .topbar-left strong { color: #111; font-weight: 600; }
+    .topbar-logo { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; color: #111; }
+    .topbar-logo span { font-weight: 300; }
+
+    /* ── Header ── */
+    .header { margin-bottom: 56px; }
+
+    .header-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #1D4ED8;
+      margin-bottom: 12px;
+    }
+
+    .header h1 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #111;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .header-body {
+      font-size: 15px;
+      color: #555;
+      line-height: 1.75;
+      max-width: 580px;
+      border-left: 3px solid #1D4ED8;
+      padding-left: 20px;
+      margin-bottom: 28px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .meta-item { padding: 14px 18px; border-right: 1px solid #e5e5e5; }
+    .meta-item:last-child { border-right: none; }
+    .meta-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #999; margin-bottom: 4px; }
+    .meta-value { font-size: 13px; font-weight: 500; color: #111; }
+
+    /* ── Section ── */
+    .section { margin-bottom: 56px; }
+
+    .section-eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-eyebrow::after { content: ''; flex: 1; height: 1px; background: #e5e5e5; }
+
+    /* ── Problem / opportunity ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: #e5e5e5;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .two-col-item { background: #fff; padding: 20px 22px; }
+    .two-col-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #999; margin-bottom: 8px; }
+    .two-col-body { font-size: 13px; color: #444; line-height: 1.7; }
+
+    /* ── Design directions ── */
+    .dir-card {
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 22px 24px;
+      margin-bottom: 10px;
+      text-decoration: none;
+      display: block;
+      color: inherit;
+    }
+
+    .dir-card.recommended { border-color: #1D4ED8; border-width: 1.5px; }
+
+    .dir-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+    .dir-card-title { font-size: 15px; font-weight: 600; color: #111; }
+
+    .dir-card-url { font-size: 11px; color: #bbb; font-family: 'Courier New', monospace; margin-bottom: 10px; }
+
+    .dir-card-desc { font-size: 13px; color: #666; line-height: 1.65; margin-bottom: 12px; }
+
+    .dir-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .dir-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; background: #f5f5f5; color: #666; font-weight: 500; }
+
+    .rec-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #eff6ff;
+      color: #1D4ED8;
+      border: 1px solid #bfdbfe;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .dir-note {
+      font-size: 13px;
+      color: #888;
+      padding: 14px 18px;
+      background: #fafafa;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+
+    /* ── Scope ── */
+    .scope-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f5f5f5;
+      font-size: 13px;
+    }
+    .scope-item:last-child { border-bottom: none; }
+    .scope-dot { width: 4px; height: 4px; border-radius: 50%; background: #1D4ED8; flex-shrink: 0; margin-top: 8px; }
+    .scope-text { flex: 1; color: #444; line-height: 1.6; }
+    .scope-text strong { font-weight: 600; color: #111; }
+
+    /* ── Investment ── */
+    .investment-block {
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .investment-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+    .investment-row:last-child { border-bottom: none; }
+    .investment-row.total { background: #fafafa; border-top: 1px solid #e5e5e5; border-bottom: none; }
+    .investment-row.total .row-label { font-weight: 600; font-size: 15px; color: #111; }
+    .investment-row.total .row-amount { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+    .row-label { color: #555; }
+    .row-label small { display: block; font-size: 11px; color: #aaa; margin-top: 2px; font-weight: 400; }
+    .row-amount { font-weight: 600; color: #111; text-align: right; flex-shrink: 0; }
+
+    /* ── CTA ── */
+    .cta {
+      border: 1px solid #111;
+      border-radius: 8px;
+      padding: 36px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 40px;
+      margin-bottom: 56px;
+    }
+    .cta-left { flex: 1; }
+    .cta h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+    .cta p { font-size: 13px; color: #666; line-height: 1.7; max-width: 340px; }
+    .cta-right { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+
+    .btn-primary {
+      display: block;
+      padding: 11px 24px;
+      background: #1D4ED8;
+      color: #fff;
+      font-weight: 600;
+      border-radius: 6px;
+      font-size: 13px;
+      text-decoration: none;
+      text-align: center;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .btn-secondary {
+      display: block;
+      padding: 11px 24px;
+      border: 1px solid #e5e5e5;
+      color: #111;
+      font-weight: 500;
+      border-radius: 6px;
+      font-size: 13px;
+      text-decoration: none;
+      text-align: center;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .cta-contact { margin-top: 4px; font-size: 11px; color: #bbb; text-align: center; line-height: 1.9; }
+
+    /* ── Footer ── */
+    .footer {
+      border-top: 1px solid #e5e5e5;
+      padding-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .footer-left { font-size: 12px; color: #bbb; line-height: 1.9; }
+    .footer-right { font-size: 12px; color: #bbb; text-align: right; line-height: 1.9; }
+
+    @media (max-width: 640px) {
+      .page { padding: 0 20px 60px; }
+      .topbar { flex-direction: column; gap: 6px; margin-bottom: 40px; }
+      .header h1 { font-size: 26px; }
+      .meta-grid { grid-template-columns: 1fr 1fr; }
+      .meta-item:nth-child(2) { border-right: none; }
+      .meta-item:nth-child(3) { border-top: 1px solid #e5e5e5; }
+      .meta-item:nth-child(4) { border-right: none; border-top: 1px solid #e5e5e5; }
+      .two-col { grid-template-columns: 1fr; }
+      .cta { flex-direction: column; padding: 24px; gap: 20px; }
+      .cta-right { width: 100%; }
+      .btn-primary, .btn-secondary { width: 100%; }
+      .footer { flex-direction: column; gap: 12px; }
+      .footer-right { text-align: left; }
+    }
+
+    @media print { .page { padding: 0 20px 40px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-left">Prepared for <strong>Inshaan Omar</strong> &nbsp;·&nbsp; Addex</div>
+      <div class="topbar-logo">GRO<span>digital</span></div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+      <div class="header-eyebrow">Website Rebuild — Phase 1</div>
+      <h1>A site that sells Addex, not just explains it.</h1>
+      <p class="header-body">
+        The current site gets the idea across. It doesn't land the punch. We're proposing a full custom rebuild — bold, SME-first, and built around the one argument that wins every time: your pricing makes Google Ads and Meta look absurd.
+      </p>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <div class="meta-label">Prepared by</div>
+          <div class="meta-value">Gro Digital</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">For</div>
+          <div class="meta-value">Inshaan Omar · Addex</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Date</div>
+          <div class="meta-value">April 2026</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Valid for</div>
+          <div class="meta-value">30 days</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Problem / opportunity -->
+    <div class="section">
+      <div class="section-eyebrow">The Opportunity</div>
+      <div class="two-col">
+        <div class="two-col-item">
+          <div class="two-col-label">Current site</div>
+          <div class="two-col-body">Built on Durable.com — thin fonts, flat layout, no real hierarchy. It describes Addex. It doesn't make an SME owner stop scrolling and think <em>I need to be on this.</em></div>
+        </div>
+        <div class="two-col-item">
+          <div class="two-col-label">New site</div>
+          <div class="two-col-body">Bold, dark, punchy. The R10 CPM stat in the hero. A comparison table that makes Google Ads look expensive. Video embeds ready when your producer delivers. A clear path to sign up — no asterisk.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design directions -->
+    <div class="section">
+      <div class="section-eyebrow">Design Directions — Pick Your Feel</div>
+
+      <p style="font-size:13px;color:#666;line-height:1.7;margin-bottom:20px;max-width:560px;">
+        We've built four distinct directions for you to click through. Each one has a different energy — not just a different colour. Tell us which <em>feeling</em> resonates and we apply Addex's palette and content to it. You said bold, punchy, in-your-face — we treat your Canva mockup as the floor.
+      </p>
+
+      <a class="dir-card recommended" href="https://bold-brown.vercel.app/" target="_blank">
+        <div class="dir-card-head">
+          <div class="dir-card-title">Direction 01 — Raw &amp; Dominant</div>
+          <span class="rec-badge">Our recommendation</span>
+        </div>
+        <div class="dir-card-url">bold-brown.vercel.app ↗</div>
+        <div class="dir-card-desc">Heavy display type, brutalist layout, high contrast — text fills the screen. The "NO EXCUSES / ONLY RESULTS" energy maps directly to "intent finds opportunity." This direction would be genuinely unusual in South African ad-tech. It would stand out. It's the closest to your Canva mockup, but bolder.</div>
+        <div class="dir-tags">
+          <span class="dir-tag">Brutalist</span>
+          <span class="dir-tag">Heavy type</span>
+          <span class="dir-tag">Dark bg</span>
+          <span class="dir-tag">Closest to mockup</span>
+        </div>
+      </a>
+
+      <a class="dir-card" href="https://dramatic-phi.vercel.app/" target="_blank">
+        <div class="dir-card-head">
+          <div class="dir-card-title">Direction 02 — Editorial Dramatic</div>
+        </div>
+        <div class="dir-card-url">dramatic-phi.vercel.app ↗</div>
+        <div class="dir-card-desc">Fashion-editorial layout — large imagery, asymmetric grid, strong vertical rhythm. Feels premium and curated. Works well if you want to lean into the "discover amazing SA businesses" consumer story. Carries some risk of feeling more lifestyle than ad-tech.</div>
+        <div class="dir-tags">
+          <span class="dir-tag">Editorial</span>
+          <span class="dir-tag">Asymmetric grid</span>
+          <span class="dir-tag">Premium feel</span>
+        </div>
+      </a>
+
+      <a class="dir-card" href="https://artistic-puce.vercel.app/" target="_blank">
+        <div class="dir-card-head">
+          <div class="dir-card-title">Direction 03 — Artistic &amp; Crafted</div>
+        </div>
+        <div class="dir-card-url">artistic-puce.vercel.app ↗</div>
+        <div class="dir-card-desc">Warm, organic aesthetic. Curved type, tactile surfaces, scroll-driven motion. Beautiful for the consumer discovery story. Weaker for the SME advertiser pitch — better suited to Phase 2 when consumer growth becomes the focus.</div>
+        <div class="dir-tags">
+          <span class="dir-tag">Organic</span>
+          <span class="dir-tag">Consumer-first</span>
+          <span class="dir-tag">Motion-rich</span>
+        </div>
+      </a>
+
+      <a class="dir-card" href="https://flat-woad.vercel.app/" target="_blank">
+        <div class="dir-card-head">
+          <div class="dir-card-title">Direction 04 — Clean SaaS</div>
+        </div>
+        <div class="dir-card-url">flat-woad.vercel.app ↗</div>
+        <div class="dir-card-desc">Modern flat design, clean grids, standard SaaS layout. Very readable, very safe. Won't put anyone off — won't stop anyone mid-scroll either. Best if the priority is information clarity over brand impact.</div>
+        <div class="dir-tags">
+          <span class="dir-tag">Flat</span>
+          <span class="dir-tag">SaaS feel</span>
+          <span class="dir-tag">Low risk</span>
+        </div>
+      </a>
+
+      <div class="dir-note">
+        Pick a top 1 or 2 — we'll set up a 30-minute call to confirm the direction, then build starts immediately.
+      </div>
+    </div>
+
+    <!-- Scope -->
+    <div class="section">
+      <div class="section-eyebrow">What's Included</div>
+
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>Full custom build</strong> — no page builders, no Durable, no WordPress. Hosted on Xneelo, DNS transferred from GoDaddy.</div></div>
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>Hero section</strong> — bold headline, R10 CPM front and centre, dual CTA (advertiser primary / app download secondary), app store badges.</div></div>
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>Competitor comparison table</strong> — Addex vs Google Ads vs Meta vs Programmatic. Your strongest argument, made impossible to miss.</div></div>
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>3 × video embed sections</strong> — What is Addex / Customer journey / Advertiser journey. Placeholder containers built now, swapped when your videos are ready.</div></div>
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>How it works</strong> — dual flow showing the advertiser journey and consumer journey side by side.</div></div>
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>Pricing section</strong> — free local / R300pm national / R10 CPM campaign — a standalone section, not a footnote.</div></div>
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>Social proof + FAQ</strong> — businesses seeded count, precision targeting explainer, and a redesigned FAQ with the existing content (already well-written).</div></div>
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>Sign-up form</strong> — clear path to backend.addex.co.za registration. "Get free advertising" — no asterisk.</div></div>
+      <div class="scope-item"><span class="scope-dot"></span><div class="scope-text"><strong>Analytics</strong> — Google Analytics 4 + Hotjar heatmap configured on launch.</div></div>
+
+    </div>
+
+    <!-- Investment -->
+    <div class="section">
+      <div class="section-eyebrow">Investment</div>
+      <div class="investment-block">
+        <div class="investment-row">
+          <div class="row-label">
+            Website design &amp; build
+            <small>Full custom site · all sections above · two rounds of revisions</small>
+          </div>
+          <div class="row-amount">TBC on sign-off</div>
+        </div>
+        <div class="investment-row">
+          <div class="row-label">
+            DNS transfer &amp; hosting setup
+            <small>Move to Xneelo · SSL · CDN · speed optimisation</small>
+          </div>
+          <div class="row-amount">Included</div>
+        </div>
+        <div class="investment-row">
+          <div class="row-label">
+            Ongoing hosting
+            <small>Xneelo — billed monthly from launch</small>
+          </div>
+          <div class="row-amount">~R350 / mo</div>
+        </div>
+        <div class="investment-row total">
+          <div class="row-label">Payment terms</div>
+          <div class="row-amount">50% on acceptance · 50% on launch</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <div class="cta-left">
+        <h2>Ready to move?</h2>
+        <p>Click through the four directions above, pick your favourite, and reply to this proposal. We'll set up a 30-minute call, confirm the direction, and get started the same week.</p>
+      </div>
+      <div class="cta-right">
+        <a href="mailto:wesley@grodigital.co.za?subject=Addex%20Proposal%20%E2%80%94%20Let%27s%20go" class="btn-primary">Reply to accept</a>
+        <a href="https://www.grodigital.co.za" class="btn-secondary">View our work</a>
+        <div class="cta-contact">
+          wesley@grodigital.co.za<br />
+          +27 72 484 9014
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-left">
+        Gro Digital (Pty) Ltd · 2020/064443/07<br />
+        Darter Studios, Cape Town, 8001
+      </div>
+      <div class="footer-right">
+        Valid for 30 days · April 2026<br />
+        All prices inclusive of VAT
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

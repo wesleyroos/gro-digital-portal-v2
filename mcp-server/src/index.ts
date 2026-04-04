@@ -328,6 +328,68 @@ function createMcpServer(): McpServer {
     })
   );
 
+  // ── Outreach Tools ────────────────────────────────────────────────────
+
+  server.tool(
+    "get_prospects",
+    "List all outreach prospects with their status, lead score, contact info, and pipeline stage",
+    { status: z.enum(["new", "emailed", "replied", "converted"]).optional().describe("Filter by status (optional)") },
+    withLogging("get_prospects", async ({ status }) => {
+      try {
+        const prospects = await trpcQuery<any[]>("outreach.prospect.list");
+        const filtered = status ? prospects.filter((p: any) => p.status === status) : prospects;
+        return { content: [{ type: "text", text: JSON.stringify(filtered, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    })
+  );
+
+  server.tool(
+    "update_prospect_status",
+    "Move an outreach prospect to a new status in the pipeline",
+    {
+      prospect_id: z.number().describe("The prospect's numeric ID"),
+      status: z.enum(["new", "emailed", "replied", "converted"]).describe("New status"),
+    },
+    withLogging("update_prospect_status", async ({ prospect_id, status }) => {
+      try {
+        await trpcMutation("outreach.prospect.update", { id: prospect_id, status });
+        return { content: [{ type: "text", text: `Prospect ${prospect_id} moved to "${status}".` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    })
+  );
+
+  server.tool(
+    "create_prospect",
+    "Add a new outreach prospect to the pipeline",
+    {
+      business_name: z.string().describe("Business name"),
+      contact_name: z.string().optional().describe("Contact person's name"),
+      contact_email: z.string().optional().describe("Contact email"),
+      website: z.string().optional().describe("Business website URL"),
+      industry: z.string().optional().describe("Industry or vertical"),
+      notes: z.string().optional().describe("Notes about why this is a good prospect"),
+    },
+    withLogging("create_prospect", async ({ business_name, contact_name, contact_email, website, industry, notes }) => {
+      try {
+        const result = await trpcMutation("outreach.prospect.create", {
+          businessName: business_name,
+          contactName: contact_name,
+          contactEmail: contact_email,
+          website,
+          industry,
+          notes,
+        });
+        return { content: [{ type: "text", text: `Prospect "${business_name}" created with ID ${result.id}.` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Failed: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    })
+  );
+
   return server;
 }
 

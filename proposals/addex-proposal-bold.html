@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Addex — Website Rebuild</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:        #0D0E13;
+      --surface:   #1E2028;
+      --surface2:  #16181F;
+      --border:    #2A2C36;
+      --accent:    #d1ee21;
+      --teal:      #00B4AA;
+      --text:      #FFFFFF;
+      --muted:     #A0A6B0;
+      --dim:       #5A6070;
+      --font-display: 'Archivo Black', sans-serif;
+      --font-body:    'Inter', sans-serif;
+      --font-mono:    'JetBrains Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 900px; margin: 0 auto; padding: 0 48px; }
+
+    /* ── Topbar ── */
+    .topbar {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar-meta { font-size: 12px; color: var(--dim); letter-spacing: 0.03em; }
+    .topbar-meta strong { color: var(--muted); font-weight: 500; }
+    .topbar-logo { font-family: var(--font-display); font-size: 14px; letter-spacing: 0.06em; color: var(--text); }
+    .topbar-logo span { color: var(--accent); }
+
+    /* ── Hero ── */
+    .hero { padding: 80px 0 72px; border-bottom: 1px solid var(--border); }
+
+    .hero-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .hero-eyebrow::before { content: ''; width: 24px; height: 1px; background: var(--accent); }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(44px, 7vw, 72px);
+      line-height: 1.0;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 32px;
+      max-width: 700px;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+
+    .hero-body {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.8;
+      max-width: 520px;
+      margin-bottom: 40px;
+    }
+
+    .hero-stats {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      max-width: 520px;
+    }
+    .hero-stat { flex: 1; padding: 18px 24px; border-right: 1px solid var(--border); }
+    .hero-stat:last-child { border-right: none; }
+    .hero-stat-val { font-family: var(--font-display); font-size: 26px; color: var(--text); line-height: 1; margin-bottom: 4px; }
+    .hero-stat-val.accent { color: var(--accent); }
+    .hero-stat-label { font-size: 11px; color: var(--dim); letter-spacing: 0.04em; }
+
+    /* ── Section wrapper ── */
+    .section { padding: 72px 0; border-bottom: 1px solid var(--border); }
+    .section:last-of-type { border-bottom: none; }
+
+    /* ── Section header — bold number + line ── */
+    .sec-head {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 36px;
+    }
+
+    .sec-num {
+      font-family: var(--font-display);
+      font-size: 56px;
+      line-height: 1;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+      flex-shrink: 0;
+      margin-right: 20px;
+    }
+
+    .sec-head-right { flex: 1; }
+
+    .sec-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 8px;
+    }
+
+    .sec-rule { height: 1px; background: var(--border); width: 100%; }
+
+    /* ── Opportunity ── */
+    .opp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--border);
+    }
+    .opp-card { background: var(--surface2); padding: 28px 32px; }
+    .opp-card-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px; }
+    .opp-card-label.bad { color: var(--dim); }
+    .opp-card-label.good { color: var(--accent); }
+    .opp-card h3 { font-family: var(--font-display); font-size: 22px; line-height: 1.2; margin-bottom: 12px; }
+    .opp-card h3.bad { color: var(--muted); }
+    .opp-card h3.good { color: var(--text); }
+    .opp-card p { font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.75; }
+
+    /* ── Design directions ── */
+    .dir-intro { font-size: 15px; color: var(--muted); line-height: 1.8; max-width: 560px; margin-bottom: 40px; }
+
+    .dir-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      background: var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .dir-card {
+      background: var(--surface2);
+      padding: 28px 30px;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      transition: background 0.18s;
+    }
+    .dir-card:hover { background: var(--surface); }
+
+    .dir-card.rec {
+      background: var(--surface);
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: start;
+    }
+    .dir-card.rec:hover { background: #1e2030; }
+
+    .rec-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 100px;
+      background: var(--accent);
+      color: var(--bg);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .dir-num { font-family: var(--font-mono); font-size: 10px; color: var(--dim); letter-spacing: 0.1em; margin-bottom: 10px; }
+    .dir-title { font-family: var(--font-display); font-size: 20px; color: var(--text); line-height: 1.2; margin-bottom: 6px; }
+    .dir-card.rec .dir-title { font-size: 26px; }
+    .dir-url { font-family: var(--font-mono); font-size: 11px; color: var(--teal); margin-bottom: 14px; }
+    .dir-url::after { content: ' ↗'; }
+    .dir-desc { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+    .dir-card.rec .dir-desc { font-size: 14px; max-width: 480px; }
+    .dir-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .dir-tag { font-size: 10px; font-family: var(--font-mono); padding: 3px 9px; border-radius: 4px; background: var(--bg); color: var(--dim); letter-spacing: 0.04em; }
+    .dir-card.rec .dir-tag { background: var(--surface2); color: var(--muted); }
+
+    .dir-note { font-size: 13px; color: var(--dim); padding: 14px 20px; border: 1px solid var(--border); border-radius: 8px; }
+    .dir-note strong { color: var(--muted); font-weight: 500; }
+
+    /* ── Audit ── */
+    .audit-scores { margin-top: 28px; }
+
+    .audit-table-head {
+      display: grid;
+      grid-template-columns: 175px 150px 1fr;
+      gap: 16px;
+      padding: 0 0 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .audit-th { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    .audit-th.current { color: #DC2626; }
+    .audit-th.improve { color: var(--teal); }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: 175px 150px 1fr;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .score-row:last-child { border-bottom: none; }
+    .score-label { font-size: 13px; color: var(--text); }
+    .score-mid { display: flex; align-items: center; gap: 10px; }
+    .score-bar-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .score-bar { height: 100%; border-radius: 2px; }
+    .bar-red   { background: #DC2626; }
+    .bar-amber { background: #D97706; }
+    .score-val { width: 36px; text-align: right; font-family: var(--font-mono); font-size: 11px; font-weight: 500; flex-shrink: 0; }
+    .val-red   { color: #DC2626; }
+    .val-amber { color: #D97706; }
+    .score-improve { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.55; }
+    .score-improve em { font-style: normal; color: var(--teal); }
+
+    .audit-flags { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; }
+
+    .audit-flag {
+      font-size: 13px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border-left: 2px solid;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    .audit-flag strong { color: var(--text); font-weight: 600; }
+    .audit-flag.red   { background: rgba(220,38,38,0.07);  border-color: #DC2626; }
+    .audit-flag.amber { background: rgba(217,119,6,0.07);  border-color: #D97706; }
+    .audit-flag.green { background: rgba(0,180,170,0.07);  border-color: var(--teal); }
+
+    /* ── Scope ── */
+    .scope-intro { font-size: 15px; color: var(--text); margin-bottom: 28px; line-height: 1.6; }
+    .scope-table { width: 100%; border-collapse: collapse; }
+    .scope-table tr { border-bottom: 1px solid var(--border); }
+    .scope-table tr:last-child { border-bottom: none; }
+    .scope-table td { padding: 13px 0; vertical-align: top; }
+    .scope-table td:first-child { width: 220px; padding-right: 24px; font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
+    .scope-table td:first-child::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 10px; vertical-align: middle; position: relative; top: -1px; }
+    .scope-table td:last-child { font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.6; }
+    .scope-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .scope-infra { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 20px; }
+    .scope-infra-item { font-size: 12px; font-family: var(--font-mono); color: var(--accent); background: rgba(209,238,33,0.06); border: 1px solid rgba(209,238,33,0.25); border-radius: 3px; padding: 4px 10px; }
+    @media (max-width: 600px) { .scope-table td:first-child { width: auto; white-space: normal; display: block; padding-bottom: 4px; } .scope-table td:last-child { display: block; padding-top: 0; } }
+    .scope-accent { color: var(--accent); }
+
+    /* ── Add-ons ── */
+    .addons-intro { font-size: 14px; color: var(--muted); line-height: 1.75; max-width: 520px; margin-bottom: 32px; }
+
+    .addon-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 20px 24px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s;
+      user-select: none;
+    }
+    .addon-row:hover { border-color: var(--dim); }
+    .addon-row.active { border-color: var(--accent); background: rgba(200, 235, 46, 0.04); }
+
+    .addon-toggle {
+      width: 44px;
+      height: 24px;
+      border-radius: 100px;
+      background: var(--border);
+      flex-shrink: 0;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .addon-toggle::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--dim);
+      top: 3px;
+      left: 3px;
+      transition: left 0.2s, background 0.2s;
+    }
+    .addon-row.active .addon-toggle { background: rgba(200, 235, 46, 0.2); }
+    .addon-row.active .addon-toggle::after { left: 23px; background: var(--accent); }
+
+    .addon-body { flex: 1; }
+    .addon-name { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+    .addon-desc { font-size: 12px; color: rgba(255,255,255,0.65); line-height: 1.5; }
+
+    .addon-price {
+      font-family: var(--font-display);
+      font-size: 18px;
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: color 0.18s;
+      text-align: right;
+    }
+    .addon-price-label { font-family: var(--font-body); font-size: 10px; color: var(--dim); font-weight: 400; display: block; margin-top: 1px; }
+    .addon-row.active .addon-price { color: var(--accent); }
+
+    .addon-summary {
+      margin-top: 20px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .addon-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .addon-summary-row:last-child { border-bottom: none; }
+    .addon-summary-row.total-row {
+      background: var(--surface2);
+      padding: 18px 24px;
+    }
+    .addon-summary-row.total-row .total-label {
+      font-family: var(--font-display);
+      font-size: 15px;
+      color: var(--text);
+    }
+    .addon-summary-row.total-row .total-amount {
+      font-family: var(--font-display);
+      font-size: 28px;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .addon-summary-row.total-row .total-amount span {
+      font-family: var(--font-body);
+      font-size: 13px;
+      color: var(--dim);
+      font-weight: 400;
+    }
+
+    .addon-line-name { }
+    .addon-line-val { font-weight: 500; color: var(--text); }
+    .addon-line-val.off { color: var(--dim); font-weight: 400; }
+
+    /* ── Investment ── */
+    .inv-block { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .inv-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      gap: 24px;
+    }
+    .inv-row:last-child { border-bottom: none; }
+    .inv-row.total { background: var(--surface2); }
+    .inv-label { font-size: 14px; color: var(--text); }
+    .inv-label small { display: block; font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px; font-family: var(--font-mono); }
+    .inv-amount { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
+    .inv-row.total .inv-label { font-weight: 600; color: var(--text); font-size: 15px; }
+    .inv-row.total .inv-amount { color: var(--accent); font-size: 15px; }
+
+    /* ── CTA ── */
+    .cta-block {
+      margin-top: 72px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface2);
+      padding: 48px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 48px;
+      align-items: center;
+    }
+    .cta-block h2 { font-family: var(--font-display); font-size: 36px; line-height: 1.1; color: var(--text); margin-bottom: 12px; }
+    .cta-block h2 em { font-style: normal; color: var(--accent); }
+    .cta-block p { font-size: 14px; color: var(--muted); line-height: 1.75; max-width: 380px; }
+    .cta-actions { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+
+    .btn-primary {
+      display: block;
+      padding: 14px 28px;
+      background: var(--accent);
+      color: var(--bg);
+      font-weight: 700;
+      border-radius: 6px;
+      font-size: 14px;
+      text-decoration: none;
+      text-align: center;
+      white-space: nowrap;
+      font-family: var(--font-body);
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+
+    .btn-secondary {
+      display: block;
+      padding: 13px 28px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 500;
+      border-radius: 6px;
+      font-size: 13px;
+      text-decoration: none;
+      text-align: center;
+      white-space: nowrap;
+      font-family: var(--font-body);
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--muted); color: var(--text); }
+    .cta-contact { font-size: 11px; color: var(--dim); text-align: center; line-height: 2; font-family: var(--font-mono); }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 28px 0;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 48px;
+    }
+    .footer-left { font-size: 11px; color: var(--dim); line-height: 2; font-family: var(--font-mono); }
+    .footer-right { font-size: 11px; color: var(--dim); text-align: right; line-height: 2; font-family: var(--font-mono); }
+
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 480px;
+      transform: translateY(16px);
+      transition: transform 0.2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+
+    .modal-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .modal h2 { font-family: var(--font-display); font-size: 28px; color: var(--text); line-height: 1.1; margin-bottom: 8px; }
+    .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
+
+    .modal-field { margin-bottom: 16px; }
+    .modal-label { font-size: 11px; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); margin-bottom: 7px; display: block; }
+
+    .modal-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 14px;
+      color: var(--text);
+      font-family: var(--font-body);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .modal-input:focus { border-color: var(--accent); }
+    .modal-input::placeholder { color: var(--dim); }
+
+    .modal-select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 14px;
+      color: var(--text);
+      font-family: var(--font-body);
+      outline: none;
+      appearance: none;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .modal-select:focus { border-color: var(--accent); }
+    .modal-select option { background: var(--surface2); }
+
+    .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+
+    .modal-submit {
+      flex: 1;
+      padding: 13px;
+      background: var(--accent);
+      color: var(--bg);
+      font-weight: 700;
+      font-size: 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: var(--font-body);
+      transition: opacity 0.15s;
+    }
+    .modal-submit:hover { opacity: 0.88; }
+
+    .modal-cancel {
+      padding: 13px 20px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: var(--font-body);
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .modal-cancel:hover { border-color: var(--muted); color: var(--text); }
+
+    .modal-success { display: none; text-align: center; padding: 16px 0; }
+    .modal-success-icon { font-size: 40px; margin-bottom: 16px; }
+    .modal-success h3 { font-family: var(--font-display); font-size: 22px; color: var(--text); margin-bottom: 8px; }
+    .modal-success p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+    /* ── Responsive ── */
+    @media (max-width: 680px) {
+      .wrap { padding: 0 20px; }
+      .hero { padding: 56px 0 48px; }
+      .hero h1 { font-size: 36px; }
+      .hero-stats { flex-direction: column; max-width: 100%; }
+      .hero-stat { border-right: none; border-bottom: 1px solid var(--border); }
+      .hero-stat:last-child { border-bottom: none; }
+      .sec-num { font-size: 36px; }
+      .sec-head { margin-bottom: 28px; }
+      .section { padding: 48px 0; }
+      .opp-grid { grid-template-columns: 1fr; }
+      .opp-card { padding: 22px 20px; }
+      .audit-table-head { display: none; }
+      .score-row { grid-template-columns: 1fr; gap: 8px; padding: 16px 0; }
+      .score-mid { order: 2; }
+      .score-label { font-size: 13px; font-weight: 600; color: var(--text); order: 1; }
+      .score-improve { order: 3; padding-top: 4px; }
+      .dir-grid { grid-template-columns: 1fr; }
+      .dir-card.rec { grid-column: auto; grid-template-columns: 1fr; gap: 12px; }
+      .dir-card, .dir-card.rec { padding: 22px 20px; }
+      .addon-row { padding: 16px 18px; gap: 14px; }
+      .addon-price { font-size: 16px; }
+      .inv-row { flex-direction: column; gap: 4px; padding: 14px 18px; }
+      .inv-amount { font-size: 13px; }
+      .inv-row.total { flex-direction: row; }
+      .inv-row.total .inv-amount { font-size: 15px; }
+      .cta-block { grid-template-columns: 1fr; padding: 32px 24px; gap: 24px; }
+      .cta-block h2 { font-size: 28px; }
+      .modal { padding: 28px 24px; }
+      .modal h2 { font-size: 22px; }
+      .modal-actions { flex-direction: column; }
+
+      .footer { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .footer-right { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar -->
+  <div class="wrap">
+    <div class="topbar">
+      <div class="topbar-meta">Prepared for <strong>Inshaan Omar</strong> &nbsp;·&nbsp; Addex &nbsp;·&nbsp; April 2026</div>
+      <div class="topbar-logo">GRO<span>.</span>DIGITAL</div>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero-eyebrow">Website Rebuild — Phase 1</div>
+      <h1>A site that<br><em>sells</em> <em>Addex.</em><br>Not just explains it.</h1>
+      <p class="hero-body">The current site gets the idea across. It doesn't land the punch. We're proposing a full custom rebuild — bold, SME-first, built around the one argument that wins every time: your pricing makes Google Ads and Meta look absurd.</p>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-val accent">R10</div>
+          <div class="hero-stat-label">CPM — your headline number</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">~700</div>
+          <div class="hero-stat-label">Businesses seeded</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">97</div>
+          <div class="hero-stat-label">App downloads today</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 01: Site Audit -->
+  <div class="wrap">
+    <div class="section">
+      <div class="sec-head">
+        <div class="sec-num">01</div>
+        <div class="sec-head-right">
+          <div class="sec-title">Current Site Audit · addex.co.za</div>
+          <div class="sec-rule"></div>
+        </div>
+      </div>
+
+      <p style="font-size:12px;font-family:var(--font-mono);letter-spacing:0.08em;text-transform:uppercase;color:var(--dim);margin-bottom:16px;">What exists today vs. what we build</p>
+
+      <div class="opp-grid">
+        <div class="opp-card">
+          <div class="opp-card-label bad">Current site</div>
+          <h3 class="bad">Explains Addex.</h3>
+          <p>Built on Durable.com — thin fonts, flat layout, no hierarchy, no emotional pull. An SME owner lands on it and understands the concept. They don't feel the urgency to sign up.</p>
+        </div>
+        <div class="opp-card">
+          <div class="opp-card-label good">New site</div>
+          <h3 class="good">Sells Addex.</h3>
+          <p>Bold, punchy, R10 CPM in the hero. A comparison table that makes Google Ads look expensive. Video embeds ready when Botha Films delivers. One clear path to sign up — no asterisk.</p>
+        </div>
+      </div>
+
+      <div class="audit-scores">
+        <div class="audit-table-head">
+          <span class="audit-th">Dimension</span>
+          <span class="audit-th current">Current site</span>
+          <span class="audit-th improve">Our approach</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Visual impact</span>
+          <div class="score-mid">
+            <div class="score-bar-wrap"><div class="score-bar bar-red" style="width:15%"></div></div>
+            <span class="score-val val-red">1.5/10</span>
+          </div>
+          <div class="score-improve"><em>Archivo Black</em> hero, dark palette, chartreuse accents — immediate brand authority above the fold</div>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Brand credibility</span>
+          <div class="score-mid">
+            <div class="score-bar-wrap"><div class="score-bar bar-red" style="width:25%"></div></div>
+            <span class="score-val val-red">2.5/10</span>
+          </div>
+          <div class="score-improve">Custom build signals investment; <em>comparison table</em> positions Addex as a serious contender against Google and Meta</div>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Advertiser conversion</span>
+          <div class="score-mid">
+            <div class="score-bar-wrap"><div class="score-bar bar-amber" style="width:30%"></div></div>
+            <span class="score-val val-amber">3/10</span>
+          </div>
+          <div class="score-improve">SME-first CTA hierarchy, <em>R10 CPM in the hero</em>, comparison table as the primary conversion argument — no asterisk</div>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Mobile experience</span>
+          <div class="score-mid">
+            <div class="score-bar-wrap"><div class="score-bar bar-amber" style="width:45%"></div></div>
+            <span class="score-val val-amber">4.5/10</span>
+          </div>
+          <div class="score-improve"><em>Mobile-first build</em> with app UI mockups, persistent app store CTAs, and touch-optimised interactions throughout</div>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Technical flexibility</span>
+          <div class="score-mid">
+            <div class="score-bar-wrap"><div class="score-bar bar-red" style="width:10%"></div></div>
+            <span class="score-val val-red">1/10</span>
+          </div>
+          <div class="score-improve"><em>Full custom build</em> — no platform ceiling. Video embeds, animations, interactive tables, and future integrations all become possible</div>
+        </div>
+      </div>
+
+      <div class="audit-flags">
+        <div class="audit-flag red"><strong>Platform ceiling.</strong> Durable.com has zero customisation capability — no custom video embeds, no interactive comparison tables, no animation. It cannot be improved from within.</div>
+        <div class="audit-flag red"><strong>Missing: comparison table.</strong> No Addex vs Google Ads vs Meta vs Programmatic anywhere on the live site. This is your single strongest conversion argument and it doesn't exist.</div>
+        <div class="audit-flag amber"><strong>Conversion flow.</strong> Consumer and advertiser CTAs compete without prioritisation. The asterisk on "Get Free Advertising" signals a catch before the page even loads.</div>
+        <div class="audit-flag green"><strong>Strength: the copy.</strong> Your FAQ content, pricing transparency, and blog posts are genuinely well-written. The raw material is good — the treatment is letting it down.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 02: Design Directions -->
+  <div class="wrap">
+    <div class="section">
+      <div class="sec-head">
+        <div class="sec-num">02</div>
+        <div class="sec-head-right">
+          <div class="sec-title">Design Directions — Pick Your Feel</div>
+          <div class="sec-rule"></div>
+        </div>
+      </div>
+
+      <p class="dir-intro">Four directions, each with a different energy. Click through, pick the feeling that resonates — then we apply Addex's palette and content to it. You said bold, punchy, in-your-face. We treat your Canva mockup as the floor.</p>
+
+      <div class="dir-grid">
+        <a class="dir-card rec" href="https://bold-brown.vercel.app/" target="_blank">
+          <div>
+            <div class="dir-num">01</div>
+            <div class="dir-title">Raw &amp; Dominant</div>
+            <div class="dir-url">bold-brown.vercel.app</div>
+            <div class="dir-desc">Heavy display type, brutalist layout, high contrast — text fills the screen. The "NO EXCUSES / ONLY RESULTS" energy maps directly to "intent finds opportunity." Genuinely unusual in South African ad-tech. Closest to your Canva mockup — but bolder.</div>
+            <div class="dir-tags">
+              <span class="dir-tag">Brutalist</span>
+              <span class="dir-tag">Heavy type</span>
+              <span class="dir-tag">Dark bg</span>
+              <span class="dir-tag">Closest to mockup</span>
+            </div>
+          </div>
+          <div><span class="rec-pill">Our pick</span></div>
+        </a>
+
+        <a class="dir-card" href="https://dramatic-phi.vercel.app/" target="_blank">
+          <div class="dir-num">02</div>
+          <div class="dir-title">Editorial Dramatic</div>
+          <div class="dir-url">dramatic-phi.vercel.app</div>
+          <div class="dir-desc">Large imagery, asymmetric grid, strong vertical rhythm. Premium and curated. Best if you want to lean into the "discover amazing SA businesses" story. May feel more lifestyle than ad-tech.</div>
+          <div class="dir-tags"><span class="dir-tag">Editorial</span><span class="dir-tag">Asymmetric</span><span class="dir-tag">Premium</span></div>
+        </a>
+
+        <a class="dir-card" href="https://artistic-puce.vercel.app/" target="_blank">
+          <div class="dir-num">03</div>
+          <div class="dir-title">Artistic &amp; Crafted</div>
+          <div class="dir-url">artistic-puce.vercel.app</div>
+          <div class="dir-desc">Warm, organic aesthetic. Curved type, tactile surfaces, scroll-driven motion. Beautiful for the consumer discovery story — weaker for the SME advertiser pitch. Better suited to Phase 2.</div>
+          <div class="dir-tags"><span class="dir-tag">Organic</span><span class="dir-tag">Motion-rich</span><span class="dir-tag">Consumer-first</span></div>
+        </a>
+
+        <a class="dir-card" href="https://flat-woad.vercel.app/" target="_blank">
+          <div class="dir-num">04</div>
+          <div class="dir-title">Clean SaaS</div>
+          <div class="dir-url">flat-woad.vercel.app</div>
+          <div class="dir-desc">Flat design, clean grids, standard SaaS layout. Readable and safe. Won't put anyone off — won't stop anyone mid-scroll either. Best if information clarity beats brand impact.</div>
+          <div class="dir-tags"><span class="dir-tag">Flat</span><span class="dir-tag">SaaS</span><span class="dir-tag">Low risk</span></div>
+        </a>
+      </div>
+
+      <div class="dir-note"><strong>Next step:</strong> click through the four directions above, pick your top 1 or 2, and reply to this proposal. We'll confirm the direction on a 30-min call and start the same week.</div>
+    </div>
+  </div>
+
+  <!-- 03: Scope -->
+  <div class="wrap">
+    <div class="section">
+      <div class="sec-head">
+        <div class="sec-num">03</div>
+        <div class="sec-head-right">
+          <div class="sec-title">Scope of Work</div>
+          <div class="sec-rule"></div>
+        </div>
+      </div>
+
+      <p class="scope-intro">10 pages. Custom-built. No page builders. Hosted on Xneelo.</p>
+      <table class="scope-table">
+        <tr>
+          <td>Home <span style="font-weight:400;color:var(--dim);font-size:11px;display:block;margin-top:2px;">/</span></td>
+          <td>The flagship. Long-scroll, conversion-first. Hero with bold headline and R10 CPM front and centre — dual CTA (advertiser primary, app download secondary) with iOS + Android badges. How It Works section showing both the advertiser and consumer journey side by side. Competitor comparison table pitting Addex against Google Ads, Meta, and programmatic. Pricing section with all 3 tiers clearly laid out. 3× video embed containers (slots built now, videos dropped in when ready). Social proof block with businesses-seeded stat. FAQ. Sign-up form with clear path to registration.</td>
+        </tr>
+        <tr>
+          <td>About <span style="font-weight:400;color:var(--dim);font-size:11px;display:block;margin-top:2px;">/about</span></td>
+          <td>Brand story, mission statement, vision, and all 6 company values — designed to build trust with both advertisers and investors. Team intro section.</td>
+        </tr>
+        <tr>
+          <td>Customers <span style="font-weight:400;color:var(--dim);font-size:11px;display:block;margin-top:2px;">/customers</span></td>
+          <td>Consumer-facing page. Explains the app value proposition, free local advertising angle, and why it's worth downloading. Testimonials block. iOS + Android download CTAs. Designed to drive app installs.</td>
+        </tr>
+        <tr>
+          <td>Businesses <span style="font-weight:400;color:var(--dim);font-size:11px;display:block;margin-top:2px;">/businesses</span></td>
+          <td>Advertiser-facing page. Benefits breakdown, R10 CPM pricing made prominent, business logo strip for social proof. Primary CTA drives to sign-up / contact. Speaks directly to the decision-maker, not the consumer.</td>
+        </tr>
+        <tr>
+          <td>Blog <span style="font-weight:400;color:var(--dim);font-size:11px;display:block;margin-top:2px;">/blog</span></td>
+          <td>Blog index with article cards. Two full article layouts using Inshaan's existing long-form content — "Addex vs Programmatic Advertising" and "Addex's Unique Approach to Digital Advertising." Both are well-written and SEO-relevant; they just need proper design treatment. Article pages include author, read time, share, and related post block.</td>
+        </tr>
+        <tr>
+          <td>Legal <span style="font-weight:400;color:var(--dim);font-size:11px;display:block;margin-top:2px;">3 pages</span></td>
+          <td>User T&amp;Cs, Privacy Policy, Cookie Policy. Same template, clean and readable — no one reads these but everyone notices when they look broken. On-brand with the rest of the site.</td>
+        </tr>
+      </table>
+      <div class="scope-infra">
+        <span class="scope-infra-item">Mobile-first responsive</span>
+        <span class="scope-infra-item">SEO-ready markup</span>
+        <span class="scope-infra-item">Analytics setup</span>
+        <span class="scope-infra-item">DNS transfer + SSL</span>
+        <span class="scope-infra-item">1× revision round</span>
+        <span class="scope-infra-item">3× video embed containers</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04: Add-ons -->
+  <div class="wrap">
+    <div class="section">
+      <div class="sec-head">
+        <div class="sec-num">04</div>
+        <div class="sec-head-right">
+          <div class="sec-title">Monthly Add-ons — Build Your Retainer</div>
+          <div class="sec-rule"></div>
+        </div>
+      </div>
+
+      <p class="addons-intro">Toggle on the services you want after launch. Your monthly total updates below.</p>
+
+      <div class="addon-row" data-price="750" onclick="toggleAddon(this)">
+        <div class="addon-toggle"></div>
+        <div class="addon-body">
+          <div class="addon-name">Hosting, Maintenance &amp; Updates</div>
+          <div class="addon-desc">Xneelo hosting, uptime monitoring, software patches, backups, and ongoing content updates — copy changes, image swaps, document replacements.</div>
+        </div>
+        <div class="addon-price">R750<span class="addon-price-label">/ month</span></div>
+      </div>
+
+      <div class="addon-row" data-price="249" onclick="toggleAddon(this)">
+        <div class="addon-toggle"></div>
+        <div class="addon-body">
+          <div class="addon-name">Security &amp; Uptime</div>
+          <div class="addon-desc">SSL, firewall, malware scanning, 24/7 uptime monitoring with incident alerts. Peace of mind while you focus on growing the platform.</div>
+        </div>
+        <div class="addon-price">R249<span class="addon-price-label">/ month</span></div>
+      </div>
+
+      <div class="addon-row" data-price="350" onclick="toggleAddon(this)">
+        <div class="addon-toggle"></div>
+        <div class="addon-body">
+          <div class="addon-name">Performance Analytics</div>
+          <div class="addon-desc">Monthly report covering traffic, conversion rates, top-performing pages, and actionable recommendations. Know what's working — fix what isn't.</div>
+        </div>
+        <div class="addon-price">R350<span class="addon-price-label">/ month</span></div>
+      </div>
+
+      <div class="addon-row" data-price="650" onclick="toggleAddon(this)">
+        <div class="addon-toggle"></div>
+        <div class="addon-body">
+          <div class="addon-name">Chat Lead Capture Bot</div>
+          <div class="addon-desc">A lightweight chat widget that qualifies and captures advertiser enquiries 24/7 — collects business name, contact, and interest level, then routes to your inbox.</div>
+        </div>
+        <div class="addon-price">R650<span class="addon-price-label">/ month</span></div>
+      </div>
+
+      <div class="addon-summary">
+        <div class="addon-summary-row" id="line-hosting">
+          <span class="addon-line-name">Hosting, Maintenance &amp; Updates</span>
+          <span class="addon-line-val off" id="val-hosting">Not selected</span>
+        </div>
+        <div class="addon-summary-row" id="line-security">
+          <span class="addon-line-name">Security &amp; Uptime</span>
+          <span class="addon-line-val off" id="val-security">Not selected</span>
+        </div>
+        <div class="addon-summary-row" id="line-analytics">
+          <span class="addon-line-name">Performance Analytics</span>
+          <span class="addon-line-val off" id="val-analytics">Not selected</span>
+        </div>
+        <div class="addon-summary-row" id="line-chat">
+          <span class="addon-line-name">Chat Lead Capture Bot</span>
+          <span class="addon-line-val off" id="val-chat">Not selected</span>
+        </div>
+        <div class="addon-summary-row total-row">
+          <span class="total-label">Monthly retainer</span>
+          <span class="total-amount" id="addon-total">R0 <span>/ month</span></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 05: Development Costs -->
+  <div class="wrap">
+    <div class="section">
+      <div class="sec-head">
+        <div class="sec-num">05</div>
+        <div class="sec-head-right">
+          <div class="sec-title">Development Costs — Once-off</div>
+          <div class="sec-rule"></div>
+        </div>
+      </div>
+      <div class="inv-block">
+        <div class="inv-row">
+          <div class="inv-label">
+            Homepage
+            <small>Hero, comparison table, 3× video embeds, dual CTA flow, pricing, FAQ, social proof</small>
+          </div>
+          <div class="inv-amount">R9,500</div>
+        </div>
+        <div class="inv-row">
+          <div class="inv-label">
+            About page
+            <small>Mission, vision, 6 values — straightforward</small>
+          </div>
+          <div class="inv-amount">R2,000</div>
+        </div>
+        <div class="inv-row">
+          <div class="inv-label">
+            Blog index + post template
+            <small>One template covers all future posts</small>
+          </div>
+          <div class="inv-amount">R2,000</div>
+        </div>
+        <div class="inv-row">
+          <div class="inv-label">
+            Legal template
+            <small>One build, three pages — T&amp;Cs, privacy, cookie</small>
+          </div>
+          <div class="inv-amount">R500</div>
+        </div>
+        <div class="inv-row">
+          <div class="inv-label">
+            DNS transfer &amp; hosting setup
+            <small>Xneelo · SSL · CDN · speed config</small>
+          </div>
+          <div class="inv-amount" style="color:var(--teal)">Included</div>
+        </div>
+        <div class="inv-row" style="opacity:0.85;">
+          <div class="inv-label">
+            Startup discount — 15%
+            <small>97 downloads and a vision. We've seen worse bets pay off. So we're here to help.</small>
+          </div>
+          <div class="inv-amount" style="color:var(--accent);">−R2,100</div>
+        </div>
+        <div class="inv-row total">
+          <div class="inv-label">Total once-off</div>
+          <div class="inv-amount" style="font-family:var(--font-display);font-size:22px;letter-spacing:-0.02em;">R11,900</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 06: Investment summary -->
+  <div class="wrap">
+    <div class="section">
+      <div class="sec-head">
+        <div class="sec-num">06</div>
+        <div class="sec-head-right">
+          <div class="sec-title">Investment Summary</div>
+          <div class="sec-rule"></div>
+        </div>
+      </div>
+      <div class="inv-block">
+        <div class="inv-row">
+          <div class="inv-label">
+            Once-off build
+            <small>Full site as scoped above · 15% startup discount applied</small>
+          </div>
+          <div class="inv-amount">R11,900</div>
+        </div>
+        <div class="inv-row">
+          <div class="inv-label">
+            Monthly retainer
+            <small>Based on your selections in Section 04</small>
+          </div>
+          <div class="inv-amount" id="summary-monthly">R1,999 / mo</div>
+        </div>
+        <div class="inv-row total">
+          <div class="inv-label">Payment terms</div>
+          <div class="inv-amount">50% on acceptance &nbsp;·&nbsp; 50% on launch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="wrap">
+    <div class="cta-block">
+      <div>
+        <h2>Ready to<br><em>move?</em></h2>
+        <p>Click through the four directions, pick your favourite, and reply. We set up a 30-minute call, confirm the direction, and get started the same week.</p>
+      </div>
+      <div class="cta-actions">
+        <a href="mailto:wesley@grodigital.co.za?subject=Addex%20%E2%80%94%20Let%27s%20go" class="btn-primary">Accept proposal ↗</a>
+        <a href="https://www.grodigital.co.za" class="btn-secondary">View our work</a>
+        <div class="cta-contact">
+          wesley@grodigital.co.za<br />
+          +27 72 484 9014
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="wrap">
+    <div class="footer">
+      <div class="footer-left">
+        Gro Digital (Pty) Ltd · 2020/064443/07<br />
+        Darter Studios, Cape Town, 8001
+      </div>
+      <div class="footer-right">
+        Valid 30 days · April 2026<br />
+        All prices inclusive of VAT
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Accept modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+    <div class="modal" id="modal">
+
+      <div id="modal-form-content">
+        <div class="modal-eyebrow">Let's get started</div>
+        <h2>Accept proposal</h2>
+        <p class="modal-sub">We'll reach out within one business day to set up the direction call and kick things off.</p>
+
+        <div class="modal-field">
+          <label class="modal-label" for="m-name">Your name</label>
+          <input class="modal-input" id="m-name" type="text" placeholder="Inshaan Omar" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label" for="m-email">Email address</label>
+          <input class="modal-input" id="m-email" type="email" placeholder="inshaan@addex.co.za" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label" for="m-direction">Preferred design direction</label>
+          <select class="modal-select" id="m-direction">
+            <option value="">Not sure yet</option>
+            <option value="01">Direction 01 — Raw &amp; Dominant</option>
+            <option value="02">Direction 02 — Editorial Dramatic</option>
+            <option value="03">Direction 03 — Artistic &amp; Crafted</option>
+            <option value="04">Direction 04 — Clean SaaS</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label" for="m-note">Anything to add? <span style="color:var(--dim);font-size:10px;">(optional)</span></label>
+          <input class="modal-input" id="m-note" type="text" placeholder="Questions, timing, anything else..." />
+        </div>
+
+        <div class="modal-actions">
+          <button class="modal-submit" onclick="submitModal()">Accept &amp; send ↗</button>
+          <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+        </div>
+      </div>
+
+      <div class="modal-success" id="modal-success">
+        <div class="modal-success-icon">✦</div>
+        <h3>We're on it.</h3>
+        <p>Thanks, Inshaan. Wesley will be in touch within one business day to lock in the direction and get the build started.</p>
+        <button class="modal-cancel" style="margin-top:24px;width:100%;" onclick="closeModal()">Close</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const addonMeta = [
+      { row: document.querySelectorAll('.addon-row')[0], valEl: document.getElementById('val-hosting'),  price: 750,  label: 'R750' },
+      { row: document.querySelectorAll('.addon-row')[1], valEl: document.getElementById('val-security'), price: 249,  label: 'R249' },
+      { row: document.querySelectorAll('.addon-row')[2], valEl: document.getElementById('val-analytics'),price: 350,  label: 'R350' },
+      { row: document.querySelectorAll('.addon-row')[3], valEl: document.getElementById('val-chat'),     price: 650,  label: 'R650' },
+    ];
+
+    function toggleAddon(rowEl) {
+      rowEl.classList.toggle('active');
+      updateTotal();
+    }
+
+    function updateTotal() {
+      let total = 0;
+      addonMeta.forEach(({ row, valEl, price, label }) => {
+        const on = row.classList.contains('active');
+        valEl.textContent = on ? label + ' / mo' : 'Not selected';
+        valEl.classList.toggle('off', !on);
+        if (on) total += price;
+      });
+      const totalEl = document.getElementById('addon-total');
+      const summaryEl = document.getElementById('summary-monthly');
+      const formatted = total === 0 ? 'R0' : `R${total.toLocaleString('en-ZA')}`;
+      totalEl.innerHTML = `${formatted} <span>/ month</span>`;
+      if (summaryEl) summaryEl.textContent = total === 0 ? '—' : `${formatted} / mo`;
+    }
+
+    // Auto-select hosting only on load
+    document.addEventListener('DOMContentLoaded', () => {
+      addonMeta[0].row.classList.add('active');
+      updateTotal();
+    });
+
+    // Modal
+    function openModal() {
+      document.getElementById('modal-overlay').classList.add('open');
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => document.getElementById('m-name').focus(), 200);
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modal-overlay')) closeModal();
+    }
+
+    function submitModal() {
+      const name      = document.getElementById('m-name').value.trim();
+      const email     = document.getElementById('m-email').value.trim();
+      const direction = document.getElementById('m-direction').value;
+      const note      = document.getElementById('m-note').value.trim();
+
+      if (!name || !email) {
+        document.getElementById('m-name').style.borderColor = name ? '' : '#DC2626';
+        document.getElementById('m-email').style.borderColor = email ? '' : '#DC2626';
+        return;
+      }
+
+      const dirLabel = direction ? `Design direction: ${direction}\n` : '';
+      const noteText = note ? `Note: ${note}\n` : '';
+      const body = encodeURIComponent(
+        `Hi Wesley,\n\nI'd like to accept the Addex website rebuild proposal.\n\n${dirLabel}${noteText}\nName: ${name}\nEmail: ${email}\n\nLet's get started.`
+      );
+
+      window.location.href = `mailto:wesley@grodigital.co.za?subject=Addex%20Proposal%20%E2%80%94%20Accepted&body=${body}`;
+
+      document.getElementById('modal-form-content').style.display = 'none';
+      document.getElementById('modal-success').style.display = 'block';
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+  </script>
+
+</body>
+</html>
