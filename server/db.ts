@@ -1946,9 +1946,25 @@ export async function upsertProject(data: {
 }) {
   const db = await getDb();
   if (!db) return;
-  await db
-    .insert(projects)
-    .values({
+
+  const existing = await db.select({ id: projects.id, commitCount: projects.commitCount })
+    .from(projects)
+    .where(eq(projects.repoPath, data.repoPath))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.update(projects)
+      .set({
+        name: data.name,
+        lastCommitMessage: data.lastCommitMessage ?? null,
+        lastCommitAt: data.lastCommitAt ?? null,
+        branch: data.branch ?? null,
+        ...(data.currentFocus !== undefined ? { currentFocus: data.currentFocus } : {}),
+        commitCount: (existing[0].commitCount ?? 0) + 1,
+      })
+      .where(eq(projects.repoPath, data.repoPath));
+  } else {
+    await db.insert(projects).values({
       name: data.name,
       repoPath: data.repoPath,
       lastCommitMessage: data.lastCommitMessage ?? null,
@@ -1956,15 +1972,6 @@ export async function upsertProject(data: {
       branch: data.branch ?? null,
       currentFocus: data.currentFocus ?? null,
       commitCount: 1,
-    })
-    .onDuplicateKeyUpdate({
-      set: {
-        name: data.name,
-        lastCommitMessage: data.lastCommitMessage ?? null,
-        lastCommitAt: data.lastCommitAt ?? null,
-        branch: data.branch ?? null,
-        ...(data.currentFocus !== undefined ? { currentFocus: data.currentFocus } : {}),
-        commitCount: sql`commitCount + 1`,
-      },
     });
+  }
 }
