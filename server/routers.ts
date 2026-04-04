@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { callPaperclip } from './paperclip';
 import { buildAndSendRecurringInvoice } from './scheduler';
 import sharp from 'sharp';
 import { COOKIE_NAME } from "@shared/const";
@@ -39,8 +40,6 @@ import {
   createLead,
   updateLead,
   deleteLead,
-  getHenryHistory,
-  getAgentHistory,
   getGoogleRefreshToken,
   clearGoogleTokens,
   getSubscriptions,
@@ -714,18 +713,91 @@ export const appRouter = router({
       }),
   }),
 
-  henry: router({
-    history: adminProcedure.query(async ({ ctx }) => {
-      const openId = ctx.user!.openId;
-      return getHenryHistory(openId);
+  paperclip: router({
+    companies: superAdminProcedure.query(async () => {
+      return callPaperclip<unknown[]>("/api/companies");
     }),
-  }),
 
-  agent: router({
-    history: adminProcedure
-      .input(z.object({ agentSlug: z.string() }))
-      .query(async ({ ctx, input }) => {
-        return getAgentHistory(ctx.user!.openId, input.agentSlug);
+    agents: superAdminProcedure
+      .input(z.object({ companyId: z.string() }))
+      .query(async ({ input }) => {
+        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/agents`);
+      }),
+
+    agentDetail: superAdminProcedure
+      .input(z.object({ agentId: z.string() }))
+      .query(async ({ input }) => {
+        return callPaperclip<unknown>(`/api/agents/${input.agentId}`);
+      }),
+
+    issues: superAdminProcedure
+      .input(z.object({ companyId: z.string() }))
+      .query(async ({ input }) => {
+        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/issues`);
+      }),
+
+    costs: superAdminProcedure
+      .input(z.object({ companyId: z.string() }))
+      .query(async ({ input }) => {
+        return callPaperclip<unknown>(`/api/companies/${input.companyId}/costs`);
+      }),
+
+    heartbeatRuns: superAdminProcedure
+      .input(z.object({ companyId: z.string() }))
+      .query(async ({ input }) => {
+        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/heartbeat-runs`);
+      }),
+
+    goals: superAdminProcedure
+      .input(z.object({ companyId: z.string() }))
+      .query(async ({ input }) => {
+        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/goals`);
+      }),
+
+    wakeAgent: superAdminProcedure
+      .input(z.object({ agentId: z.string() }))
+      .mutation(async ({ input }) => {
+        return callPaperclip<unknown>(`/api/agents/${input.agentId}/wakeup`, { method: "POST" });
+      }),
+
+    pauseAgent: superAdminProcedure
+      .input(z.object({ agentId: z.string() }))
+      .mutation(async ({ input }) => {
+        return callPaperclip<unknown>(`/api/agents/${input.agentId}/pause`, { method: "POST" });
+      }),
+
+    resumeAgent: superAdminProcedure
+      .input(z.object({ agentId: z.string() }))
+      .mutation(async ({ input }) => {
+        return callPaperclip<unknown>(`/api/agents/${input.agentId}/resume`, { method: "POST" });
+      }),
+
+    createIssue: superAdminProcedure
+      .input(z.object({
+        companyId: z.string(),
+        title: z.string(),
+        description: z.string().optional(),
+        priority: z.enum(["low", "medium", "high"]).optional(),
+        assigneeId: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { companyId, ...body } = input;
+        return callPaperclip<unknown>(`/api/companies/${companyId}/issues`, { method: "POST", body });
+      }),
+
+    issueComments: superAdminProcedure
+      .input(z.object({ issueId: z.string() }))
+      .query(async ({ input }) => {
+        return callPaperclip<unknown[]>(`/api/issues/${input.issueId}/comments?order=asc&limit=200`);
+      }),
+
+    addComment: superAdminProcedure
+      .input(z.object({ issueId: z.string(), body: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        return callPaperclip<unknown>(`/api/issues/${input.issueId}/comments`, {
+          method: "POST",
+          body: { body: input.body },
+        });
       }),
   }),
 

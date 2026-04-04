@@ -39,4 +39,6 @@ export const ENV = {
   firecrawlApiKey: process.env.FIRECRAWL_API_KEY ?? "",
   portalUrl: (process.env.PORTAL_URL ?? "").trim(),
   appUrl: (process.env.APP_URL ?? "").trim(),
+  paperclipApiUrl: (process.env.PAPERCLIP_API_URL ?? "").trim(),
+  paperclipApiKey: process.env.PAPERCLIP_API_KEY ?? "",
 };
