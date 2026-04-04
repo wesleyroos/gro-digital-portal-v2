@@ -33,8 +33,8 @@ type PComment = {
   id: string;
   body: string;
   createdAt?: string;
-  actorType?: string;
-  actorId?: string;
+  authorUserId?: string | null;
+  authorAgentId?: string | null;
 };
 type PHeartbeatRun = {
   id: string;
@@ -131,7 +131,7 @@ function AgentChat({ agent, companyId, onClose }: {
     ...(serverComments as PComment[]).map(c => ({
       id: c.id,
       body: c.body,
-      isMe: c.actorType === "user" || c.actorType === "board",
+      isMe: !!c.authorUserId,
       ts: c.createdAt ? new Date(c.createdAt).getTime() : 0,
     })),
     ...localMsgs.filter(m => !serverIds.has(m.id)),
