@@ -78,55 +78,42 @@ export default function Projects() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
           {projects.map(project => (
             <Card key={project.id} className="hover:shadow-sm transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${statusDot(project.status)}`} />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-sm">{project.name}</p>
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusColor(project.status)}`}>
-                          {project.status}
-                        </Badge>
-                      </div>
-                      {project.currentFocus && (
-                        <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                          {project.currentFocus}
-                        </p>
-                      )}
-                      {project.lastCommitMessage && (
-                        <div className="flex items-center gap-1.5 mt-2">
-                          <GitCommit className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <p className="text-xs text-muted-foreground truncate">{project.lastCommitMessage}</p>
-                        </div>
-                      )}
-                    </div>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(project.status)}`} />
+                    <p className="font-semibold text-sm truncate">{project.name}</p>
                   </div>
-
-                  <div className="flex flex-col items-end gap-1.5 shrink-0 text-right">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>{timeAgo(project.updatedAt)}</span>
-                    </div>
-                    {project.branch && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <GitBranch className="h-3 w-3" />
-                        <span>{project.branch}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Activity className="h-3 w-3" />
-                      <span>{project.commitCount} commits</span>
-                    </div>
-                  </div>
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${statusColor(project.status)}`}>
+                    {project.status}
+                  </Badge>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-1.5 text-xs text-muted-foreground/60">
-                  <FolderOpen className="h-3 w-3" />
-                  <span className="font-mono truncate">{project.repoPath}</span>
+                {project.lastCommitMessage && (
+                  <div className="flex items-start gap-1.5 mb-3">
+                    <GitCommit className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{project.lastCommitMessage}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1 pt-2 border-t border-border/50">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <GitBranch className="h-3 w-3" />
+                      <span>{project.branch ?? "—"}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Activity className="h-3 w-3" />
+                      <span>{project.commitCount}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                    <Clock className="h-3 w-3" />
+                    <span>{timeAgo(project.updatedAt)}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
