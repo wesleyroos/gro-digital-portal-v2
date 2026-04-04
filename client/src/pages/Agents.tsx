@@ -102,20 +102,18 @@ function StatCard({ icon: Icon, label, value, sub, accent }: {
 }
 
 // ── Agent chat panel ─────────────────────────────────────────────────────────
-type LocalMsg = { id: string; body: string; isMe: true; ts: number };
-
 function AgentChat({ agent, companyId, onClose }: {
   agent: PAgent;
   companyId: string;
   onClose: () => void;
 }) {
+  const utils = trpc.useUtils();
   const storageKey = `paperclip-chat-issue-${agent.id}`;
   const [chatIssueId, setChatIssueId] = useState<string | null>(
     () => localStorage.getItem(storageKey)
   );
-  // Optimistic local messages (user's own, shown immediately)
-  const [localMsgs, setLocalMsgs] = useState<LocalMsg[]>([]);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
   const pendingFirstMsg = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -125,23 +123,19 @@ function AgentChat({ agent, companyId, onClose }: {
     { enabled: !!chatIssueId, refetchInterval: 4000 },
   ) as { data: PComment[] };
 
-  // Merge: server comments + local optimistic (dedup by body+time)
-  const serverIds = new Set((serverComments as PComment[]).map(c => c.id));
-  const allMessages = [
-    ...(serverComments as PComment[]).map(c => ({
+  const messages = (serverComments as PComment[])
+    .map(c => ({
       id: c.id,
       body: c.body,
       isMe: !!c.authorUserId,
       ts: c.createdAt ? new Date(c.createdAt).getTime() : 0,
-    })),
-    ...localMsgs.filter(m => !serverIds.has(m.id)),
-  ].sort((a, b) => a.ts - b.ts);
+    }))
+    .sort((a, b) => a.ts - b.ts);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [allMessages.length]);
+  }, [messages.length]);
 
-  // Focus input on open
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const createIssue = trpc.paperclip.createIssue.useMutation({
@@ -149,30 +143,32 @@ function AgentChat({ agent, companyId, onClose }: {
       const issue = data as { id: string };
       localStorage.setItem(storageKey, issue.id);
       setChatIssueId(issue.id);
-      // Now post the first message as a comment so it appears in the thread
       if (pendingFirstMsg.current) {
-        addComment.mutate({ issueId: issue.id, body: pendingFirstMsg.current });
+        await addComment.mutateAsync({ issueId: issue.id, body: pendingFirstMsg.current });
         wakeAgent.mutate({ agentId: agent.id });
         pendingFirstMsg.current = null;
+        utils.paperclip.issueComments.invalidate({ issueId: issue.id });
       }
+      setSending(false);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => { toast.error(e.message); setSending(false); },
   });
 
   const addComment = trpc.paperclip.addComment.useMutation({
-    onError: (e) => toast.error(e.message),
+    onSuccess: () => {
+      utils.paperclip.issueComments.invalidate({ issueId: chatIssueId ?? "" });
+      setSending(false);
+    },
+    onError: (e) => { toast.error(e.message); setSending(false); },
   });
 
   const wakeAgent = trpc.paperclip.wakeAgent.useMutation();
 
   function send() {
     const text = draft.trim();
-    if (!text) return;
+    if (!text || sending) return;
     setDraft("");
-
-    // Show message optimistically right away
-    const optimisticId = `local-${Date.now()}`;
-    setLocalMsgs(prev => [...prev, { id: optimisticId, body: text, isMe: true, ts: Date.now() }]);
+    setSending(true);
 
     if (!chatIssueId) {
       pendingFirstMsg.current = text;
@@ -200,12 +196,12 @@ function AgentChat({ agent, companyId, onClose }: {
       </div>
 
       <div className="h-64 overflow-y-auto rounded-lg bg-muted/20 p-3 flex flex-col gap-2">
-        {allMessages.length === 0 && (
+        {messages.length === 0 && (
           <p className="text-xs text-muted-foreground text-center m-auto">
             Send a message — {agent.name} will respond on the next run.
           </p>
         )}
-        {allMessages.map(msg => (
+        {messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.isMe ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words ${
               msg.isMe
@@ -232,7 +228,7 @@ function AgentChat({ agent, companyId, onClose }: {
           size="sm"
           className="h-8 w-8 p-0 shrink-0"
           onClick={send}
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || sending}
         >
           <Send className="w-3.5 h-3.5" />
         </Button>
