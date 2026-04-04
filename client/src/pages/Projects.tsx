@@ -28,7 +28,7 @@ function statusDot(status: string) {
 
 export default function Projects() {
   const { data: projects = [], isLoading } = trpc.projects.list.useQuery(undefined, {
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
   });
 
   const active = projects.filter(p => p.status === "active");
