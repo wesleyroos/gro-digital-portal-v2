@@ -190,9 +190,21 @@ function AgentChat({ agent, companyId, onClose }: {
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <MessageSquare className="w-3 h-3" /> Chat with {agent.name}
         </span>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-          <X className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              localStorage.removeItem(storageKey);
+              setChatIssueId(null);
+            }}
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            title="Start new conversation"
+          >
+            New chat
+          </button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="h-64 overflow-y-auto rounded-lg bg-muted/20 p-3 flex flex-col gap-2">
