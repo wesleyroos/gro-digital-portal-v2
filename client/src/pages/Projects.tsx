@@ -73,11 +73,8 @@ export default function Projects() {
             <GitCommit className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
             <p className="font-medium">No projects yet</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Projects appear here automatically when you commit from any repo with the GD git hook installed.
+              Projects appear here automatically after your first commit in any repo. The global git hook is already active on all projects.
             </p>
-            <div className="mt-4 text-left inline-block bg-muted rounded-lg px-4 py-3 text-xs font-mono text-muted-foreground">
-              Run: <span className="text-foreground">gd-hook-install</span> in any project folder
-            </div>
           </CardContent>
         </Card>
       ) : (
