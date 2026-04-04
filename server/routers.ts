@@ -731,9 +731,10 @@ export const appRouter = router({
       }),
 
     issues: superAdminProcedure
-      .input(z.object({ companyId: z.string() }))
+      .input(z.object({ companyId: z.string(), assigneeAgentId: z.string().optional() }))
       .query(async ({ input }) => {
-        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/issues`);
+        const qs = input.assigneeAgentId ? `?assigneeAgentId=${input.assigneeAgentId}` : "";
+        return callPaperclip<unknown[]>(`/api/companies/${input.companyId}/issues${qs}`);
       }),
 
     costs: superAdminProcedure

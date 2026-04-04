@@ -28,6 +28,7 @@ type PIssue = {
   status: string;
   priority?: string;
   assigneeAgentId?: string | null;
+  updatedAt?: string;
 };
 type PComment = {
   id: string;
@@ -108,15 +109,27 @@ function AgentChat({ agent, companyId, onClose }: {
   onClose: () => void;
 }) {
   const utils = trpc.useUtils();
-  const storageKey = `paperclip-chat-issue-${agent.id}`;
-  const [chatIssueId, setChatIssueId] = useState<string | null>(
-    () => localStorage.getItem(storageKey)
-  );
+  const [chatIssueId, setChatIssueId] = useState<string | null>(null);
+  const [forceNew, setForceNew] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const pendingFirstMsg = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-find most recent chat issue for this agent
+  const { data: agentIssues = [] } = trpc.paperclip.issues.useQuery(
+    { companyId, assigneeAgentId: agent.id },
+    { enabled: !forceNew && !chatIssueId, staleTime: 0 },
+  ) as { data: PIssue[] };
+
+  useEffect(() => {
+    if (forceNew || chatIssueId) return;
+    const existing = (agentIssues as PIssue[])
+      .filter(i => i.title?.startsWith("💬 Chat with"))
+      .sort((a, b) => (b as any).updatedAt?.localeCompare?.((a as any).updatedAt ?? "") ?? 0)[0];
+    if (existing) setChatIssueId(existing.id);
+  }, [agentIssues, forceNew, chatIssueId]);
 
   const { data: serverComments = [] } = trpc.paperclip.issueComments.useQuery(
     { issueId: chatIssueId ?? "" },
@@ -141,8 +154,8 @@ function AgentChat({ agent, companyId, onClose }: {
   const createIssue = trpc.paperclip.createIssue.useMutation({
     onSuccess: async (data: unknown) => {
       const issue = data as { id: string };
-      localStorage.setItem(storageKey, issue.id);
       setChatIssueId(issue.id);
+      setForceNew(false);
       if (pendingFirstMsg.current) {
         await addComment.mutateAsync({ issueId: issue.id, body: pendingFirstMsg.current });
         wakeAgent.mutate({ agentId: agent.id });
@@ -193,7 +206,7 @@ function AgentChat({ agent, companyId, onClose }: {
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              localStorage.removeItem(storageKey);
+              setForceNew(true);
               setChatIssueId(null);
             }}
             className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
