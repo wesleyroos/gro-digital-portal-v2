@@ -129,6 +129,12 @@ import {
   getAiInteractions,
   getProjects,
   upsertProject,
+  getQuotes,
+  getQuoteByToken,
+  createQuote,
+  updateQuote,
+  deleteQuote,
+  signQuote,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
 import Anthropic from "@anthropic-ai/sdk";
@@ -793,6 +799,64 @@ export const appRouter = router({
     listByClient: adminProcedure
       .input(z.object({ clientSlug: z.string() }))
       .query(async ({ input }) => getProposalsByClient(input.clientSlug)),
+  }),
+
+  quote: router({
+    list: adminProcedure.query(async () => getQuotes()),
+
+    getByToken: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const quote = await getQuoteByToken(input.token);
+        if (!quote) return null;
+        return quote;
+      }),
+
+    create: adminProcedure
+      .input(z.object({
+        title: z.string().min(1),
+        clientName: z.string().min(1),
+        clientEmail: z.string().email().optional(),
+        htmlContent: z.string().min(1),
+        status: z.enum(['draft', 'sent']).default('draft'),
+      }))
+      .mutation(async ({ input }) => {
+        const token = await createQuote(input);
+        return { token };
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number().int(),
+        title: z.string().min(1).optional(),
+        clientName: z.string().min(1).optional(),
+        clientEmail: z.string().email().optional(),
+        htmlContent: z.string().min(1).optional(),
+        status: z.enum(['draft', 'sent', 'signed']).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateQuote(id, data);
+        return { success: true };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        await deleteQuote(input.id);
+        return { success: true };
+      }),
+
+    sign: publicProcedure
+      .input(z.object({ token: z.string(), signedBy: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        const quote = await getQuoteByToken(input.token);
+        if (!quote) throw new TRPCError({ code: 'NOT_FOUND', message: 'Quote not found' });
+        if (quote.status === 'signed') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Quote already signed' });
+        const ip = (ctx.req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? ctx.req.socket?.remoteAddress ?? 'unknown';
+        await signQuote(input.token, input.signedBy, ip);
+        return { success: true };
+      }),
   }),
 
   campaign: router({

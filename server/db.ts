@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1974,4 +1974,45 @@ export async function upsertProject(data: {
       commitCount: 1,
     });
   }
+}
+
+// ── Quotes ──────────────────────────────────────────────────────────────────
+
+export async function getQuotes() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(quotes).orderBy(desc(quotes.createdAt));
+}
+
+export async function getQuoteByToken(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(quotes).where(eq(quotes.token, token)).limit(1);
+  return result[0] ?? undefined;
+}
+
+export async function createQuote(data: Omit<InsertQuote, 'token'>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const token = nanoid();
+  await db.insert(quotes).values({ ...data, token });
+  return token;
+}
+
+export async function updateQuote(id: number, data: Partial<InsertQuote>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(quotes).set(data).where(eq(quotes.id, id));
+}
+
+export async function deleteQuote(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(quotes).where(eq(quotes.id, id));
+}
+
+export async function signQuote(token: string, signedBy: string, signerIp: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(quotes).set({ signedBy, signedAt: new Date(), signerIp, status: 'signed' }).where(eq(quotes.token, token));
 }

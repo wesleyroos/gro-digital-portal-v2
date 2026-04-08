@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, Bot, ScrollText, Megaphone, Rocket, Images, Users, Brain, FolderGit2 } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, Bot, ScrollText, Megaphone, Rocket, Images, Users, Brain, FolderGit2, ClipboardSignature } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -49,6 +49,7 @@ const menuGroups = [
       { icon: Rocket, label: "Outreach", path: "/outreach" },
       { icon: Target, label: "Leads", path: "/leads" },
       { icon: ScrollText, label: "Proposals", path: "/proposals" },
+      { icon: ClipboardSignature, label: "Quotes", path: "/quotes" },
     ],
   },
   {

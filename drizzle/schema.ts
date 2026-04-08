@@ -502,3 +502,21 @@ export const userActivity = mysqlTable("userActivity", {
 });
 
 export type UserActivity = typeof userActivity.$inferSelect;
+
+export const quotes = mysqlTable("quotes", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 21 }).unique().notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  clientName: varchar("clientName", { length: 255 }).notNull(),
+  clientEmail: varchar("clientEmail", { length: 320 }),
+  htmlContent: mediumtext("htmlContent").notNull(),
+  status: mysqlEnum("status", ["draft", "sent", "signed"]).default("draft").notNull(),
+  signedBy: varchar("signedBy", { length: 255 }),
+  signedAt: timestamp("signedAt"),
+  signerIp: varchar("signerIp", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Quote = typeof quotes.$inferSelect;
+export type InsertQuote = typeof quotes.$inferInsert;

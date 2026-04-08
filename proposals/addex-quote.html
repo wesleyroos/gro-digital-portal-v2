@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gro Digital — Quote — Addex</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    @page { size: A4; margin: 18mm 18mm 16mm; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 11px;
+      color: #111;
+      background: #fff;
+      line-height: 1.55;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 0 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    .doc-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #111;
+    }
+
+    .logo-lockup {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      font-family: 'Inter', sans-serif;
+    }
+    .logo-box {
+      border: 1.5px solid #111;
+      padding: 3px 6px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      color: #111;
+    }
+    .logo-word {
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: #111;
+      padding-left: 4px;
+    }
+
+    .doc-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+
+    /* ── Meta block ── */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      margin-bottom: 32px;
+    }
+
+    .meta-cell {
+      padding: 12px 0;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .meta-cell:nth-child(odd) { padding-right: 32px; }
+    .meta-cell:nth-child(even) { padding-left: 24px; border-left: 1px solid #e8e8e8; }
+
+    .meta-label {
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #999;
+      margin-bottom: 4px;
+    }
+    .meta-value {
+      font-size: 11.5px;
+      color: #111;
+      line-height: 1.6;
+    }
+    .meta-value strong { font-weight: 600; }
+
+    /* ── Section header ── */
+    .section-head {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #111;
+      padding-bottom: 7px;
+      border-bottom: 1.5px solid #111;
+      margin-bottom: 0;
+    }
+
+    .section-gap { margin-top: 28px; }
+
+    /* ── Line items table ── */
+    table.items {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table.items th {
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #666;
+      padding: 9px 0 8px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    table.items th.center { text-align: center; }
+    table.items th.right  { text-align: right; }
+
+    table.items td {
+      padding: 10px 0;
+      font-size: 11px;
+      color: #111;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: top;
+    }
+
+    table.items td.desc { padding-right: 20px; }
+    table.items td.desc .sub {
+      display: block;
+      font-size: 9.5px;
+      color: #777;
+      margin-top: 2px;
+      line-height: 1.55;
+    }
+
+    table.items td.freq  { text-align: center; color: #555; white-space: nowrap; }
+    table.items td.vat   { text-align: center; color: #555; }
+    table.items td.price { text-align: right; font-weight: 500; white-space: nowrap; }
+
+    table.items td.discount { color: #059669; font-weight: 500; }
+    table.items td.included { color: #059669; font-weight: 500; text-align: right; }
+
+    table.items tr.subtotal td {
+      padding-top: 12px;
+      border-top: 1px solid #ddd;
+      border-bottom: none;
+      font-size: 11px;
+      color: #555;
+    }
+    table.items tr.subtotal td.price { font-weight: 600; color: #111; }
+
+    table.items tr.total td {
+      padding: 11px 0;
+      border-top: 1.5px solid #111;
+      border-bottom: 2px solid #111;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #111;
+    }
+
+    /* ── Scope note ── */
+    .scope-note {
+      font-size: 10px;
+      color: #555;
+      background: #fafafa;
+      border-left: 2px solid #ddd;
+      padding: 9px 13px;
+      margin-top: 10px;
+      line-height: 1.65;
+    }
+    .scope-note strong { color: #111; font-weight: 600; }
+
+    /* ── Payment terms strip ── */
+    .payment-strip {
+      display: flex;
+      gap: 0;
+      margin-top: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .payment-cell {
+      flex: 1;
+      padding: 10px 16px;
+      border-right: 1px solid #e0e0e0;
+    }
+    .payment-cell:last-child { border-right: none; }
+    .payment-cell .plabel { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 3px; }
+    .payment-cell .pval   { font-size: 11px; font-weight: 600; color: #111; }
+
+    /* ── Terms ── */
+    .terms-intro {
+      font-size: 10.5px;
+      color: #444;
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+
+    ol.terms {
+      list-style: none;
+      padding: 0;
+      counter-reset: term-counter;
+    }
+
+    ol.terms li {
+      counter-increment: term-counter;
+      font-size: 10.5px;
+      color: #333;
+      padding: 8px 0 8px 28px;
+      border-bottom: 1px solid #f2f2f2;
+      line-height: 1.65;
+      position: relative;
+    }
+    ol.terms li:last-child { border-bottom: none; }
+
+    ol.terms li::before {
+      content: counter(term-counter) ".";
+      position: absolute;
+      left: 0;
+      top: 8px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #111;
+      width: 22px;
+    }
+
+    ol.terms li strong {
+      font-weight: 700;
+      color: #111;
+    }
+
+    /* ── Signature block ── */
+    .sig-block { page-break-inside: avoid; }
+
+    .sig-warrant {
+      font-size: 11px;
+      color: #222;
+      line-height: 1.8;
+      margin-bottom: 28px;
+    }
+
+    .sig-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 24px;
+    }
+
+    .sig-field .sig-line {
+      border-bottom: 1px solid #111;
+      height: 34px;
+      margin-bottom: 5px;
+    }
+    .sig-field .sig-label {
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #999;
+    }
+
+    .sig-date {
+      font-size: 11px;
+      color: #222;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .blank-sm {
+      display: inline-block;
+      width: 48px;
+      border-bottom: 1px solid #111;
+      height: 16px;
+      vertical-align: bottom;
+    }
+    .blank-md {
+      display: inline-block;
+      width: 120px;
+      border-bottom: 1px solid #111;
+      height: 16px;
+      vertical-align: bottom;
+    }
+
+    /* ── Footer ── */
+    .doc-footer {
+      margin-top: 40px;
+      padding-top: 14px;
+      border-top: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .doc-footer .footer-text {
+      font-size: 9px;
+      color: #bbb;
+      line-height: 1.7;
+    }
+    .doc-footer .footer-logo {
+      font-size: 10px;
+      color: #bbb;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .doc-footer .footer-logo span {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .doc-footer .footer-logo .fb {
+      border: 1px solid #ccc;
+      padding: 1px 4px;
+      font-size: 9px;
+      font-weight: 700;
+      color: #bbb;
+    }
+
+    @media print {
+      body { padding: 0; max-width: 100%; }
+      .section-gap { margin-top: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="logo-lockup">
+      <div class="logo-box">GRO</div>
+      <div class="logo-word">digital</div>
+    </div>
+    <div class="doc-title">Quote</div>
+  </div>
+
+  <!-- Meta -->
+  <div class="meta-grid">
+    <div class="meta-cell">
+      <div class="meta-label">Client</div>
+      <div class="meta-value">
+        <strong>Addex</strong><br />
+        Inshaan Omar
+      </div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Contract Start Date</div>
+      <div class="meta-value">&nbsp;</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Service Provider</div>
+      <div class="meta-value">
+        Gro Digital (Pty) Ltd<br />
+        Darter Studios, Darter Road<br />
+        Longkloof, Gardens, Cape Town, 8001
+      </div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Reference</div>
+      <div class="meta-value">Addex — Website Rebuild · Phase 1</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Quote Date</div>
+      <div class="meta-value">April 2026</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Primary Contact</div>
+      <div class="meta-value">
+        Inshaan Omar<br />
+        inshaan@addex.co.za
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 1: Once-off Development -->
+  <div class="section-head">Once-off Development</div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th class="desc">Description</th>
+        <th class="center">Frequency</th>
+        <th class="center">VAT</th>
+        <th class="right">Unit Price (R)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="desc">Homepage</td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="price">9&thinsp;500,00</td>
+      </tr>
+      <tr>
+        <td class="desc">About page</td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="price">2&thinsp;000,00</td>
+      </tr>
+      <tr>
+        <td class="desc">Blog — index + post template + 2 articles</td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="price">2&thinsp;000,00</td>
+      </tr>
+      <tr>
+        <td class="desc">Legal pages — T&amp;Cs, Privacy Policy, Cookie Policy</td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="price">500,00</td>
+      </tr>
+      <tr>
+        <td class="desc">DNS re-point &amp; hosting setup</td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="included">Included</td>
+      </tr>
+      <tr>
+        <td class="desc">Startup discount — 15%</td>
+        <td class="freq">—</td>
+        <td class="vat">—</td>
+        <td class="price discount">−2&thinsp;100,00</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="total">
+        <td class="desc" colspan="3"><strong>Total — Once-off</strong></td>
+        <td class="price"><strong>11&thinsp;900,00</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="scope-note">
+    <strong>Full scope also includes:</strong> Customers page (consumer-facing — app value proposition, iOS &amp; Android download CTAs, testimonials) and Businesses page (advertiser-facing — benefits, R10 CPM featured prominently, business logo strip, primary sign-up CTA). Both pages are included within the build cost above. All pages are mobile-first responsive, SEO-ready, and analytics-enabled.
+  </div>
+
+  <!-- Section 2: Monthly Retainer -->
+  <div class="section-gap">
+    <div class="section-head">Monthly Retainer — Optional, Activate Post-Launch</div>
+  </div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th class="desc">Description</th>
+        <th class="center">Frequency</th>
+        <th class="center">VAT</th>
+        <th class="right">Unit Price (R)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="desc">Hosting, maintenance &amp; updates</td>
+        <td class="freq">Monthly</td>
+        <td class="vat">No VAT</td>
+        <td class="price">750,00</td>
+      </tr>
+      <tr>
+        <td class="desc">Security &amp; uptime monitoring</td>
+        <td class="freq">Monthly</td>
+        <td class="vat">No VAT</td>
+        <td class="price">249,00</td>
+      </tr>
+      <tr>
+        <td class="desc">Performance analytics — Plausible dashboard</td>
+        <td class="freq">Monthly</td>
+        <td class="vat">No VAT</td>
+        <td class="price">350,00</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="subtotal">
+        <td class="desc" colspan="3">Maximum monthly retainer (all three selected)</td>
+        <td class="price">1&thinsp;349,00</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- Payment terms strip -->
+  <div class="payment-strip" style="margin-top: 14px;">
+    <div class="payment-cell">
+      <div class="plabel">Once-off payment</div>
+      <div class="pval">50% on acceptance &nbsp;·&nbsp; 50% on launch &nbsp;·&nbsp; EFT</div>
+    </div>
+    <div class="payment-cell">
+      <div class="plabel">Monthly retainer</div>
+      <div class="pval">PayFast recurring billing (Visa / Mastercard)</div>
+    </div>
+  </div>
+
+  <!-- Terms and Conditions -->
+  <div class="section-gap">
+    <div class="section-head">Terms and Conditions</div>
+  </div>
+
+  <p class="terms-intro" style="margin-top: 10px;">
+    By signing this quote, the Client agrees to the following terms governing the services provided by Gro Digital (Pty) Ltd.
+  </p>
+
+  <ol class="terms">
+    <li>
+      <strong>Payment.</strong> A deposit of 50% of the once-off build cost is due upon signed acceptance of this quote; the remaining 50% is due upon project launch. Once-off payments are made by EFT. Monthly retainer fees are billed via PayFast recurring billing (Visa/Mastercard). Overdue payments beyond 14 days may result in work being paused until the outstanding balance is settled.
+    </li>
+    <li>
+      <strong>Scope and additional work.</strong> Services will be delivered as defined in this quote. Any requests for features, pages, or functionality not listed above constitute additional work and will be quoted separately. Additional work requires written approval from the Client before commencement. Gro Digital will not proceed with out-of-scope work without prior written authorisation.
+    </li>
+    <li>
+      <strong>Revisions.</strong> Three consolidated revision rounds are included in the once-off build cost. A revision round covers changes to copy, layout, and design based on written feedback provided by the Client. Subsequent revision rounds are billed at R850 per hour. Revisions that constitute new features or scope additions will be treated as additional work under clause 2.
+    </li>
+    <li>
+      <strong>Client responsibilities.</strong> The Client agrees to provide all required materials — including brand assets, copy, photography, credentials, and third-party access — in a timely manner. Any delay in providing materials may affect agreed delivery timelines. Gro Digital will not be held liable for delays arising from late or incomplete materials supplied by the Client.
+    </li>
+    <li>
+      <strong>Updates and turnaround.</strong> Under an active monthly retainer, Gro Digital will aim to action update requests within 6 business hours. This is a best-effort target and does not constitute a guaranteed response time. Business hours are Monday–Friday, 08:00–18:00 SAST, excluding South African public holidays.
+    </li>
+    <li>
+      <strong>Cancellation of monthly retainer.</strong> The monthly retainer may be cancelled at any time with 30 days' written notice. Upon cancellation, Gro Digital will transfer the full project codebase to a client-designated repository (e.g., GitHub) within 5 business days. The Client will thereafter be responsible for their own hosting, maintenance, and ongoing development.
+    </li>
+    <li>
+      <strong>Intellectual property.</strong> All intellectual property developed by Gro Digital specifically for the Client under this agreement — including design, code, and written content — transfers to the Client upon receipt of full payment. Gro Digital retains the right to display the completed work in its portfolio and marketing materials, unless the Client requests otherwise in writing. Any third-party assets, fonts, or libraries remain subject to their respective licences.
+    </li>
+    <li>
+      <strong>Hosting and infrastructure.</strong> The new website will be hosted on Gro Digital's Xneelo infrastructure. The Client has two options for domain management: (a) <strong>Transfer domain to Xneelo</strong> — Gro Digital manages the domain, DNS, and SSL in full, and the Security &amp; Uptime add-on is available; or (b) <strong>Keep domain at GoDaddy</strong> — the site is still hosted on Xneelo, but the Client is responsible for updating DNS records in GoDaddy to point at the Xneelo server, and the Security &amp; Uptime add-on is not available under this arrangement. In both cases the Client's existing backend infrastructure (AWS-hosted application at backend.addex.co.za) is explicitly out of scope and will not be modified under this agreement.
+    </li>
+    <li>
+      <strong>Confidentiality.</strong> Both parties agree to treat as confidential all commercially sensitive information shared during the course of this engagement — including but not limited to business strategies, pricing, customer data, and technical architecture. This obligation survives the termination of this agreement.
+    </li>
+    <li>
+      <strong>Limitation of liability.</strong> Gro Digital's total liability to the Client for any claim arising under or in connection with this agreement — whether in contract, delict, or otherwise — is limited to the total value of fees paid by the Client to Gro Digital in the three months immediately preceding the event giving rise to the claim. Gro Digital is not liable for indirect, consequential, or loss-of-profit damages.
+    </li>
+    <li>
+      <strong>Governing law.</strong> This agreement is governed by and construed in accordance with the laws of the Republic of South Africa. Any disputes arising from this agreement will be subject to the jurisdiction of the South African courts.
+    </li>
+  </ol>
+
+  <!-- Signature block -->
+  <div class="section-gap sig-block">
+    <div class="section-head">Acceptance</div>
+  </div>
+
+  <p class="sig-warrant" style="margin-top: 14px;">
+    I, &nbsp;<span class="blank-md"></span>&nbsp; hereby, on behalf of &nbsp;<span class="blank-md"></span>&nbsp; warrant that I have read and understand the deliverables of this agreement and any additional terms made available to me by Gro Digital (Pty) Ltd. I hereby agree to the aforementioned quote and warrant that I have the authority to do so. In addition, I hereby grant Gro Digital (Pty) Ltd the right to represent my organisation in the manner(s) included in the above deliverables, and to execute those deliverables on my organisation's behalf.
+  </p>
+
+  <div class="sig-fields">
+    <div class="sig-field">
+      <div class="sig-line"></div>
+      <div class="sig-label">Signature</div>
+    </div>
+    <div class="sig-field">
+      <div class="sig-line"></div>
+      <div class="sig-label">Full name &amp; title</div>
+    </div>
+  </div>
+
+  <div class="sig-date">
+    Signed on the &nbsp;<span class="blank-sm"></span>&nbsp; day of &nbsp;<span class="blank-md"></span>&nbsp; 2026
+  </div>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <div class="footer-text">
+      Gro Digital (Pty) Ltd &nbsp;·&nbsp; Reg. 2020/064443/07<br />
+      Darter Studios, Darter Road, Longkloof, Gardens, Cape Town, 8001<br />
+      wesley@grodigital.co.za &nbsp;·&nbsp; +27 72 484 9014
+    </div>
+    <div class="footer-logo">
+      <span><span class="fb">GRO</span> digital</span>
+    </div>
+  </div>
+
+</body>
+</html>

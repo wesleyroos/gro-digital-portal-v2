@@ -21,6 +21,8 @@ import Tasks from "./pages/Tasks";
 import Subscriptions from "./pages/Subscriptions";
 import Agents from "./pages/Agents";
 import Proposals from "./pages/Proposals";
+import Quotes from "./pages/Quotes";
+import SharedQuote from "./pages/SharedQuote";
 import ClientAnalytics from "./pages/ClientAnalytics";
 import Login from "./pages/Login";
 import Marketing from "./pages/Marketing";
@@ -50,6 +52,7 @@ function Router() {
       {/* Public client-facing routes — no sidebar */}
       <Route path={"/client/:slug/invoice/:invoiceNumber"} component={Invoice} />
       <Route path={"/i/:token"} component={SharedInvoice} />
+      <Route path={"/q/:token"} component={SharedQuote} />
       <Route path={"/analytics/:token"} component={ClientAnalytics} />
       <Route path={"/campaign/preview/:token"} component={CampaignPreview} />
 
@@ -111,6 +114,7 @@ function Router() {
                     <Route path={"/subscriptions"} component={Subscriptions} />
                     <Route path={"/agents"} component={Agents} />
                     <Route path={"/proposals"} component={Proposals} />
+                    <Route path={"/quotes"} component={Quotes} />
                     <Route path={"/users"} component={Users} />
                     <Route path={"/ai-log"} component={AiLog} />
                     <Route path={"/projects"} component={Projects} />
