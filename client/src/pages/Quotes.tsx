@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Copy, Trash2, ExternalLink, CheckCircle2 } from "lucide-react";
@@ -149,11 +149,11 @@ export default function Quotes() {
 
       {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={v => { setShowCreate(v); if (!v) resetForm(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
             <DialogTitle>New Quote</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-4 p-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Title</Label>
@@ -190,7 +190,7 @@ export default function Quotes() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-border flex-shrink-0">
             <Button variant="outline" onClick={() => { setShowCreate(false); resetForm(); }}>Cancel</Button>
             <Button
               onClick={handleCreate}
@@ -198,7 +198,7 @@ export default function Quotes() {
             >
               {createMutation.isPending ? "Creating…" : "Create Quote"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
