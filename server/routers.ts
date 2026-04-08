@@ -855,6 +855,29 @@ export const appRouter = router({
         if (quote.status === 'signed') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Quote already signed' });
         const ip = (ctx.req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? ctx.req.socket?.remoteAddress ?? 'unknown';
         await signQuote(input.token, input.signedBy, input.signedCompany, ip);
+
+        if (ENV.resendApiKey) {
+          const resend = new Resend(ENV.resendApiKey);
+          const signedAt = new Date().toLocaleString("en-ZA", { timeZone: "Africa/Johannesburg", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+          const quoteUrl = `${ctx.req.headers['origin'] ?? 'https://portal.grodigital.co.za'}/quotes`;
+          await resend.emails.send({
+            from: ENV.resendFromEmail || 'GRO Digital <noreply@grodigital.co.za>',
+            to: 'wesley@grodigital.co.za',
+            subject: `Quote signed: ${quote.title}`,
+            html: `
+              <p>A quote has been signed.</p>
+              <table style="border-collapse:collapse;margin-top:16px;">
+                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Quote</td><td style="font-size:14px;font-weight:600;">${quote.title}</td></tr>
+                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Signed by</td><td style="font-size:14px;">${input.signedBy}</td></tr>
+                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Company</td><td style="font-size:14px;">${input.signedCompany}</td></tr>
+                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Time</td><td style="font-size:14px;">${signedAt} SAST</td></tr>
+                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">IP</td><td style="font-size:14px;">${ip}</td></tr>
+              </table>
+              <p style="margin-top:24px;"><a href="${quoteUrl}" style="background:#111;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:14px;">View in portal</a></p>
+            `,
+          }).catch(() => { /* best effort — don't fail the sign if email errors */ });
+        }
+
         return { success: true };
       }),
   }),
