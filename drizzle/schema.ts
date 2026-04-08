@@ -513,6 +513,7 @@ export const quotes = mysqlTable("quotes", {
   status: mysqlEnum("status", ["draft", "sent", "signed"]).default("draft").notNull(),
   signedBy: varchar("signedBy", { length: 255 }),
   signedCompany: varchar("signedCompany", { length: 255 }),
+  signerEmail: varchar("signerEmail", { length: 320 }),
   signedAt: timestamp("signedAt"),
   signerIp: varchar("signerIp", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

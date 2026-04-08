@@ -848,34 +848,50 @@ export const appRouter = router({
       }),
 
     sign: publicProcedure
-      .input(z.object({ token: z.string(), signedBy: z.string().min(1), signedCompany: z.string().min(1) }))
+      .input(z.object({ token: z.string(), signedBy: z.string().min(1), signedCompany: z.string().min(1), signerEmail: z.string().email().optional() }))
       .mutation(async ({ input, ctx }) => {
         const quote = await getQuoteByToken(input.token);
         if (!quote) throw new TRPCError({ code: 'NOT_FOUND', message: 'Quote not found' });
         if (quote.status === 'signed') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Quote already signed' });
         const ip = (ctx.req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? ctx.req.socket?.remoteAddress ?? 'unknown';
-        await signQuote(input.token, input.signedBy, input.signedCompany, ip);
+        await signQuote(input.token, input.signedBy, input.signedCompany, ip, input.signerEmail);
 
         if (ENV.resendApiKey) {
           const resend = new Resend(ENV.resendApiKey);
           const signedAt = new Date().toLocaleString("en-ZA", { timeZone: "Africa/Johannesburg", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
           const quoteUrl = `${ctx.req.headers['origin'] ?? 'https://portal.grodigital.co.za'}/quotes`;
-          await resend.emails.send({
-            from: ENV.resendFromEmail || 'GRO Digital <noreply@grodigital.co.za>',
-            to: 'wesley@grodigital.co.za',
-            subject: `Quote signed: ${quote.title}`,
-            html: `
-              <p>A quote has been signed.</p>
-              <table style="border-collapse:collapse;margin-top:16px;">
-                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Quote</td><td style="font-size:14px;font-weight:600;">${quote.title}</td></tr>
-                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Signed by</td><td style="font-size:14px;">${input.signedBy}</td></tr>
-                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Company</td><td style="font-size:14px;">${input.signedCompany}</td></tr>
-                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Time</td><td style="font-size:14px;">${signedAt} SAST</td></tr>
-                <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">IP</td><td style="font-size:14px;">${ip}</td></tr>
-              </table>
-              <p style="margin-top:24px;"><a href="${quoteUrl}" style="background:#111;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:14px;">View in portal</a></p>
-            `,
-          }).catch(() => { /* best effort — don't fail the sign if email errors */ });
+          const from = ENV.resendFromEmail || 'GRO Digital <noreply@grodigital.co.za>';
+
+          const internalHtml = `
+            <p>A quote has been signed.</p>
+            <table style="border-collapse:collapse;margin-top:16px;">
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Quote</td><td style="font-size:14px;font-weight:600;">${quote.title}</td></tr>
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Signed by</td><td style="font-size:14px;">${input.signedBy}</td></tr>
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Company</td><td style="font-size:14px;">${input.signedCompany}</td></tr>
+              ${input.signerEmail ? `<tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Email</td><td style="font-size:14px;">${input.signerEmail}</td></tr>` : ''}
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Time</td><td style="font-size:14px;">${signedAt} SAST</td></tr>
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">IP</td><td style="font-size:14px;">${ip}</td></tr>
+            </table>
+            <p style="margin-top:24px;"><a href="${quoteUrl}" style="background:#111;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:14px;">View in portal</a></p>
+          `;
+
+          const clientHtml = `
+            <p>Hi ${input.signedBy},</p>
+            <p>This email confirms that you have electronically signed and accepted the following quote from Gro Digital.</p>
+            <table style="border-collapse:collapse;margin-top:16px;">
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Quote</td><td style="font-size:14px;font-weight:600;">${quote.title}</td></tr>
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Signed by</td><td style="font-size:14px;">${input.signedBy}</td></tr>
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Company</td><td style="font-size:14px;">${input.signedCompany}</td></tr>
+              <tr><td style="padding:4px 16px 4px 0;color:#666;font-size:14px;">Date</td><td style="font-size:14px;">${signedAt} SAST</td></tr>
+            </table>
+            <p style="margin-top:24px;color:#666;font-size:13px;">If you did not sign this quote or have any questions, please reply to this email or contact wesley@grodigital.co.za.</p>
+            <p style="color:#666;font-size:13px;">— Gro Digital (Pty) Ltd</p>
+          `;
+
+          await Promise.all([
+            resend.emails.send({ from, to: 'wesley@grodigital.co.za', subject: `Quote signed: ${quote.title}`, html: internalHtml }),
+            ...(input.signerEmail ? [resend.emails.send({ from, to: input.signerEmail, subject: `Signed: ${quote.title} — Gro Digital`, html: clientHtml })] : []),
+          ]).catch(() => { /* best effort */ });
         }
 
         return { success: true };

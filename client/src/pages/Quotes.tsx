@@ -188,17 +188,17 @@ export default function Quotes() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Title</Label>
-                <Input placeholder="e.g. Addex — Website Rebuild" value={title} onChange={e => setTitle(e.target.value)} />
+                <Input placeholder="" value={title} onChange={e => setTitle(e.target.value)} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Client name</Label>
-                <Input placeholder="e.g. Inshaan Omar" value={clientName} onChange={e => setClientName(e.target.value)} />
+                <Input placeholder="" value={clientName} onChange={e => setClientName(e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label>Client email <span className="text-muted-foreground">(optional)</span></Label>
-                <Input type="email" placeholder="e.g. inshaan@addex.co.za" value={clientEmail} onChange={e => setClientEmail(e.target.value)} />
+                <Input type="email" placeholder="" value={clientEmail} onChange={e => setClientEmail(e.target.value)} />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -233,7 +233,7 @@ export default function Quotes() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Title</Label>
-                <Input placeholder="e.g. Addex — Website Rebuild" value={title} onChange={e => setTitle(e.target.value)} />
+                <Input placeholder="" value={title} onChange={e => setTitle(e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label>Status</Label>
@@ -249,11 +249,11 @@ export default function Quotes() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Client name</Label>
-                <Input placeholder="e.g. Inshaan Omar" value={clientName} onChange={e => setClientName(e.target.value)} />
+                <Input placeholder="" value={clientName} onChange={e => setClientName(e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label>Client email <span className="text-muted-foreground">(optional)</span></Label>
-                <Input type="email" placeholder="e.g. inshaan@addex.co.za" value={clientEmail} onChange={e => setClientEmail(e.target.value)} />
+                <Input type="email" placeholder="" value={clientEmail} onChange={e => setClientEmail(e.target.value)} />
               </div>
             </div>
             <div className="space-y-1.5">

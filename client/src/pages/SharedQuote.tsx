@@ -14,6 +14,7 @@ export default function SharedQuote() {
 
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
+  const [email, setEmail] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [signed, setSigned] = useState(false);
   const [nameError, setNameError] = useState(false);
@@ -37,7 +38,7 @@ export default function SharedQuote() {
     setNameError(!nameOk);
     setCompanyError(!companyOk);
     if (!nameOk || !companyOk) return;
-    await signMutation.mutateAsync({ token, signedBy: name.trim(), signedCompany: company.trim() });
+    await signMutation.mutateAsync({ token, signedBy: name.trim(), signedCompany: company.trim(), signerEmail: email.trim() || undefined });
     setSigned(true);
   }
 
@@ -113,13 +114,12 @@ export default function SharedQuote() {
                 By signing below you confirm you have read and agree to the terms in this quote.
               </p>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                 <div>
                   <label style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", display: "block", marginBottom: 6 }}>
                     Full name
                   </label>
                   <Input
-                    placeholder="e.g. Inshaan Omar"
                     value={name}
                     onChange={e => { setName(e.target.value); setNameError(false); }}
                     style={nameError ? { borderColor: "#dc2626" } : undefined}
@@ -133,7 +133,6 @@ export default function SharedQuote() {
                     Company
                   </label>
                   <Input
-                    placeholder="e.g. Addex (Pty) Ltd"
                     value={company}
                     onChange={e => { setCompany(e.target.value); setCompanyError(false); }}
                     style={companyError ? { borderColor: "#dc2626" } : undefined}
@@ -142,6 +141,16 @@ export default function SharedQuote() {
                     <p style={{ fontFamily: "sans-serif", fontSize: 11, color: "#dc2626", marginTop: 4 }}>Required</p>
                   )}
                 </div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", display: "block", marginBottom: 6 }}>
+                  Email <span style={{ textTransform: "none", fontWeight: 400, color: "#bbb" }}>(optional — for your copy)</span>
+                </label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
               </div>
 
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 24 }}>
