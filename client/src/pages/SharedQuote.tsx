@@ -13,9 +13,11 @@ export default function SharedQuote() {
   const signMutation = trpc.quote.sign.useMutation();
 
   const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [signed, setSigned] = useState(false);
   const [nameError, setNameError] = useState(false);
+  const [companyError, setCompanyError] = useState(false);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeHeight, setIframeHeight] = useState(900);
@@ -30,9 +32,12 @@ export default function SharedQuote() {
   }
 
   async function handleSign() {
-    if (!name.trim()) { setNameError(true); return; }
-    setNameError(false);
-    await signMutation.mutateAsync({ token, signedBy: name.trim() });
+    const nameOk = !!name.trim();
+    const companyOk = !!company.trim();
+    setNameError(!nameOk);
+    setCompanyError(!companyOk);
+    if (!nameOk || !companyOk) return;
+    await signMutation.mutateAsync({ token, signedBy: name.trim(), signedCompany: company.trim() });
     setSigned(true);
   }
 
@@ -90,6 +95,7 @@ export default function SharedQuote() {
               </p>
               <p style={{ fontFamily: "sans-serif", fontSize: 13, color: "#666", margin: 0, textAlign: "center" }}>
                 Signed by <strong>{quote.signedBy ?? name}</strong>
+                {(quote.signedCompany ?? company) && <> · {quote.signedCompany ?? company}</>}
                 {quote.signedAt && (
                   <> on {new Date(quote.signedAt).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</>
                 )}
@@ -107,19 +113,35 @@ export default function SharedQuote() {
                 By signing below you confirm you have read and agree to the terms in this quote.
               </p>
 
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", display: "block", marginBottom: 6 }}>
-                  Full name
-                </label>
-                <Input
-                  placeholder="e.g. Inshaan Omar"
-                  value={name}
-                  onChange={e => { setName(e.target.value); setNameError(false); }}
-                  style={nameError ? { borderColor: "#dc2626" } : undefined}
-                />
-                {nameError && (
-                  <p style={{ fontFamily: "sans-serif", fontSize: 11, color: "#dc2626", marginTop: 4 }}>Please enter your full name to sign.</p>
-                )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <div>
+                  <label style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", display: "block", marginBottom: 6 }}>
+                    Full name
+                  </label>
+                  <Input
+                    placeholder="e.g. Inshaan Omar"
+                    value={name}
+                    onChange={e => { setName(e.target.value); setNameError(false); }}
+                    style={nameError ? { borderColor: "#dc2626" } : undefined}
+                  />
+                  {nameError && (
+                    <p style={{ fontFamily: "sans-serif", fontSize: 11, color: "#dc2626", marginTop: 4 }}>Required</p>
+                  )}
+                </div>
+                <div>
+                  <label style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", display: "block", marginBottom: 6 }}>
+                    Company
+                  </label>
+                  <Input
+                    placeholder="e.g. Addex (Pty) Ltd"
+                    value={company}
+                    onChange={e => { setCompany(e.target.value); setCompanyError(false); }}
+                    style={companyError ? { borderColor: "#dc2626" } : undefined}
+                  />
+                  {companyError && (
+                    <p style={{ fontFamily: "sans-serif", fontSize: 11, color: "#dc2626", marginTop: 4 }}>Required</p>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 24 }}>

@@ -2011,8 +2011,8 @@ export async function deleteQuote(id: number) {
   await db.delete(quotes).where(eq(quotes.id, id));
 }
 
-export async function signQuote(token: string, signedBy: string, signerIp: string) {
+export async function signQuote(token: string, signedBy: string, signedCompany: string, signerIp: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(quotes).set({ signedBy, signedAt: new Date(), signerIp, status: 'signed' }).where(eq(quotes.token, token));
+  await db.update(quotes).set({ signedBy, signedCompany, signedAt: new Date(), signerIp, status: 'signed' }).where(eq(quotes.token, token));
 }

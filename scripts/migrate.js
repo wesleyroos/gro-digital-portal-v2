@@ -28,6 +28,7 @@ const SAFE_MIGRATIONS = [
   'drizzle/0042_campaign_platform_toggles.sql',
   'drizzle/0043_ai_interactions_table.sql',
   'drizzle/0044_quotes_table.sql',
+  'drizzle/0045_quotes_signed_company.sql',
 ];
 
 for (const relPath of SAFE_MIGRATIONS) {

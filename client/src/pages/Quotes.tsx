@@ -74,7 +74,7 @@ export default function Quotes() {
         </div>
       ) : (
         <div className="rounded-lg border border-border overflow-hidden">
-          <div className="grid grid-cols-[1fr_140px_100px_120px_44px] bg-muted/50 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[1fr_140px_100px_120px_100px] bg-muted/50 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Quote</span>
             <span>Client</span>
             <span className="text-center">Status</span>
@@ -86,7 +86,7 @@ export default function Quotes() {
               const s = (q.status ?? "draft") as Status;
               const badge = STATUS_BADGE[s];
               return (
-                <div key={q.id} className="grid grid-cols-[1fr_140px_100px_120px_44px] items-center px-4 py-3 hover:bg-muted/30 group">
+                <div key={q.id} className="grid grid-cols-[1fr_140px_100px_120px_100px] items-center px-4 py-3 hover:bg-muted/30 group">
                   <div className="min-w-0">
                     <p className="font-medium text-sm truncate">{q.title}</p>
                     {q.signedBy && (

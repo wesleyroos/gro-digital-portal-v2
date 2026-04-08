@@ -848,13 +848,13 @@ export const appRouter = router({
       }),
 
     sign: publicProcedure
-      .input(z.object({ token: z.string(), signedBy: z.string().min(1) }))
+      .input(z.object({ token: z.string(), signedBy: z.string().min(1), signedCompany: z.string().min(1) }))
       .mutation(async ({ input, ctx }) => {
         const quote = await getQuoteByToken(input.token);
         if (!quote) throw new TRPCError({ code: 'NOT_FOUND', message: 'Quote not found' });
         if (quote.status === 'signed') throw new TRPCError({ code: 'BAD_REQUEST', message: 'Quote already signed' });
         const ip = (ctx.req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? ctx.req.socket?.remoteAddress ?? 'unknown';
-        await signQuote(input.token, input.signedBy, ip);
+        await signQuote(input.token, input.signedBy, input.signedCompany, ip);
         return { success: true };
       }),
   }),
