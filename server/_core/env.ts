@@ -41,4 +41,5 @@ export const ENV = {
   appUrl: (process.env.APP_URL ?? "").trim(),
   paperclipApiUrl: (process.env.PAPERCLIP_API_URL ?? "").trim(),
   paperclipApiKey: process.env.PAPERCLIP_API_KEY ?? "",
+  pdfshiftApiKey: process.env.PDFSHIFT_API_KEY ?? "",
 };

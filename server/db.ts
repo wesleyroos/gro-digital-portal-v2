@@ -805,11 +805,40 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
   const toList = recipientEmail.split(',').map(s => s.trim()).filter(Boolean);
   if (toList.length === 0) throw new Error('No recipient email provided');
 
+  // Generate PDF via PDFShift (best-effort — fall back to link-only if it fails)
+  let pdfAttachment: { filename: string; content: string } | null = null;
+  const pdfshiftKey = process.env.PDFSHIFT_API_KEY;
+  if (pdfshiftKey) {
+    try {
+      const pdfRes = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + Buffer.from(`api:${pdfshiftKey}`).toString('base64'),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ source: invoiceUrl, format: 'A4', use_print: true }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (pdfRes.ok) {
+        const buf = Buffer.from(await pdfRes.arrayBuffer());
+        pdfAttachment = {
+          filename: `Invoice-${invoice.invoiceNumber}.pdf`,
+          content: buf.toString('base64'),
+        };
+      } else {
+        console.warn(`[sendInvoiceEmail] PDFShift returned ${pdfRes.status}: ${await pdfRes.text()}`);
+      }
+    } catch (e) {
+      console.warn('[sendInvoiceEmail] PDFShift failed, sending without attachment:', e);
+    }
+  }
+
   const resend = new Resend(apiKey);
   await resend.emails.send({
     from: 'Wesley @ Gro Digital <wesley@grodigital.co.za>',
     to: toList,
     subject: `Invoice ${invoice.invoiceNumber} from Gro Digital`,
+    ...(pdfAttachment ? { attachments: [pdfAttachment] } : {}),
 
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
