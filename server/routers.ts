@@ -3240,7 +3240,10 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         enabled: z.boolean(),
         amount: z.number().min(0),
         description: z.string().min(1).max(512),
-        recipientEmail: z.string().email().nullish(),
+        recipientEmail: z.string().nullish().refine(
+          v => !v || v.split(',').map(s => s.trim()).filter(Boolean).every(e => /^\S+@\S+\.\S+$/.test(e)),
+          { message: 'One or more emails are invalid' }
+        ),
         sendDay: z.number().int().min(1).max(28),
         paymentTerms: z.string().default('Due upon receipt'),
         notes: z.string().nullish(),

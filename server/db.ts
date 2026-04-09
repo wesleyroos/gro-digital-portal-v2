@@ -802,10 +802,13 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
   const amountDue = parseFloat(String(invoice.amountDue)) || 0;
   const formattedAmount = `R${amountDue.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const toList = recipientEmail.split(',').map(s => s.trim()).filter(Boolean);
+  if (toList.length === 0) throw new Error('No recipient email provided');
+
   const resend = new Resend(apiKey);
   await resend.emails.send({
     from: 'Wesley @ Gro Digital <wesley@grodigital.co.za>',
-    to: recipientEmail,
+    to: toList,
     subject: `Invoice ${invoice.invoiceNumber} from Gro Digital`,
 
     html: `

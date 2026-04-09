@@ -1141,8 +1141,9 @@ export default function ClientPortal() {
                         onChange={e => setRecurringDraft(d => ({ ...d, description: e.target.value }))} />
                     </div>
                     <div>
-                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Recipient email (blank = use client email)</label>
-                      <Input type="email" className="mt-1 h-8 text-xs" value={recurringDraft.recipientEmail}
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Recipient emails (comma-separated, blank = use client email)</label>
+                      <Input type="text" className="mt-1 h-8 text-xs" value={recurringDraft.recipientEmail}
+                        placeholder="one@example.com, two@example.com"
                         onChange={e => setRecurringDraft(d => ({ ...d, recipientEmail: e.target.value }))} />
                     </div>
                     <div>
