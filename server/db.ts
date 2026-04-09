@@ -235,11 +235,23 @@ function clientInvoicePrefix(clientSlug: string): string {
  */
 export async function getNextInvoiceNumber(clientSlug: string): Promise<string> {
   const db = await getDb();
-  const prefix = clientInvoicePrefix(clientSlug);
+  if (!db) return `INV-${clientInvoicePrefix(clientSlug)}001`;
+
+  // Prefer the prefix already in use for this client (so manual renumbers
+  // like INV-FND001 propagate to future invoices). Fall back to the
+  // slug-derived default if the client has no invoices yet.
+  const recent = await db
+    .select({ invoiceNumber: invoices.invoiceNumber })
+    .from(invoices)
+    .where(eq(invoices.clientSlug, clientSlug))
+    .orderBy(desc(invoices.id))
+    .limit(1);
+
+  let prefix = clientInvoicePrefix(clientSlug);
+  const recentMatch = recent[0]?.invoiceNumber.match(/^INV-([A-Z]+)\d+$/);
+  if (recentMatch) prefix = recentMatch[1];
+
   const pattern = `INV-${prefix}%`;
-
-  if (!db) return `INV-${prefix}001`;
-
   const rows = await db
     .select({ invoiceNumber: invoices.invoiceNumber })
     .from(invoices)
