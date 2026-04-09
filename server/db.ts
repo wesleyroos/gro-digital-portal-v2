@@ -367,7 +367,40 @@ export async function getMetrics() {
   const db = await getDb();
   if (!db) return null;
 
-  // Recurring — from subscriptions table (not invoices, to avoid double-counting repeated billing)
+  // ─────────────────────────────────────────────────────────────────────────
+  // REVENUE BUCKETS — read this before changing anything in this function.
+  //
+  // We split revenue into two non-overlapping buckets, by data source:
+  //
+  //   1. MRR / ARR  ← `subscriptions` table
+  //      Sticky recurring revenue (hosting on debit order, etc). This is the
+  //      north-star metric and drives the business's revenue multiple, so it
+  //      must stay clean — only true sticky recurring lines belong here.
+  //      Subscriptions do NOT generate rows in the `invoices` table.
+  //
+  //   2. Project Fees  ← `invoices` table (any invoiceType, any status)
+  //      Everything billed via an invoice: once-off project work AND
+  //      consulting retainers billed monthly via `recurringInvoiceConfig`
+  //      (e.g. Fundi). Consulting retainers intentionally land here, NOT in
+  //      MRR, because they aren't sticky hosting and shouldn't inflate the
+  //      revenue multiple.
+  //
+  // ⚠️  DOUBLE-COUNTING TRAP:
+  // The two buckets only stay clean because subscriptions never write to the
+  // invoices table. If you ever build automation that generates invoice rows
+  // from a subscription (e.g. monthly debit-order receipts written as
+  // invoices), those rows will be counted in BOTH buckets — once via MRR
+  // from `subscriptions` and again via Project Fees from `invoices`. To
+  // prevent that, either:
+  //   (a) tag subscription-sourced invoices (e.g. `source = 'subscription'`)
+  //       and exclude them from the three project-fee queries below, or
+  //   (b) don't write subscription billing into the invoices table at all.
+  //
+  // The `recurringInvoiceConfig` → invoice flow is fine: those configs are
+  // for non-MRR consulting retainers, not for subscription clients.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Recurring — from subscriptions table only (see bucket #1 above)
   const [mrrRow] = await db
     .select({ total: sql<string>`COALESCE(SUM(${subscriptions.amount}), 0)` })
     .from(subscriptions)
