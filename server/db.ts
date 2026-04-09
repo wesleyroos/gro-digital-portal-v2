@@ -396,13 +396,13 @@ export async function getMetrics() {
   const fyEnd   = new Date(fyStartYear + 1, 2, 31, 23, 59, 59); // 31 March
   const fyLabel = `FY${String(fyStartYear).slice(2)}/${String(fyStartYear + 1).slice(2)}`;
 
-  // Project fees — collected this FY
+  // Project & consulting fees — collected this FY (any invoice type, paid)
   const [projectsCollectedRow] = await db
     .select({ total: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)` })
     .from(invoices)
-    .where(sql`${invoices.invoiceType} = 'once-off' AND ${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${fyStart} AND ${invoices.invoiceDate} <= ${fyEnd}`);
+    .where(sql`${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${fyStart} AND ${invoices.invoiceDate} <= ${fyEnd}`);
 
-  // Project fees — outstanding invoices
+  // Project & consulting fees — outstanding (any invoice type, sent/overdue)
   const outstandingInvoices = await db
     .select({
       invoiceNumber: invoices.invoiceNumber,
@@ -412,9 +412,9 @@ export async function getMetrics() {
       status: invoices.status,
     })
     .from(invoices)
-    .where(sql`${invoices.invoiceType} = 'once-off' AND ${invoices.status} IN ('sent', 'overdue')`);
+    .where(sql`${invoices.status} IN ('sent', 'overdue')`);
 
-  // Monthly project revenue breakdown (April → March)
+  // Monthly project revenue breakdown (April → March, any invoice type, paid)
   const monthlyRevenueRaw = await db
     .select({
       yearMonth: sql<string>`DATE_FORMAT(${invoices.invoiceDate}, '%Y-%m')`,
@@ -423,7 +423,7 @@ export async function getMetrics() {
       totalAmount: invoices.totalAmount,
     })
     .from(invoices)
-    .where(sql`${invoices.invoiceType} = 'once-off' AND ${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${fyStart} AND ${invoices.invoiceDate} <= ${fyEnd}`)
+    .where(sql`${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${fyStart} AND ${invoices.invoiceDate} <= ${fyEnd}`)
     .orderBy(invoices.invoiceDate);
 
   const monthlyRevenueMap = new Map<string, { total: number; invoices: { invoiceNumber: string; clientName: string; amount: number }[] }>();
