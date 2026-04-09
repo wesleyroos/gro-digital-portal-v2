@@ -786,6 +786,167 @@ export async function sendWelcomeEmail(opts: {
   });
 }
 
+function renderInvoicePdfHtml(
+  invoice: typeof invoices.$inferSelect,
+  items: (typeof invoiceItems.$inferSelect)[]
+): string {
+  const fmt = (n: number) =>
+    `R${n.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const esc = (s: string | null | undefined) =>
+    String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  const dateFmt = (d: Date | string | null) =>
+    d ? new Date(d).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+
+  const subtotal = parseFloat(String(invoice.subtotal)) || 0;
+  const discount = parseFloat(String(invoice.discountAmount)) || 0;
+  const total = parseFloat(String(invoice.totalAmount)) || 0;
+  const due = parseFloat(String(invoice.amountDue)) || 0;
+  const isMonthly = invoice.invoiceType === 'monthly';
+  const recurringSuffix = isMonthly ? '<span style="font-size:11px;font-weight:500;color:#6b7280;"> /mo</span>' : '';
+
+  const itemsRows = items.map(item => {
+    const qty = item.quantity ?? 1;
+    const unit = parseFloat(String(item.unitPrice)) || 0;
+    const line = parseFloat(String(item.lineTotal)) || 0;
+    return `
+      <tr>
+        <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#111;">
+          <div style="font-weight:600;">${esc(item.description)}</div>
+          ${item.frequency && item.frequency !== 'Once Off' ? `<div style="font-size:9px;color:#6b7280;margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;">${esc(item.frequency)}</div>` : ''}
+        </td>
+        <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;text-align:center;">${qty}</td>
+        <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;text-align:right;font-variant-numeric:tabular-nums;">${fmt(unit)}</td>
+        <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#111;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;">${fmt(line)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>Invoice ${esc(invoice.invoiceNumber)}</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111; background: #ffffff; font-size: 11px; line-height: 1.5; }
+  .page { width: 210mm; min-height: 297mm; padding: 18mm 18mm 16mm; position: relative; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 22px; border-bottom: 3px solid #2286c2; }
+  .brand-name { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; color: #111; margin: 0 0 4px; }
+  .brand-meta { font-size: 9.5px; color: #6b7280; line-height: 1.55; }
+  .invoice-title { text-align: right; }
+  .invoice-title h1 { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin: 0 0 8px; color: #111; text-transform: uppercase; }
+  .invoice-meta { font-size: 10px; color: #6b7280; line-height: 1.7; }
+  .invoice-meta strong { color: #111; font-weight: 600; }
+  .two-col { display: flex; gap: 32px; margin-top: 28px; }
+  .col { flex: 1; }
+  .label { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; margin-bottom: 8px; }
+  .col .name { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 4px; }
+  .col .line { font-size: 10.5px; color: #374151; line-height: 1.6; }
+  table.items { width: 100%; border-collapse: collapse; margin-top: 32px; }
+  table.items thead th { background: #f3f4f6; padding: 11px 16px; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; font-weight: 700; text-align: left; border-bottom: 1px solid #e5e7eb; }
+  table.items thead th.num { text-align: right; }
+  table.items thead th.center { text-align: center; }
+  .totals { margin-top: 18px; display: flex; justify-content: flex-end; }
+  .totals-inner { width: 260px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 10.5px; color: #374151; }
+  .totals-row.grand { border-top: 2px solid #111; margin-top: 6px; padding-top: 12px; font-size: 13px; font-weight: 800; color: #111; }
+  .totals-row .v { font-variant-numeric: tabular-nums; }
+  .panels { display: flex; gap: 16px; margin-top: 32px; }
+  .panel { flex: 1; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px 18px; background: #fafafa; }
+  .panel h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; color: #6b7280; font-weight: 700; margin: 0 0 12px; }
+  .kv { display: flex; justify-content: space-between; padding: 4px 0; font-size: 10px; }
+  .kv .k { color: #6b7280; }
+  .kv .v { color: #111; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .notes { margin-top: 22px; font-size: 10px; color: #4b5563; line-height: 1.7; }
+  .footer { position: absolute; bottom: 12mm; left: 18mm; right: 18mm; text-align: center; font-size: 9px; color: #9ca3af; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+</style></head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div>
+      <p class="brand-name">GRO DIGITAL</p>
+      <div class="brand-meta">
+        Gro Digital (Pty) Ltd<br>
+        Darter Studios, Darter Road<br>
+        Longkloof Gardens, Cape Town, 8001<br>
+        hello@grodigital.co.za &middot; grodigital.co.za
+      </div>
+    </div>
+    <div class="invoice-title">
+      <h1>Invoice</h1>
+      <div class="invoice-meta">
+        <div><strong>${esc(invoice.invoiceNumber)}</strong></div>
+        <div>Issued: <strong>${dateFmt(invoice.invoiceDate)}</strong></div>
+        ${invoice.dueDate ? `<div>Due: <strong>${dateFmt(invoice.dueDate)}</strong></div>` : ''}
+        ${isMonthly ? '<div style="margin-top:6px;display:inline-block;background:#eff6ff;color:#2286c2;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;padding:4px 9px;border-radius:3px;">Monthly Recurring</div>' : ''}
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="col">
+      <div class="label">Bill To</div>
+      <div class="name">${esc(invoice.clientName)}</div>
+      ${invoice.clientContact ? `<div class="line">${esc(invoice.clientContact)}</div>` : ''}
+      ${invoice.clientAddress ? `<div class="line" style="white-space:pre-line;">${esc(invoice.clientAddress)}</div>` : ''}
+      ${invoice.clientPhone ? `<div class="line">${esc(invoice.clientPhone)}</div>` : ''}
+      ${invoice.clientEmail ? `<div class="line">${esc(invoice.clientEmail)}</div>` : ''}
+    </div>
+    ${invoice.projectName ? `
+    <div class="col">
+      <div class="label">Project</div>
+      <div class="name">${esc(invoice.projectName)}</div>
+      ${invoice.projectSummary ? `<div class="line">${esc(invoice.projectSummary)}</div>` : ''}
+    </div>` : '<div class="col"></div>'}
+  </div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="center" style="width:60px;">Qty</th>
+        <th class="num" style="width:110px;">Unit Price</th>
+        <th class="num" style="width:120px;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsRows}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="totals-inner">
+      <div class="totals-row"><span>Subtotal</span><span class="v">${fmt(subtotal)}</span></div>
+      ${discount > 0 ? `<div class="totals-row"><span>Discount</span><span class="v">- ${fmt(discount)}</span></div>` : ''}
+      <div class="totals-row grand"><span>Total Due</span><span class="v">${fmt(due > 0 ? due : total)}${recurringSuffix}</span></div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h3>Banking Details</h3>
+      ${invoice.bankName ? `<div class="kv"><span class="k">Bank</span><span class="v">${esc(invoice.bankName)}</span></div>` : ''}
+      ${invoice.accountHolder ? `<div class="kv"><span class="k">Account Holder</span><span class="v">${esc(invoice.accountHolder)}</span></div>` : ''}
+      ${invoice.accountType ? `<div class="kv"><span class="k">Account Type</span><span class="v">${esc(invoice.accountType)}</span></div>` : ''}
+      ${invoice.accountNumber ? `<div class="kv"><span class="k">Account No.</span><span class="v">${esc(invoice.accountNumber)}</span></div>` : ''}
+      ${invoice.branchCode ? `<div class="kv"><span class="k">Branch Code</span><span class="v">${esc(invoice.branchCode)}</span></div>` : ''}
+      ${invoice.paymentReference ? `<div class="kv"><span class="k">Reference</span><span class="v">${esc(invoice.paymentReference)}</span></div>` : `<div class="kv"><span class="k">Reference</span><span class="v">${esc(invoice.invoiceNumber)}</span></div>`}
+    </div>
+    <div class="panel">
+      <h3>Payment Terms</h3>
+      <div style="font-size:11px;font-weight:700;color:#111;margin-bottom:6px;">${esc(invoice.paymentTerms || 'Due upon receipt')}</div>
+      <div style="font-size:9.5px;color:#6b7280;line-height:1.6;">Please use the invoice number as your payment reference.</div>
+      ${invoice.notes ? `<div class="notes" style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px;">${esc(invoice.notes)}</div>` : ''}
+    </div>
+  </div>
+
+  <div class="footer">
+    Thank you for your business &middot; Gro Digital (Pty) Ltd &middot; hello@grodigital.co.za
+  </div>
+
+</div>
+</body></html>`;
+}
+
 export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string, baseUrl: string) {
   const { Resend } = await import('resend');
   const apiKey = process.env.RESEND_API_KEY;
@@ -810,13 +971,21 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
   const pdfshiftKey = process.env.PDFSHIFT_API_KEY;
   if (pdfshiftKey) {
     try {
+      const items = await getInvoiceItems(invoice.id);
+      const pdfHtml = renderInvoicePdfHtml(invoice, items);
       const pdfRes = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
         method: 'POST',
         headers: {
           'Authorization': 'Basic ' + Buffer.from(`api:${pdfshiftKey}`).toString('base64'),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ source: invoiceUrl, format: 'A4', use_print: true }),
+        body: JSON.stringify({
+          source: pdfHtml,
+          format: 'A4',
+          margin: '0',
+          use_print: false,
+          sandbox: false,
+        }),
         signal: AbortSignal.timeout(30_000),
       });
       if (pdfRes.ok) {
@@ -834,9 +1003,12 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
   }
 
   const resend = new Resend(apiKey);
-  await resend.emails.send({
+  // Send a separate email per recipient — bulk to: arrays trigger spam filters
+  // and each recipient should see only their own address in the To: header.
+  for (const to of toList) {
+    await resend.emails.send({
     from: 'Wesley @ Gro Digital <wesley@grodigital.co.za>',
-    to: toList,
+    to,
     subject: `Invoice ${invoice.invoiceNumber} from Gro Digital`,
     ...(pdfAttachment ? { attachments: [pdfAttachment] } : {}),
 
@@ -846,7 +1018,7 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
         <!-- Header bar -->
         <div style="background: #ffffff; padding: 28px 32px 20px; border: 1px solid #e5e7eb; border-bottom: 3px solid #2286c2; border-radius: 12px 12px 0 0;">
           <img src="https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773557375019-ei1drt50gii.png"
-               alt="Gro Digital" style="height: 32px; display: block;" />
+               alt="Gro Digital" height="32" style="height: 32px; width: auto; max-width: 180px; display: block; border: 0; outline: none; text-decoration: none;" />
         </div>
 
         <!-- Body -->
@@ -876,7 +1048,8 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
         </div>
       </div>
     `,
-  });
+    });
+  }
 }
 
 export async function markOverdueInvoices() {
