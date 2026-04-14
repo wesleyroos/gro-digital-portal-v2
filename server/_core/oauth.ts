@@ -10,6 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
 import { runOutreachAgent } from "../outreach-agent";
 import { ENV } from "./env";
+import { approvalLink, triggerGitHubDispatch, verifyApprovalToken } from "../feedback-approval";
 
 const scryptAsync = promisify(scrypt);
 
@@ -1117,10 +1118,44 @@ User info: name="${user.name}", role="${user.role}"`;
           { status: input.type, notes: notesWithUrl, priority: "high" },
         );
 
+        // Register approval row so the email can include signed build/dismiss links
+        let approvalId: number | null = null;
+        try {
+          approvalId = await db.createFeedbackApproval({
+            taskId: null,
+            type: input.type,
+            title: input.title,
+            description: input.description,
+            currentUrl: currentUrl ?? null,
+            userName: user.name ?? null,
+            userRole: user.role ?? null,
+          });
+        } catch (e) {
+          console.warn("[FeedbackChat] createFeedbackApproval failed:", e);
+        }
+
         // Notify super admin via email (fire-and-forget)
         if (ENV.resendApiKey && ENV.resendFromEmail && ENV.ownerEmail) {
           const resend = new Resend(ENV.resendApiKey);
           const typeLabel = input.type === "bug" ? "Bug Report" : "Feature Request";
+          const baseUrl = ENV.portalUrl || ENV.appUrl || "";
+          const canSignLinks = approvalId !== null && !!ENV.feedbackApprovalSecret && !!baseUrl;
+          const buildHref = canSignLinks ? approvalLink(baseUrl, approvalId!, "approve") : "";
+          const dismissHref = canSignLinks ? approvalLink(baseUrl, approvalId!, "dismiss") : "";
+          const actionBlock = canSignLinks
+            ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0">
+  <tr>
+    <td style="padding-right:12px">
+      <a href="${buildHref}" style="background:#16a34a;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">✅ Build this</a>
+    </td>
+    <td>
+      <a href="${dismissHref}" style="background:#f3f4f6;color:#374151;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">❌ Dismiss</a>
+    </td>
+  </tr>
+</table>
+<p style="color:#6b7280;font-size:12px;margin-top:4px">Clicking <strong>Build this</strong> hands the request to Claude Code, which will open a PR and auto-merge if type-checks pass and no protected files are touched.</p>`
+            : `<p style="color:#b45309;font-size:12px">Autonomous build buttons disabled — set <code>FEEDBACK_APPROVAL_SECRET</code> and <code>PORTAL_URL</code> to enable.</p>`;
+
           resend.emails.send({
             from: ENV.resendFromEmail,
             to: ENV.ownerEmail,
@@ -1130,7 +1165,8 @@ User info: name="${user.name}", role="${user.role}"`;
 <p><strong>Submitted by:</strong> ${user.name ?? "Unknown"} (${user.role})</p>
 <p><strong>Page:</strong> ${currentUrl || "unknown"}</p>
 <p><strong>Description:</strong></p>
-<p style="white-space:pre-wrap">${input.description}</p>`,
+<p style="white-space:pre-wrap">${input.description}</p>
+${actionBlock}`,
           }).catch(e => console.warn("[FeedbackChat] Email notify failed:", e));
         }
 
@@ -1147,6 +1183,76 @@ User info: name="${user.name}", role="${user.role}"`;
     } catch (e) {
       console.error("[FeedbackChat] Error:", e);
       res.status(500).json({ error: "Something went wrong" });
+    }
+  });
+
+  // ── Feedback approval email buttons ──
+  // Signed single-use links from the feedback notification email. GET so they
+  // work from any mail client. Handlers are idempotent so prefetch is safe.
+  const renderApprovalPage = (title: string, message: string, accent: string) =>
+    `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head>
+<body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f9fafb;margin:0;padding:48px 16px">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+    <h1 style="margin:0 0 12px;color:${accent};font-size:22px">${title}</h1>
+    <p style="color:#374151;line-height:1.6;margin:0">${message}</p>
+  </div>
+</body></html>`;
+
+  app.get("/api/feedback/dismiss", async (req: Request, res: Response) => {
+    const token = typeof req.query.token === "string" ? req.query.token : "";
+    const verified = verifyApprovalToken(token);
+    if (!verified || verified.action !== "dismiss") {
+      res.status(400).send(renderApprovalPage("Link invalid or expired", "This approval link is no longer valid.", "#b91c1c"));
+      return;
+    }
+    const approval = await db.getFeedbackApproval(verified.approvalId);
+    if (!approval) {
+      res.status(404).send(renderApprovalPage("Not found", "We couldn't find that feedback item.", "#b91c1c"));
+      return;
+    }
+    if (approval.status === "pending") {
+      await db.setFeedbackApprovalStatus(verified.approvalId, "dismissed");
+    }
+    res.send(renderApprovalPage("Dismissed", `“${approval.title}” has been dismissed. No build was triggered.`, "#374151"));
+  });
+
+  app.get("/api/feedback/approve", async (req: Request, res: Response) => {
+    const token = typeof req.query.token === "string" ? req.query.token : "";
+    const verified = verifyApprovalToken(token);
+    if (!verified || verified.action !== "approve") {
+      res.status(400).send(renderApprovalPage("Link invalid or expired", "This approval link is no longer valid.", "#b91c1c"));
+      return;
+    }
+    const approval = await db.getFeedbackApproval(verified.approvalId);
+    if (!approval) {
+      res.status(404).send(renderApprovalPage("Not found", "We couldn't find that feedback item.", "#b91c1c"));
+      return;
+    }
+    if (approval.status === "approved" || approval.status === "shipped" || approval.status === "building") {
+      res.send(renderApprovalPage("Already approved", `“${approval.title}” was already approved (status: ${approval.status}). You'll get a follow-up email when it ships.`, "#16a34a"));
+      return;
+    }
+    if (approval.status === "dismissed") {
+      res.send(renderApprovalPage("Already dismissed", `“${approval.title}” was already dismissed.`, "#374151"));
+      return;
+    }
+    try {
+      await triggerGitHubDispatch({
+        approvalId: approval.id,
+        type: approval.type as "bug" | "feature",
+        title: approval.title,
+        description: approval.description,
+        currentUrl: approval.currentUrl,
+        userName: approval.userName,
+        userRole: approval.userRole,
+      });
+      await db.setFeedbackApprovalStatus(verified.approvalId, "approved");
+      res.send(renderApprovalPage("Build started", `Claude Code is now working on “${approval.title}”. You'll get a follow-up email with the PR link when it's done.`, "#16a34a"));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[FeedbackApprove] Dispatch failed:", msg);
+      await db.setFeedbackApprovalStatus(verified.approvalId, "dispatch_failed", { errorMessage: msg });
+      res.status(502).send(renderApprovalPage("Could not start build", `Dispatching to GitHub failed: ${msg}. Check GITHUB_TOKEN_FOR_DISPATCH and repo settings.`, "#b91c1c"));
     }
   });
 

@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -2265,4 +2265,50 @@ export async function signQuote(token: string, signedBy: string, signedCompany: 
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(quotes).set({ signedBy, signedCompany, signerEmail: signerEmail ?? null, signedAt: new Date(), signerIp, status: 'signed' }).where(eq(quotes.token, token));
+}
+
+// ── Feedback approvals (autonomous Claude Code pipeline) ──
+
+export async function createFeedbackApproval(input: {
+  taskId: number | null;
+  type: "bug" | "feature";
+  title: string;
+  description: string;
+  currentUrl: string | null;
+  userName: string | null;
+  userRole: string | null;
+}): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(feedbackApprovals).values({
+    taskId: input.taskId,
+    type: input.type,
+    title: input.title,
+    description: input.description,
+    currentUrl: input.currentUrl,
+    userName: input.userName,
+    userRole: input.userRole,
+    status: "pending",
+  });
+  return result.insertId;
+}
+
+export async function getFeedbackApproval(id: number): Promise<FeedbackApproval | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(feedbackApprovals).where(eq(feedbackApprovals.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function setFeedbackApprovalStatus(id: number, status: string, extra?: { errorMessage?: string | null; prNumber?: number | null; prUrl?: string | null; commitSha?: string | null; completed?: boolean }): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const update: Record<string, unknown> = { status };
+  if (extra?.errorMessage !== undefined) update.errorMessage = extra.errorMessage;
+  if (extra?.prNumber !== undefined) update.prNumber = extra.prNumber;
+  if (extra?.prUrl !== undefined) update.prUrl = extra.prUrl;
+  if (extra?.commitSha !== undefined) update.commitSha = extra.commitSha;
+  if (status === "approved" || status === "dismissed") update.decidedAt = new Date();
+  if (extra?.completed) update.completedAt = new Date();
+  await db.update(feedbackApprovals).set(update).where(eq(feedbackApprovals.id, id));
 }

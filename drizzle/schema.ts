@@ -522,3 +522,30 @@ export const quotes = mysqlTable("quotes", {
 
 export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = typeof quotes.$inferInsert;
+
+/**
+ * Autonomous feedback pipeline — tracks feedback submissions that can be
+ * approved or dismissed via email and, on approval, are handed to a Claude
+ * Code GitHub Action to implement and (if safe) auto-merge.
+ */
+export const feedbackApprovals = mysqlTable("feedbackApprovals", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: int("taskId"),
+  type: varchar("type", { length: 16 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  currentUrl: varchar("currentUrl", { length: 1024 }),
+  userName: varchar("userName", { length: 255 }),
+  userRole: varchar("userRole", { length: 64 }),
+  status: varchar("status", { length: 32 }).notNull().default("pending"),
+  commitSha: varchar("commitSha", { length: 64 }),
+  prNumber: int("prNumber"),
+  prUrl: varchar("prUrl", { length: 512 }),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  decidedAt: timestamp("decidedAt"),
+  completedAt: timestamp("completedAt"),
+});
+
+export type FeedbackApproval = typeof feedbackApprovals.$inferSelect;
+export type InsertFeedbackApproval = typeof feedbackApprovals.$inferInsert;

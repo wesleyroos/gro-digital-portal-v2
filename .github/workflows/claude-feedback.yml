@@ -1,0 +1,186 @@
+name: Claude Feedback Agent
+
+on:
+  repository_dispatch:
+    types: [feedback-approved]
+
+# One run at a time keeps auto-merges predictable
+concurrency:
+  group: claude-feedback
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      APPROVAL_ID: ${{ github.event.client_payload.approvalId }}
+      FEEDBACK_TYPE: ${{ github.event.client_payload.type }}
+      FEEDBACK_TITLE: ${{ github.event.client_payload.title }}
+      FEEDBACK_DESCRIPTION: ${{ github.event.client_payload.description }}
+      FEEDBACK_URL: ${{ github.event.client_payload.currentUrl }}
+      FEEDBACK_USER: ${{ github.event.client_payload.userName }}
+      FEEDBACK_ROLE: ${{ github.event.client_payload.userRole }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create working branch
+        id: branch
+        run: |
+          BRANCH="feedback/approval-${APPROVAL_ID}-$(date +%s)"
+          git config user.name "claude-feedback-bot"
+          git config user.email "claude-feedback-bot@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_tools: "Read,Edit,Write,Bash,Grep,Glob"
+          prompt: |
+            You are acting autonomously on an approved user feedback item for the
+            GRO Digital portal. Read CLAUDE.md at the repo root FIRST — it lists
+            protected paths you must not edit.
+
+            Feedback type: ${{ env.FEEDBACK_TYPE }}
+            Title: ${{ env.FEEDBACK_TITLE }}
+            Submitted by: ${{ env.FEEDBACK_USER }} (${{ env.FEEDBACK_ROLE }})
+            Page URL: ${{ env.FEEDBACK_URL }}
+
+            Description:
+            ${{ env.FEEDBACK_DESCRIPTION }}
+
+            Your job:
+            1. Read CLAUDE.md and understand the architecture.
+            2. Investigate the codebase to locate the relevant files.
+            3. Implement the smallest change that addresses the request.
+            4. If you must touch any protected path listed in CLAUDE.md, STOP
+               editing further and instead write a short plan to
+               .claude-feedback-plan.md explaining why — the workflow will open a
+               draft PR for human review.
+            5. Otherwise, make the edits. Do not run pnpm commands — CI does that.
+            6. Keep the change tight. No unrelated refactors, no speculative
+               helpers, no new files unless strictly required.
+            7. When done, write a short summary (3-6 lines) to
+               .claude-feedback-summary.md describing what you changed and why.
+
+      - name: Detect protected-path changes
+        id: guard
+        run: |
+          git add -A
+          CHANGED=$(git diff --cached --name-only)
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          PROTECTED_REGEX='^(\.github/|server/_core/oauth\.ts|server/_core/env\.ts|server/facebook.*|server/instagram.*|server/linkedin.*|server/google-oauth\.ts|drizzle/[0-9]+_.*\.sql|drizzle/schema\.ts|package\.json|pnpm-lock\.yaml|railway\.json|scripts/sync-db\.js)$'
+
+          if [ -z "$CHANGED" ]; then
+            echo "no_changes=true" >> "$GITHUB_OUTPUT"
+            echo "protected=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if echo "$CHANGED" | grep -E "$PROTECTED_REGEX" > /dev/null; then
+            echo "protected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "protected=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "no_changes=false" >> "$GITHUB_OUTPUT"
+
+      - name: No changes — exit early
+        if: steps.guard.outputs.no_changes == 'true'
+        run: |
+          echo "Claude made no changes. Nothing to merge."
+          exit 0
+
+      - name: Run typecheck
+        id: typecheck
+        if: steps.guard.outputs.no_changes != 'true'
+        continue-on-error: true
+        run: pnpm tsc --noEmit
+
+      - name: Commit and push
+        if: steps.guard.outputs.no_changes != 'true'
+        run: |
+          SUMMARY=$(cat .claude-feedback-summary.md 2>/dev/null || echo "Autonomous change from feedback #${APPROVAL_ID}")
+          git commit -m "feedback(#${APPROVAL_ID}): ${FEEDBACK_TITLE}
+
+          ${SUMMARY}
+
+          Co-Authored-By: Claude Feedback Bot <claude-feedback-bot@users.noreply.github.com>"
+          git push -u origin "${{ steps.branch.outputs.branch }}"
+
+      - name: Open PR
+        id: pr
+        if: steps.guard.outputs.no_changes != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          DRAFT_FLAG=""
+          if [ "${{ steps.guard.outputs.protected }}" = "true" ] || [ "${{ steps.typecheck.outcome }}" = "failure" ]; then
+            DRAFT_FLAG="--draft"
+          fi
+
+          SUMMARY=$(cat .claude-feedback-summary.md 2>/dev/null || echo "_(no summary written)_")
+          PLAN=$(cat .claude-feedback-plan.md 2>/dev/null || echo "")
+
+          BODY=$(cat <<EOF
+          **Source:** portal feedback #${APPROVAL_ID}
+          **Type:** ${FEEDBACK_TYPE}
+          **Submitted by:** ${FEEDBACK_USER} (${FEEDBACK_ROLE})
+          **Page:** ${FEEDBACK_URL}
+
+          ### Request
+          ${FEEDBACK_DESCRIPTION}
+
+          ### What Claude changed
+          ${SUMMARY}
+
+          ${PLAN:+### Plan (protected-path review required)}
+          ${PLAN}
+
+          ---
+          - Protected path touched: \`${{ steps.guard.outputs.protected }}\`
+          - Typecheck: \`${{ steps.typecheck.outcome }}\`
+          EOF
+          )
+
+          URL=$(gh pr create \
+            --base main \
+            --head "${{ steps.branch.outputs.branch }}" \
+            --title "feedback(#${APPROVAL_ID}): ${FEEDBACK_TITLE}" \
+            --body "$BODY" \
+            $DRAFT_FLAG)
+          echo "pr_url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Auto-merge (safe changes only)
+        if: |
+          steps.guard.outputs.no_changes != 'true' &&
+          steps.guard.outputs.protected == 'false' &&
+          steps.typecheck.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh pr merge "${{ steps.pr.outputs.pr_url }}" --squash --auto --delete-branch

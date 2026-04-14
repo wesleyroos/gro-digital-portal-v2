@@ -42,4 +42,8 @@ export const ENV = {
   paperclipApiUrl: (process.env.PAPERCLIP_API_URL ?? "").trim(),
   paperclipApiKey: process.env.PAPERCLIP_API_KEY ?? "",
   pdfshiftApiKey: process.env.PDFSHIFT_API_KEY ?? "",
+  githubToken: process.env.GITHUB_TOKEN_FOR_DISPATCH ?? "",
+  githubRepoOwner: process.env.GITHUB_REPO_OWNER ?? "wesleyroos",
+  githubRepoName: process.env.GITHUB_REPO_NAME ?? "gro-digital-portal-v2",
+  feedbackApprovalSecret: process.env.FEEDBACK_APPROVAL_SECRET ?? "",
 };
