@@ -103,7 +103,7 @@ export default function FeedbackWidget() {
                 <CheckCircle2 className="w-7 h-7 text-emerald-600" />
               </div>
               <p className="text-sm font-semibold text-foreground">Thanks for the feedback!</p>
-              <p className="text-xs text-muted-foreground">It's been logged and will be reviewed soon.</p>
+              <p className="text-xs text-muted-foreground">Thanks — we'll get on it.</p>
             </div>
           ) : (
             <>
