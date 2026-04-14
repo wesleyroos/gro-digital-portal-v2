@@ -181,4 +181,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          gh pr merge "${{ steps.pr.outputs.pr_url }}" --squash --auto --delete-branch
+          gh pr merge "${{ steps.pr.outputs.pr_url }}" --squash --delete-branch
