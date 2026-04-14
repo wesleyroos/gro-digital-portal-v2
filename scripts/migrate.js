@@ -30,6 +30,7 @@ const SAFE_MIGRATIONS = [
   'drizzle/0044_quotes_table.sql',
   'drizzle/0045_quotes_signed_company.sql',
   'drizzle/0046_quotes_signer_email.sql',
+  'drizzle/0047_feedback_approvals.sql',
 ];
 
 for (const relPath of SAFE_MIGRATIONS) {
