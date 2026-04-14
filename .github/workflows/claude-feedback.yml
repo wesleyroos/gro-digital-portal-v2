@@ -113,11 +113,11 @@ jobs:
           echo "Claude made no changes. Nothing to merge."
           exit 0
 
-      - name: Run typecheck
+      - name: Run build (the real ship gate)
         id: typecheck
         if: steps.guard.outputs.no_changes != 'true'
         continue-on-error: true
-        run: pnpm tsc --noEmit
+        run: pnpm build
 
       - name: Commit and push
         if: steps.guard.outputs.no_changes != 'true'

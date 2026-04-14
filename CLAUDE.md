@@ -58,5 +58,7 @@ When finished, always write:
 
 ## Build/test commands (CI runs these — you don't need to)
 
-- Typecheck: `pnpm tsc --noEmit`
+- Build (real ship gate, matches Railway): `pnpm build`
 - Tests: `pnpm test` (vitest)
+- Note: `pnpm tsc --noEmit` is intentionally not the gate — the repo has known
+  pre-existing tRPC naming conflicts that we haven't untangled yet.
