@@ -83,7 +83,7 @@ export default function FeedbackWidget() {
               </div>
               <div>
                 <p className="text-sm font-semibold leading-none">Feedback</p>
-                <p className="text-[11px] opacity-75 mt-0.5">Report a bug or request a feature</p>
+                <p className="text-[11px] opacity-75 mt-0.5">Got a bug or an idea? Let us know.</p>
               </div>
             </div>
             <Button
