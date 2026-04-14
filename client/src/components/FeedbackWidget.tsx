@@ -173,7 +173,7 @@ export default function FeedbackWidget() {
       {/* Bubble */}
       <button
         onClick={handleOpen}
-        className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-[#3b8dc6] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+        className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-green-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
         aria-label={open ? "Close feedback" : "Send feedback"}
       >
         {open ? (
@@ -182,7 +182,7 @@ export default function FeedbackWidget() {
           <div className="relative">
             <MessageSquarePlus className="w-5 h-5" />
             {!hasOpened && (
-              <span className="absolute -top-1.5 -right-1.5 w-2 h-2 bg-emerald-400 rounded-full border border-[#3b8dc6]" />
+              <span className="absolute -top-1.5 -right-1.5 w-2 h-2 bg-emerald-400 rounded-full border border-green-600" />
             )}
           </div>
         )}
