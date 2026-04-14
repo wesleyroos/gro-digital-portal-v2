@@ -2845,7 +2845,7 @@ Return JSON only — no markdown, no explanation.`,
 
     draftEmail: adminProcedure
       .input(z.object({ prospectId: z.number(), isFollowUp: z.boolean().optional() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const prospect = await getProspectById(input.prospectId);
         if (!prospect) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
 
@@ -2853,14 +2853,17 @@ Return JSON only — no markdown, no explanation.`,
         const issues = prospect.issues ? JSON.parse(prospect.issues) as string[] : [];
 
         const isFollowUp = input.isFollowUp && !!prospect.lastEmailSubject;
+        
+        const userName = ctx.user?.name || 'the team';
+        const userFirstName = userName.split(' ')[0];
 
-        const systemPrompt = `You are Wesley Roos, founder of GRO Digital — a boutique web development agency in Pretoria, South Africa. You write warm, genuine outreach emails that sound exactly like this example:
+        const systemPrompt = `You are ${userName} from GRO Digital — a boutique web development agency in Pretoria, South Africa. You write warm, genuine outreach emails that sound exactly like this example:
 
 EXAMPLE EMAIL (match this tone and structure exactly):
 Subject: your website
 "Hi Kevin,
 
-I hope you're well. My name is Wesley and I run a local web development agency called GRO Digital based in Pretoria.
+I hope you're well. My name is ${userFirstName} and I run a local web development agency called GRO Digital based in Pretoria.
 
 We love supporting local businesses like yours and in my research I noticed your website could really use some help — it scored 18/100 on mobile speed, which means most people visiting on their phones are likely leaving before the page even loads. It also doesn't have an SSL certificate, which browsers flag as "Not Secure".
 
@@ -2869,8 +2872,8 @@ I'd love to do a free audit and show you exactly what's holding it back. No stri
 Would that be something you'd be open to?
 
 Best,
-Wesley
-GRO Digital | 082 568 1050"
+${userFirstName}
+GRO Digital"
 
 RULES:
 - Always greet by first name if available, otherwise use their business name
@@ -2878,7 +2881,7 @@ RULES:
 - List the specific issues you actually found (mobile speed score, no SSL, no website etc.) — don't be vague
 - Offer the free audit with "no strings attached"
 - End with a soft yes/no question
-- Sign off: Best, Wesley / GRO Digital | 082 568 1050
+- Sign off: Best, ${userFirstName} / GRO Digital
 - Subject line: plain and lowercase, e.g. "your website" or "quick question about [business name]"
 - Never make up issues — only mention what was actually found`;
 
