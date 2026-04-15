@@ -133,7 +133,7 @@ export default function Projects() {
                   </div>
                   <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
                     <Clock className="h-3 w-3" />
-                    <span>{timeAgo(project.updatedAt)}</span>
+                    <span>{timeAgo(project.lastCommitAt ?? project.updatedAt)}</span>
                   </div>
                 </div>
               </CardContent>
