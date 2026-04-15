@@ -270,11 +270,28 @@ class SDKServer {
     const ownerOpenId = process.env.OWNER_OPEN_ID || "admin";
     const signedInAt = new Date();
 
-    // Fast-path: if the session belongs to the owner, return a synthetic superAdmin
-    // user without a DB lookup. This allows login to work even before the DB
-    // is fully set up.
+    // Owner fast-path: guarantee the session resolves to a superAdmin even if
+    // the DB row is missing or briefly unavailable. Prefer the real DB row's
+    // name/email when it exists so tools like the outreach draft use the
+    // owner's actual identity instead of a generic "Admin" placeholder.
     if (sessionUserId === ownerOpenId) {
-      // Best-effort DB sync in the background — don't block or fail on errors
+      let dbUser: User | null = null;
+      try {
+        dbUser = await db.getUserByOpenId(ownerOpenId);
+      } catch {
+        dbUser = null;
+      }
+
+      // Keep lastSignedIn fresh without clobbering name/email on the DB row.
+      db.upsertUser({ openId: ownerOpenId, role: "superAdmin", lastSignedIn: signedInAt })
+        .catch(() => {});
+
+      if (dbUser) {
+        return { ...dbUser, role: "superAdmin" } as User;
+      }
+
+      // No DB row yet — first boot / DB unavailable. Seed it and return a
+      // synthetic record so login still works.
       db.upsertUser({ openId: ownerOpenId, name: "Admin", role: "superAdmin", lastSignedIn: signedInAt })
         .catch(() => {});
       return {
