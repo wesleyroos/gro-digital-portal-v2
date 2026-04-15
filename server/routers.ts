@@ -276,6 +276,61 @@ async function resolveScheduledMailers(campaignId: number): Promise<void> {
   }
 }
 
+/**
+ * Run the same website health checks used during prospect discovery against a
+ * single website URL. Returns a fresh issues list, mobile PageSpeed score and
+ * a best-effort lead-score adjustment tied to the website's condition. Used by
+ * the prospect update mutation so adding/changing a website re-evaluates the
+ * prospect instead of leaving stale "No website" issues in place.
+ */
+async function recomputeWebsiteHealth(
+  website: string | null | undefined,
+  existingIssues: string[],
+): Promise<{ issues: string[]; pageSpeedScore: number | null; websiteScoreContribution: number }> {
+  // Strip issues that are website-derived; keep everything else (e.g. review-based).
+  const preservedIssues = existingIssues.filter(
+    i => i !== 'No website' && i !== 'No SSL' && !i.startsWith('Score:'),
+  );
+
+  if (!website) {
+    return {
+      issues: [...preservedIssues, 'No website'],
+      pageSpeedScore: null,
+      websiteScoreContribution: 30,
+    };
+  }
+
+  const issues = [...preservedIssues];
+  let pageSpeedScore: number | null = null;
+
+  try {
+    const psRes = await fetch(
+      `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(website)}&strategy=mobile`,
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (psRes.ok) {
+      const psData = await psRes.json() as { lighthouseResult?: { categories?: { performance?: { score?: number } } } };
+      const raw = psData.lighthouseResult?.categories?.performance?.score;
+      if (typeof raw === 'number') {
+        pageSpeedScore = Math.round(raw * 100);
+        if (pageSpeedScore < 50) issues.push(`Score: ${pageSpeedScore}/100`);
+      }
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const headRes = await fetch(website, { method: 'HEAD', signal: AbortSignal.timeout(5_000), redirect: 'follow' });
+    if (!headRes.url.startsWith('https://')) issues.push('No SSL');
+  } catch { /* ignore */ }
+
+  let websiteScoreContribution = 0;
+  if (pageSpeedScore !== null && pageSpeedScore < 30) websiteScoreContribution += 25;
+  else if (pageSpeedScore !== null && pageSpeedScore < 50) websiteScoreContribution += 10;
+  if (issues.includes('No SSL')) websiteScoreContribution += 15;
+
+  return { issues, pageSpeedScore, websiteScoreContribution };
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -2310,6 +2365,45 @@ INSTRUCTIONS:
         }))
         .mutation(async ({ input }) => {
           const { id, ...data } = input;
+
+          // When the website changes (added, updated or removed), re-run the
+          // website health checks so the prospect's issues/score/leadScore no
+          // longer reflect the old URL. We only trigger this when the caller
+          // explicitly passed `website` and it differs from what's stored, to
+          // avoid hitting PageSpeed on unrelated edits.
+          if ('website' in data) {
+            const existing = await getProspectById(id);
+            const currentWebsite = existing?.website ?? null;
+            const nextWebsite = data.website ?? null;
+            if (existing && currentWebsite !== nextWebsite) {
+              const existingIssues = existing.issues ? JSON.parse(existing.issues) as string[] : [];
+              const { issues, pageSpeedScore, websiteScoreContribution } = await recomputeWebsiteHealth(nextWebsite, existingIssues);
+
+              // Recompute lead score: keep non-website signals from the stored
+              // score by subtracting the old website contribution and adding
+              // the fresh one. If no previous score exists, start from 0.
+              const hadNoWebsite = existingIssues.includes('No website');
+              const oldContribution = hadNoWebsite
+                ? 30
+                : (() => {
+                    let c = 0;
+                    const oldScore = existing.pageSpeedScore;
+                    if (oldScore !== null && oldScore !== undefined) {
+                      if (oldScore < 30) c += 25;
+                      else if (oldScore < 50) c += 10;
+                    }
+                    if (existingIssues.includes('No SSL')) c += 15;
+                    return c;
+                  })();
+              const prevLeadScore = existing.leadScore ?? 0;
+              const nextLeadScore = Math.max(0, Math.min(100, prevLeadScore - oldContribution + websiteScoreContribution));
+
+              data.issues = JSON.stringify(issues);
+              data.pageSpeedScore = pageSpeedScore;
+              data.leadScore = nextLeadScore;
+            }
+          }
+
           await updateProspect(id, data);
           return { success: true };
         }),
