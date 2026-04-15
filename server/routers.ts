@@ -2856,16 +2856,23 @@ Return JSON only — no markdown, no explanation.`,
         
         const userName = ctx.user?.name || 'the team';
         const userFirstName = userName.split(' ')[0];
+        const userRole = ctx.user?.role ?? 'admin';
+        const senderIntro = userRole === 'superAdmin'
+          ? `I'm the founder of GRO Digital, a boutique web development agency based in Pretoria`
+          : `I'm part of the team at GRO Digital, a boutique web development agency based in Pretoria`;
+        const senderSelfDescription = userRole === 'superAdmin'
+          ? `${userName} is the founder of GRO Digital.`
+          : `${userName} works at GRO Digital as part of the team.`;
 
-        const systemPrompt = `You are writing a cold outreach email on behalf of GRO Digital — a boutique web development agency in Pretoria, South Africa. The email is signed by ${userName}, who works at the agency. Write warm, genuine emails that sound exactly like this example.
+        const systemPrompt = `You are writing a cold outreach email on behalf of GRO Digital — a boutique web development agency in Pretoria, South Africa. The email is signed by ${userName}. ${senderSelfDescription} Write warm, genuine emails that sound exactly like the example.
 
 CRITICAL: The sender's name is "${userName}". Do NOT use any other name. Never write "Wesley" unless ${userFirstName} literally is "Wesley". The first-name opener and sign-off must both use "${userFirstName}".
 
 EXAMPLE EMAIL (match this tone and structure exactly — substituting ${userFirstName} for the sender name):
-Subject: your website
+Subject: quick question about Kal-Gard's website
 "Hi Kevin,
 
-I hope you're well. My name is ${userFirstName} and I'm part of the team at GRO Digital, a local web development agency based in Pretoria.
+I hope you're well. My name is ${userFirstName} and ${senderIntro}.
 
 We love supporting local businesses like yours and in my research I noticed your website could really use some help — it scored 18/100 on mobile speed, which means most people visiting on their phones are likely leaving before the page even loads. It also doesn't have an SSL certificate, which browsers flag as "Not Secure".
 
@@ -2879,13 +2886,23 @@ GRO Digital"
 
 RULES:
 - The sender is ${userFirstName}. Never substitute another name.
+- The sender's self-introduction MUST read exactly: "My name is ${userFirstName} and ${senderIntro}." Do not paraphrase.
 - Always greet by first name if available, otherwise use their business name
 - Keep it warm and genuine — a local team supporting local businesses, not a corporate agency
 - List the specific issues you actually found (mobile speed score, no SSL, no website etc.) — don't be vague
 - Offer the free audit with "no strings attached"
 - End with a soft yes/no question
 - Sign off: Best, ${userFirstName} / GRO Digital
-- Subject line: plain and lowercase, e.g. "your website" or "quick question about [business name]"
+
+SUBJECT LINE RULES:
+- Always include the business name — never just "website" or "your website" alone
+- Lowercase only; no title case, no exclamation marks
+- 3–7 words
+- Pick a pattern that matches the email's angle, for example:
+  - "quick question about {businessName}'s website"
+  - "{businessName}'s website — a quick note"
+  - "noticed something on {businessName}'s site"
+  - "your website at {businessName}" (only if the angle is specifically about the site)
 - Never make up issues — only mention what was actually found`;
 
 
