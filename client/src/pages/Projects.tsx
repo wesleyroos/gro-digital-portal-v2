@@ -1,8 +1,9 @@
 import { trpc } from "@/lib/trpc";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { GitCommit, Clock, GitBranch, Activity, RefreshCw, Loader2 } from "lucide-react";
+import { GitCommit, Clock, GitBranch, Activity, RefreshCw, Loader2, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 
 function timeAgo(date: string | Date | null) {
@@ -28,10 +29,22 @@ function statusDot(status: string) {
   return "bg-slate-400";
 }
 
+type ViewMode = "cards" | "list";
+const VIEW_KEY = "projects_view_mode";
+
 export default function Projects() {
   const { data: projects = [], isLoading, refetch } = trpc.projects.list.useQuery(undefined, {
     refetchInterval: 5_000,
   });
+
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem(VIEW_KEY) : null;
+    return stored === "list" ? "list" : "cards";
+  });
+  const updateView = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (typeof window !== "undefined") localStorage.setItem(VIEW_KEY, mode);
+  };
 
   const syncFromGitHub = trpc.projects.syncFromGitHub.useMutation({
     onSuccess: (data) => {
@@ -39,6 +52,12 @@ export default function Projects() {
       refetch();
     },
     onError: (e) => toast.error(e.message),
+  });
+
+  const sortedProjects = [...projects].sort((a, b) => {
+    const aTime = a.lastCommitAt ? new Date(a.lastCommitAt).getTime() : 0;
+    const bTime = b.lastCommitAt ? new Date(b.lastCommitAt).getTime() : 0;
+    return bTime - aTime;
   });
 
   const active = projects.filter(p => p.status === "active");
@@ -54,15 +73,35 @@ export default function Projects() {
             Synced from GitHub and updated by local git commits
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => syncFromGitHub.mutate()}
-          disabled={syncFromGitHub.isPending}
-        >
-          {syncFromGitHub.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          Sync from GitHub
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md border border-border bg-background p-0.5">
+            <button
+              onClick={() => updateView("cards")}
+              className={`flex items-center gap-1 px-2 py-1 text-xs rounded ${viewMode === "cards" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              aria-pressed={viewMode === "cards"}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Cards
+            </button>
+            <button
+              onClick={() => updateView("list")}
+              className={`flex items-center gap-1 px-2 py-1 text-xs rounded ${viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              aria-pressed={viewMode === "list"}
+            >
+              <List className="h-3.5 w-3.5" />
+              List
+            </button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => syncFromGitHub.mutate()}
+            disabled={syncFromGitHub.isPending}
+          >
+            {syncFromGitHub.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Sync from GitHub
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -88,7 +127,7 @@ export default function Projects() {
             <div key={i} className="h-24 rounded-lg bg-muted/40 animate-pulse" />
           ))}
         </div>
-      ) : projects.length === 0 ? (
+      ) : sortedProjects.length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center">
             <GitCommit className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
@@ -98,9 +137,9 @@ export default function Projects() {
             </p>
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === "cards" ? (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-          {projects.map(project => (
+          {sortedProjects.map(project => (
             <Card key={project.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -140,6 +179,39 @@ export default function Projects() {
             </Card>
           ))}
         </div>
+      ) : (
+        <Card>
+          <div className="divide-y divide-border">
+            {sortedProjects.map(project => (
+              <div key={project.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(project.status)}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm truncate">{project.name}</p>
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${statusColor(project.status)}`}>
+                      {project.status}
+                    </Badge>
+                  </div>
+                  {project.lastCommitMessage && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{project.lastCommitMessage}</p>
+                  )}
+                </div>
+                <div className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 w-24">
+                  <GitBranch className="h-3 w-3" />
+                  <span className="truncate">{project.branch ?? "—"}</span>
+                </div>
+                <div className="hidden md:flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 w-16">
+                  <Activity className="h-3 w-3" />
+                  <span>{project.commitCount}</span>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 w-20 justify-end">
+                  <Clock className="h-3 w-3" />
+                  <span>{timeAgo(project.lastCommitAt ?? project.updatedAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
     </div>
   );
