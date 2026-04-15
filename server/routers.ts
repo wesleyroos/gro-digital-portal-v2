@@ -2414,6 +2414,40 @@ INSTRUCTIONS:
           await deleteProspect(input.id);
           return { success: true };
         }),
+
+      refreshChecks: adminProcedure
+        .input(z.object({ id: z.number() }))
+        .mutation(async ({ input }) => {
+          const existing = await getProspectById(input.id);
+          if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Prospect not found' });
+
+          const existingIssues = existing.issues ? JSON.parse(existing.issues) as string[] : [];
+          const { issues, pageSpeedScore, websiteScoreContribution } = await recomputeWebsiteHealth(existing.website, existingIssues);
+
+          const hadNoWebsite = existingIssues.includes('No website');
+          const oldContribution = hadNoWebsite
+            ? 30
+            : (() => {
+                let c = 0;
+                const oldScore = existing.pageSpeedScore;
+                if (oldScore !== null && oldScore !== undefined) {
+                  if (oldScore < 30) c += 25;
+                  else if (oldScore < 50) c += 10;
+                }
+                if (existingIssues.includes('No SSL')) c += 15;
+                return c;
+              })();
+          const prevLeadScore = existing.leadScore ?? 0;
+          const nextLeadScore = Math.max(0, Math.min(100, prevLeadScore - oldContribution + websiteScoreContribution));
+
+          await updateProspect(input.id, {
+            issues: JSON.stringify(issues),
+            pageSpeedScore,
+            leadScore: nextLeadScore,
+          });
+
+          return { success: true, issues, pageSpeedScore, leadScore: nextLeadScore };
+        }),
     }),
 
     discover: adminProcedure

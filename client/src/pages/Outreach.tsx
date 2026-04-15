@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import {
   Search, Loader2, ExternalLink, Trash2, Mail, Wand2, Send,
   CheckCheck, Plus, AlertTriangle, Gauge, Globe, Phone, MapPin, Building2,
-  Star, Link2, FolderSearch, Sparkles, Bot, StopCircle,
+  Star, Link2, FolderSearch, Sparkles, Bot, StopCircle, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
@@ -193,6 +193,11 @@ function ProspectModal({
     onError: (e) => toast.error(e.message),
   });
 
+  const refreshChecks = trpc.outreach.prospect.refreshChecks.useMutation({
+    onSuccess: () => { toast.success("Website checks refreshed"); onRefresh(); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const hunterKey = `hunter_searched:${prospect.id}`;
   const [hunterSearchedAt, setHunterSearchedAt] = useState<string | null>(() => localStorage.getItem(hunterKey));
 
@@ -334,15 +339,29 @@ function ProspectModal({
           </div>
 
           {/* Issues */}
-          {issues.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Issues found</p>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Issues found</p>
+              <button
+                onClick={() => refreshChecks.mutate({ id: prospect.id })}
+                disabled={refreshChecks.isPending}
+                className="text-xs text-muted-foreground hover:text-foreground underline flex items-center gap-1 disabled:opacity-50"
+                title="Re-run PageSpeed and SSL checks against the current website"
+              >
+                {refreshChecks.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Re-check
+              </button>
+            </div>
+            {issues.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 <ScoreBadge score={prospect.pageSpeedScore} issues={issues} />
                 <IssueBadges issues={issues.filter((i) => !i.startsWith("Score:"))} />
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs italic text-muted-foreground">No issues detected.</p>
+            )}
+          </div>
+
 
           {/* Business context */}
           {prospect.businessContext && (
