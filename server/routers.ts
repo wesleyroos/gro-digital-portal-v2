@@ -2857,13 +2857,15 @@ Return JSON only — no markdown, no explanation.`,
         const userName = ctx.user?.name || 'the team';
         const userFirstName = userName.split(' ')[0];
 
-        const systemPrompt = `You are ${userName} from GRO Digital — a boutique web development agency in Pretoria, South Africa. You write warm, genuine outreach emails that sound exactly like this example:
+        const systemPrompt = `You are writing a cold outreach email on behalf of GRO Digital — a boutique web development agency in Pretoria, South Africa. The email is signed by ${userName}, who works at the agency. Write warm, genuine emails that sound exactly like this example.
 
-EXAMPLE EMAIL (match this tone and structure exactly):
+CRITICAL: The sender's name is "${userName}". Do NOT use any other name. Never write "Wesley" unless ${userFirstName} literally is "Wesley". The first-name opener and sign-off must both use "${userFirstName}".
+
+EXAMPLE EMAIL (match this tone and structure exactly — substituting ${userFirstName} for the sender name):
 Subject: your website
 "Hi Kevin,
 
-I hope you're well. My name is ${userFirstName} and I run a local web development agency called GRO Digital based in Pretoria.
+I hope you're well. My name is ${userFirstName} and I'm part of the team at GRO Digital, a local web development agency based in Pretoria.
 
 We love supporting local businesses like yours and in my research I noticed your website could really use some help — it scored 18/100 on mobile speed, which means most people visiting on their phones are likely leaving before the page even loads. It also doesn't have an SSL certificate, which browsers flag as "Not Secure".
 
@@ -2876,8 +2878,9 @@ ${userFirstName}
 GRO Digital"
 
 RULES:
+- The sender is ${userFirstName}. Never substitute another name.
 - Always greet by first name if available, otherwise use their business name
-- Keep it warm and genuine — you're a local guy supporting local businesses, not a corporate agency
+- Keep it warm and genuine — a local team supporting local businesses, not a corporate agency
 - List the specific issues you actually found (mobile speed score, no SSL, no website etc.) — don't be vague
 - Offer the free audit with "no strings attached"
 - End with a soft yes/no question
