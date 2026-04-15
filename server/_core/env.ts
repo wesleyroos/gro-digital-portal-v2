@@ -46,4 +46,5 @@ export const ENV = {
   githubRepoOwner: process.env.GITHUB_REPO_OWNER ?? "wesleyroos",
   githubRepoName: process.env.GITHUB_REPO_NAME ?? "gro-digital-portal-v2",
   feedbackApprovalSecret: process.env.FEEDBACK_APPROVAL_SECRET ?? "",
+  githubSyncToken: process.env.GITHUB_SYNC_TOKEN ?? process.env.GITHUB_TOKEN_FOR_DISPATCH ?? "",
 };

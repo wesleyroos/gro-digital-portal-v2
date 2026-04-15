@@ -1,7 +1,9 @@
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { GitCommit, FolderOpen, Clock, GitBranch, Activity } from "lucide-react";
+import { GitCommit, Clock, GitBranch, Activity, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 function timeAgo(date: string | Date | null) {
   if (!date) return "Never";
@@ -27,8 +29,16 @@ function statusDot(status: string) {
 }
 
 export default function Projects() {
-  const { data: projects = [], isLoading } = trpc.projects.list.useQuery(undefined, {
+  const { data: projects = [], isLoading, refetch } = trpc.projects.list.useQuery(undefined, {
     refetchInterval: 5_000,
+  });
+
+  const syncFromGitHub = trpc.projects.syncFromGitHub.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Synced ${data.synced} repo${data.synced === 1 ? "" : "s"} from GitHub${data.skipped ? ` (${data.skipped} archived skipped)` : ""}`);
+      refetch();
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   const active = projects.filter(p => p.status === "active");
@@ -37,11 +47,22 @@ export default function Projects() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Active builds — auto-updated on every git commit
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Synced from GitHub and updated by local git commits
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => syncFromGitHub.mutate()}
+          disabled={syncFromGitHub.isPending}
+        >
+          {syncFromGitHub.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          Sync from GitHub
+        </Button>
       </div>
 
       {/* Stats */}
@@ -73,7 +94,7 @@ export default function Projects() {
             <GitCommit className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
             <p className="font-medium">No projects yet</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              Projects appear here automatically after your first commit in any repo. The global git hook is already active on all projects.
+              Click <strong>Sync from GitHub</strong> to pull in all your repos, or commit locally with the git hook to register a new one.
             </p>
           </CardContent>
         </Card>

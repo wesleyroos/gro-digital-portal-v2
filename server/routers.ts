@@ -129,6 +129,7 @@ import {
   getAiInteractions,
   getProjects,
   upsertProject,
+  upsertProjectFromSource,
   getQuotes,
   getQuoteByToken,
   createQuote,
@@ -3479,6 +3480,31 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         const name = input.repoPath.split("/").pop() ?? input.repoPath;
         await upsertProject({ name, repoPath: input.repoPath, currentFocus: input.currentFocus });
         return { success: true };
+      }),
+
+    syncFromGitHub: adminProcedure
+      .mutation(async () => {
+        const { fetchGitHubReposForSync } = await import("./github-sync");
+        let repos;
+        try {
+          repos = await fetchGitHubReposForSync();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
+        }
+
+        const active = repos.filter(r => !r.isArchived);
+        for (const repo of active) {
+          await upsertProjectFromSource({
+            name: repo.name,
+            repoPath: repo.repoPath,
+            lastCommitMessage: repo.lastCommitMessage,
+            lastCommitAt: repo.lastCommitAt,
+            branch: repo.branch,
+          });
+        }
+
+        return { synced: active.length, skipped: repos.length - active.length };
       }),
   }),
 });

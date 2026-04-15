@@ -2226,6 +2226,47 @@ export async function upsertProject(data: {
   }
 }
 
+/**
+ * Upsert a project from an external source (e.g. GitHub sync) without bumping
+ * the locally-tracked commit counter. Meant for background syncs that just
+ * want to refresh metadata.
+ */
+export async function upsertProjectFromSource(data: {
+  name: string;
+  repoPath: string;
+  lastCommitMessage?: string | null;
+  lastCommitAt?: Date | null;
+  branch?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) return;
+
+  const existing = await db.select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.repoPath, data.repoPath))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.update(projects)
+      .set({
+        name: data.name,
+        lastCommitMessage: data.lastCommitMessage ?? null,
+        lastCommitAt: data.lastCommitAt ?? null,
+        branch: data.branch ?? null,
+      })
+      .where(eq(projects.repoPath, data.repoPath));
+  } else {
+    await db.insert(projects).values({
+      name: data.name,
+      repoPath: data.repoPath,
+      lastCommitMessage: data.lastCommitMessage ?? null,
+      lastCommitAt: data.lastCommitAt ?? null,
+      branch: data.branch ?? null,
+      commitCount: 0,
+    });
+  }
+}
+
 // ── Quotes ──────────────────────────────────────────────────────────────────
 
 export async function getQuotes() {
