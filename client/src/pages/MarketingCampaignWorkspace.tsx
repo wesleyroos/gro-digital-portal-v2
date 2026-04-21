@@ -1506,6 +1506,12 @@ export default function MarketingCampaignWorkspace() {
                           {(campaign as any).postToLinkedin && (
                             <LinkedinCaptionSection post={post} />
                           )}
+                          {post.status === "rejected" && (post as any).notes && (
+                            <div className="mt-1.5 rounded-lg bg-red-50 border border-red-100 px-2.5 py-2">
+                              <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide mb-0.5">Client feedback</p>
+                              <p className="text-xs text-red-700 leading-snug">{(post as any).notes}</p>
+                            </div>
+                          )}
                         </div>
                       )}
 

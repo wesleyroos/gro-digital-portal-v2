@@ -1520,7 +1520,7 @@ Instructions:
 
       // Public — reject a post via share token
       rejectByToken: publicProcedure
-        .input(z.object({ token: z.string(), postId: z.number().int(), password: z.string().optional(), notes: z.string().optional() }))
+        .input(z.object({ token: z.string(), postId: z.number().int(), password: z.string().optional(), notes: z.string().min(1) }))
         .mutation(async ({ input }) => {
           const campaign = await getCampaignByShareToken(input.token);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });

@@ -124,12 +124,12 @@ export default function CampaignPreview() {
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4">
             <h3 className="font-semibold text-base">Reject post</h3>
-            <p className="text-sm text-muted-foreground">Optional: leave a note for the GRO Digital team explaining what to change.</p>
-            <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="e.g. Wrong tone, please make it more playful..." rows={3} className="w-full border rounded-xl px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-red-400" />
+            <p className="text-sm text-muted-foreground">Please explain what you'd like the GRO Digital team to change. <span className="text-red-500 font-medium">Required.</span></p>
+            <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="e.g. Wrong tone, please make it more playful..." rows={3} className={`w-full border rounded-xl px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-red-400 ${!rejectNote.trim() ? "border-slate-200" : "border-slate-300"}`} />
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 rounded-xl" onClick={() => { setRejectingPostId(null); setRejectNote(""); }}>Cancel</Button>
-              <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl" disabled={rejectMutation.isPending}
-                onClick={() => rejectMutation.mutate({ token, postId: rejectingPostId, password: submittedPassword, notes: rejectNote || undefined })}>
+              <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl disabled:opacity-40 disabled:cursor-not-allowed" disabled={rejectMutation.isPending || !rejectNote.trim()}
+                onClick={() => rejectMutation.mutate({ token, postId: rejectingPostId, password: submittedPassword, notes: rejectNote })}>
                 Reject
               </Button>
             </div>
