@@ -37,7 +37,6 @@ export default function CampaignPreview() {
 
   const [password, setPassword] = useState("");
   const [submittedPassword, setSubmittedPassword] = useState<string | null>(null);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [rejectingPostId, setRejectingPostId] = useState<number | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [selectedPostIdx, setSelectedPostIdx] = useState<number | null>(null);
@@ -119,15 +118,6 @@ export default function CampaignPreview() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ── Lightbox ── */}
-      {lightboxUrl && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setLightboxUrl(null)}>
-          <button className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors" onClick={() => setLightboxUrl(null)}>
-            <X className="w-5 h-5" />
-          </button>
-          <img src={lightboxUrl} alt="Full size" className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
-        </div>
-      )}
 
       {/* ── Reject modal ── */}
       {rejectingPostId && (
@@ -318,12 +308,12 @@ export default function CampaignPreview() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {draftPosts.map(post => (
-                <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
+                <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPostIdx(navigablePosts.findIndex(p => p.id === post.id))}>
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
                     {post.mediaType === "video" && post.videoUrl
-                      ? <video src={post.videoUrl} className="w-full h-full object-cover" controls preload="metadata" />
+                      ? <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
                       : post.imageUrl
-                      ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover cursor-zoom-in" onClick={() => setLightboxUrl(post.imageUrl!)} />
+                      ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-slate-300" /></div>
                     }
                     {post.scheduledAt && (
@@ -344,12 +334,12 @@ export default function CampaignPreview() {
                     {post.hashtags && <p className="text-xs text-violet-500 mt-2 line-clamp-1">{post.hashtags}</p>}
                   </div>
                   <div className="flex border-t border-slate-100">
-                    <button className="flex-1 flex items-center justify-center gap-1.5 py-3.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors" onClick={() => setRejectingPostId(post.id)}>
+                    <button className="flex-1 flex items-center justify-center gap-1.5 py-3.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors" onClick={e => { e.stopPropagation(); setRejectingPostId(post.id); }}>
                       <X className="w-4 h-4" /> Reject
                     </button>
                     <div className="w-px bg-slate-100" />
                     <button className="flex-1 flex items-center justify-center gap-1.5 py-3.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors" disabled={approveMutation.isPending}
-                      onClick={() => approveMutation.mutate({ token, postId: post.id, password: submittedPassword })}>
+                      onClick={e => { e.stopPropagation(); approveMutation.mutate({ token, postId: post.id, password: submittedPassword }); }}>
                       <Check className="w-4 h-4" /> Approve
                     </button>
                   </div>
