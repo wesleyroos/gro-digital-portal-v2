@@ -141,7 +141,7 @@ export default function MarketingCampaignWorkspace() {
   const [calendarGenerating, setCalendarGenerating] = useState(false);
   const [generatingPostIds, setGeneratingPostIds] = useState<Set<number>>(new Set());
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState({ caption: "", hashtags: "", imagePrompt: "" });
+  const [editDraft, setEditDraft] = useState({ caption: "", hashtags: "", imagePrompt: "", scheduledAt: "" });
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1443,6 +1443,15 @@ export default function MarketingCampaignWorkspace() {
                             />
                           </div>
                           <div>
+                            <p className="text-[10px] font-medium text-muted-foreground mb-1">Scheduled date & time</p>
+                            <input
+                              type="datetime-local"
+                              className="w-full text-xs rounded-lg border bg-muted px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                              value={editDraft.scheduledAt}
+                              onChange={e => setEditDraft(d => ({ ...d, scheduledAt: e.target.value }))}
+                            />
+                          </div>
+                          <div>
                             <div className="flex items-center justify-between mb-1">
                               <p className="text-[10px] font-medium text-muted-foreground">Image prompt</p>
                               <button
@@ -1464,7 +1473,7 @@ export default function MarketingCampaignWorkspace() {
                             <Button
                               size="sm"
                               className="flex-1 h-7 text-xs bg-violet-600 hover:bg-violet-700 text-white"
-                              onClick={() => updateContentMutation.mutate({ postId: post.id, ...editDraft })}
+                              onClick={() => updateContentMutation.mutate({ postId: post.id, ...editDraft, scheduledAt: editDraft.scheduledAt || null })}
                               disabled={updateContentMutation.isPending}
                             >
                               Save
@@ -1475,7 +1484,7 @@ export default function MarketingCampaignWorkspace() {
                               className="h-7 text-xs gap-1"
                               disabled={generatingPostIds.has(post.id) || updateContentMutation.isPending}
                               onClick={async () => {
-                                await updateContentMutation.mutateAsync({ postId: post.id, ...editDraft });
+                                await updateContentMutation.mutateAsync({ postId: post.id, ...editDraft, scheduledAt: editDraft.scheduledAt || null });
                                 regenerateImageMutation.mutate({ postId: post.id });
                               }}
                             >
@@ -1493,7 +1502,7 @@ export default function MarketingCampaignWorkspace() {
                           <div className="flex items-start justify-between gap-1">
                             <p className="text-xs text-foreground line-clamp-3 flex-1">{post.caption}</p>
                             <button
-                              onClick={() => { setEditingPostId(post.id); setEditDraft({ caption: post.caption ?? "", hashtags: post.hashtags ?? "", imagePrompt: post.imagePrompt ?? "" }); }}
+                              onClick={() => { setEditingPostId(post.id); setEditDraft({ caption: post.caption ?? "", hashtags: post.hashtags ?? "", imagePrompt: post.imagePrompt ?? "", scheduledAt: post.scheduledAt ? new Date(post.scheduledAt).toISOString().slice(0, 16) : "" }); }}
                               className="shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                             >
                               <Pencil className="w-3 h-3" />

@@ -1246,6 +1246,7 @@ export const appRouter = router({
           caption: z.string().optional(),
           hashtags: z.string().optional(),
           imagePrompt: z.string().optional(),
+          scheduledAt: z.string().nullable().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
           const post = await getPostById(input.postId);
@@ -1257,6 +1258,7 @@ export const appRouter = router({
             caption: input.caption,
             hashtags: input.hashtags,
             imagePrompt: input.imagePrompt,
+            scheduledAt: input.scheduledAt,
           });
           // If the post was rejected, reset to draft so the client can review the changes
           if (post?.status === 'rejected') {

@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Check, X, ImageIcon, Lock, TrendingUp, ChevronUp, ChevronDown, Calendar, Heart, MessageCircle, Share2, Bookmark, Users, BarChart2, Instagram, Facebook, Mail } from "lucide-react";
+import { Check, X, ImageIcon, Lock, TrendingUp, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Calendar, Heart, MessageCircle, Share2, Bookmark, Users, BarChart2, Instagram, Facebook, Mail } from "lucide-react";
 
 function PlatformBadges({ hasIg, hasFb }: { hasIg: boolean; hasFb: boolean }) {
   if (!hasIg && !hasFb) return null;
@@ -40,15 +40,20 @@ export default function CampaignPreview() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [rejectingPostId, setRejectingPostId] = useState<number | null>(null);
   const [rejectNote, setRejectNote] = useState("");
-  const [selectedPost, setSelectedPost] = useState<{
-    id: number; status: string; imageUrl?: string | null;
-    mediaType?: string | null; videoUrl?: string | null;
-    caption?: string | null; hashtags?: string | null;
-    scheduledAt?: string | number | Date | null;
-    postedAt?: string | number | Date | null;
-    theme?: string | null;
-    instagramPostId?: string | null; facebookPostId?: string | null;
-  } | null>(null);
+  const [selectedPostIdx, setSelectedPostIdx] = useState<number | null>(null);
+  const navigablePostsRef = useRef<Array<{ id: number; status: string; imageUrl?: string | null; mediaType?: string | null; videoUrl?: string | null; caption?: string | null; hashtags?: string | null; scheduledAt?: string | number | Date | null; postedAt?: string | number | Date | null; theme?: string | null; instagramPostId?: string | null; facebookPostId?: string | null }>>([]);
+  const touchStartX = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (selectedPostIdx === null) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft")  setSelectedPostIdx(i => i !== null && i > 0 ? i - 1 : i);
+      if (e.key === "ArrowRight") setSelectedPostIdx(i => i !== null && i < navigablePostsRef.current.length - 1 ? i + 1 : i);
+      if (e.key === "Escape")     setSelectedPostIdx(null);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selectedPostIdx]);
 
   const { data, isLoading, error, refetch } = trpc.campaign.getByShareToken.useQuery(
     { token, password: submittedPassword || undefined },
@@ -106,6 +111,11 @@ export default function CampaignPreview() {
   const draftPosts    = posts.filter(p => p.status === "draft");
   const upcomingPosts = posts.filter(p => p.status === "approved" || p.status === "scheduled");
   const postedPosts   = posts.filter(p => p.status === "posted");
+  const navigablePosts = [...upcomingPosts, ...postedPosts, ...draftPosts];
+  navigablePostsRef.current = navigablePosts;
+  const selectedPost = selectedPostIdx !== null ? navigablePosts[selectedPostIdx] ?? null : null;
+  const goToPrev = () => setSelectedPostIdx(i => i !== null && i > 0 ? i - 1 : i);
+  const goToNext = () => setSelectedPostIdx(i => i !== null && i < navigablePosts.length - 1 ? i + 1 : i);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -138,11 +148,35 @@ export default function CampaignPreview() {
       )}
 
       {/* ── Post detail modal ── */}
-      {selectedPost && (() => {
+      {selectedPost && selectedPostIdx !== null && (() => {
         const row = rowByPostId.get(selectedPost.id);
         const dateInfo = formatPostedDate(selectedPost.postedAt, selectedPost.scheduledAt);
+        const hasPrev = selectedPostIdx > 0;
+        const hasNext = selectedPostIdx < navigablePosts.length - 1;
         return (
-          <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4" onClick={() => setSelectedPost(null)}>
+          <div
+            className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+            onClick={() => setSelectedPostIdx(null)}
+            onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+            onTouchEnd={e => {
+              if (touchStartX.current === null) return;
+              const dx = e.changedTouches[0].clientX - touchStartX.current;
+              touchStartX.current = null;
+              if (dx > 50) goToPrev();
+              else if (dx < -50) goToNext();
+            }}
+          >
+            {/* Prev / Next arrows */}
+            {hasPrev && (
+              <button className="absolute left-3 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors" onClick={e => { e.stopPropagation(); goToPrev(); }}>
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            {hasNext && (
+              <button className="absolute right-3 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors" onClick={e => { e.stopPropagation(); goToNext(); }}>
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
             <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
               <div className="relative shrink-0">
                 {selectedPost.mediaType === "video" && selectedPost.videoUrl
@@ -151,12 +185,15 @@ export default function CampaignPreview() {
                   ? <img src={selectedPost.imageUrl} alt="" className="w-full aspect-square object-cover" />
                   : <div className="w-full aspect-square bg-muted flex items-center justify-center"><ImageIcon className="w-12 h-12 text-muted-foreground/30" /></div>
                 }
-                <button className="absolute top-3 right-3 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-1.5 transition-colors" onClick={() => setSelectedPost(null)}>
+                <button className="absolute top-3 right-3 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-1.5 transition-colors" onClick={() => setSelectedPostIdx(null)}>
                   <X className="w-4 h-4" />
                 </button>
                 <div className="absolute top-3 left-3 flex items-center gap-1.5">
                   <Badge className={`${POST_STATUS_COLORS[selectedPost.status]} text-[10px]`} variant="secondary">{selectedPost.status}</Badge>
                   <PlatformBadges hasIg={!!selectedPost.instagramPostId} hasFb={!!selectedPost.facebookPostId} />
+                </div>
+                <div className="absolute bottom-3 right-3 bg-black/50 rounded-full px-2 py-0.5">
+                  <p className="text-[10px] text-white/80">{selectedPostIdx + 1} / {navigablePosts.length}</p>
                 </div>
               </div>
               <div className="p-4 overflow-y-auto space-y-3">
@@ -328,7 +365,7 @@ export default function CampaignPreview() {
             <h2 className="text-base font-semibold text-slate-900 mb-5">Coming up</h2>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {upcomingPosts.map(post => (
-                <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPost(post)}>
+                <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPostIdx(navigablePosts.findIndex(p => p.id === post.id))}>
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
                     {post.mediaType === "video" && post.videoUrl ? <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
                       : post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -365,7 +402,7 @@ export default function CampaignPreview() {
                 const ins = row?.insights;
                 const dateInfo = formatPostedDate(post.postedAt, post.scheduledAt);
                 return (
-                  <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPost(post)}>
+                  <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPostIdx(navigablePosts.findIndex(p => p.id === post.id))}>
                     <div className="aspect-square bg-slate-100 relative overflow-hidden">
                       {post.mediaType === "video" && post.videoUrl ? <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
                         : post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />

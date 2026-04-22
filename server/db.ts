@@ -1580,13 +1580,14 @@ export async function updatePostStatus(
   await db.update(marketingPosts).set(set).where(eq(marketingPosts.id, postId));
 }
 
-export async function updatePostContent(postId: number, data: { caption?: string; hashtags?: string; imagePrompt?: string }) {
+export async function updatePostContent(postId: number, data: { caption?: string; hashtags?: string; imagePrompt?: string; scheduledAt?: string | null }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');
   const set: Record<string, unknown> = {};
   if (data.caption !== undefined) set.caption = data.caption;
   if (data.hashtags !== undefined) set.hashtags = data.hashtags;
   if (data.imagePrompt !== undefined) set.imagePrompt = data.imagePrompt;
+  if (data.scheduledAt !== undefined) set.scheduledAt = data.scheduledAt ? new Date(data.scheduledAt) : null;
   if (Object.keys(set).length === 0) return;
   await db.update(marketingPosts).set(set).where(eq(marketingPosts.id, postId));
 }
