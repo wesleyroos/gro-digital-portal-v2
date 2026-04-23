@@ -198,6 +198,7 @@ export default function MarketingCampaignWorkspace() {
   const [subscriberLastName, setSubscriberLastName] = useState('');
   const [csvPreview, setCsvPreview] = useState<{ email: string; firstName?: string; lastName?: string }[] | null>(null);
   const [csvFileName, setCsvFileName] = useState('');
+  const [pasteEmailsText, setPasteEmailsText] = useState('');
   const csvFileRef = useRef<HTMLInputElement>(null);
   const [broadcastScheduledAt, setBroadcastScheduledAt] = useState('');
   const [testEmailInput, setTestEmailInput] = useState('');
@@ -2171,6 +2172,41 @@ export default function MarketingCampaignWorkspace() {
                 ) : (
                   <p className="text-[11px] text-muted-foreground">CSV must have an <code>email</code> column. Optional: <code>first_name</code>, <code>last_name</code>.</p>
                 )}
+              </div>
+
+              {/* Paste emails */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Paste Emails</p>
+                <textarea
+                  placeholder={"Paste emails here, one per line or comma-separated:\nuser@example.com\nanother@example.com"}
+                  value={pasteEmailsText}
+                  onChange={e => setPasteEmailsText(e.target.value)}
+                  rows={4}
+                  className="w-full text-xs rounded-lg border bg-background px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400"
+                />
+                {(() => {
+                  const emails = pasteEmailsText
+                    .split(/[\n,;]+/)
+                    .map(e => e.trim().toLowerCase())
+                    .filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+                  if (!pasteEmailsText.trim() || emails.length === 0) return null;
+                  return (
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-muted-foreground"><strong>{emails.length}</strong> valid email{emails.length !== 1 ? 's' : ''} found</p>
+                      <Button
+                        size="sm"
+                        className="text-xs h-7 bg-violet-600 hover:bg-violet-700 text-white"
+                        disabled={importSubscribersMutation.isPending}
+                        onClick={() => importSubscribersMutation.mutate(
+                          { clientSlug, clientName: campaign?.name ?? clientSlug, contacts: emails.map(email => ({ email })) },
+                          { onSuccess: () => setPasteEmailsText('') }
+                        )}
+                      >
+                        {importSubscribersMutation.isPending ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Importing…</> : `Import ${emails.length}`}
+                      </Button>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Add subscriber form */}
