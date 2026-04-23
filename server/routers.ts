@@ -247,7 +247,7 @@ async function recoverMissingSentCount(campaignId: number, clientSlug: string): 
     const segmentId = await getResendSegmentId(clientSlug);
     if (!segmentId) return;
     const resend = new Resend(ENV.resendApiKey);
-    const res = await resend.contacts.list({ segmentId, limit: 100 });
+    const res = await resend.contacts.list({ segmentId, limit: 1000 });
     const sentCount = res?.data?.data?.length ?? 0;
     if (sentCount > 0) {
       await Promise.all(missing.map(m => updateCampaignMailer(m.id, { sentCount })));
@@ -1897,7 +1897,7 @@ DESIGN REQUIREMENTS:
           if (!segmentId) return { segmentId: null, subscriberCount: 0 };
           try {
             const resend = new Resend(ENV.resendApiKey);
-            const allRes = await resend.contacts.list({ segmentId, limit: 100 });
+            const allRes = await resend.contacts.list({ segmentId, limit: 1000 });
             return { segmentId, subscriberCount: allRes?.data?.data?.length ?? 0 };
           } catch {
             return { segmentId, subscriberCount: 0 };
@@ -1929,7 +1929,7 @@ DESIGN REQUIREMENTS:
           if (!segmentId) return [];
           try {
             const resend = new Resend(ENV.resendApiKey);
-            const res = await resend.contacts.list({ segmentId, limit: 100 });
+            const res = await resend.contacts.list({ segmentId, limit: 1000 });
             return (res?.data?.data ?? []) as { id: string; email: string; first_name: string; last_name: string; unsubscribed: boolean; created_at: string }[];
           } catch {
             return [];
@@ -2219,7 +2219,7 @@ INSTRUCTIONS:
 
           // Record how many were sent to
           try {
-            const countRes = await resend.contacts.list({ segmentId, limit: 100 });
+            const countRes = await resend.contacts.list({ segmentId, limit: 1000 });
             const sentCount = countRes?.data?.data?.length ?? 0;
             if (sentCount > 0) await updateCampaignMailer(input.mailerId, { sentCount });
           } catch { /* best effort */ }
