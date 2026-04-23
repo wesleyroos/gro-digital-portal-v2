@@ -58,6 +58,20 @@ const CAMPAIGN_AGENT_TOOLS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'reschedule_posts',
+      description: 'Reschedule all posts in the campaign starting from a new date, keeping the same Mon/Wed/Fri cadence. Use this when the user asks to push dates out, move the start date, or reschedule the campaign.',
+      parameters: {
+        type: 'object',
+        properties: {
+          startDate: { type: 'string', description: 'The new start date in YYYY-MM-DD format. The first post will land on the first Mon, Wed, or Fri on or after this date.' },
+        },
+        required: ['startDate'],
+      },
+    },
+  },
 ];
 
 async function buildCampaignSystemMessage(campaignId: number): Promise<string> {
@@ -146,8 +160,9 @@ WORKFLOW RULES:
    Tell the user their strategy is ready and they can click the "Generate Calendar" button to create the content calendar.
    Do not attempt to list or write out posts yourself.
 
-4. APPROVAL (status = approval)
+4. APPROVAL (status = approval) or ACTIVE
    Posts are visible in the Content tab. Tell the user to review them there.
+   If the user asks to reschedule, push dates, or shift the start date, call reschedule_posts with the new start date. Confirm the result clearly.
 
 Plain text only in responses. No markdown.`;
 }
@@ -212,6 +227,37 @@ async function executeCampaignTool(
         status: 'strategy',
       });
       return 'Strategy saved.';
+    }
+
+    if (name === 'reschedule_posts') {
+      const startDate = args.startDate as string;
+      if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+        return 'Invalid startDate — must be YYYY-MM-DD.';
+      }
+      const posts = await db.getPostsByCampaign(campaignId);
+      if (posts.length === 0) return 'No posts to reschedule.';
+
+      const sorted = [...posts].sort((a, b) => {
+        const aT = a.scheduledAt ? new Date(a.scheduledAt as string).getTime() : (a.sortOrder ?? 0);
+        const bT = b.scheduledAt ? new Date(b.scheduledAt as string).getTime() : (b.sortOrder ?? 0);
+        return (aT as number) - (bT as number);
+      });
+
+      const postDays = new Set([1, 3, 5]); // Mon, Wed, Fri
+      const postTimes = ['09:00:00', '12:00:00', '18:00:00'];
+      const cursor = new Date(startDate + 'T00:00:00');
+      const newDates: string[] = [];
+
+      while (newDates.length < sorted.length) {
+        if (postDays.has(cursor.getDay())) {
+          const time = postTimes[newDates.length % postTimes.length];
+          newDates.push(`${cursor.toISOString().slice(0, 10)}T${time}`);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      await Promise.all(sorted.map((post, i) => db.updatePostContent(post.id, { scheduledAt: newDates[i] })));
+      return `Done. Rescheduled ${sorted.length} posts. First post: ${newDates[0]}, last post: ${newDates[newDates.length - 1]}.`;
     }
 
     return `Unknown tool: ${name}`;
