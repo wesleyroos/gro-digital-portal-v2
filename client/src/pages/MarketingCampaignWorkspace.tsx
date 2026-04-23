@@ -1,4 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -6,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronLeft, ChevronRight, Mail, Undo2 } from "lucide-react";
+import { Send, Bot, ImageIcon, Check, X, RefreshCw, ArrowLeft, Sparkles, CalendarDays, LayoutGrid, MessageSquare, Zap, Trash2, Download, Upload, Pencil, BarChart2, Heart, MessageCircle, Share2, Bookmark, UserCheck, Users, TrendingUp, ChevronUp, ChevronDown, Link, Copy, Lock, Eye, EyeOff, Paperclip, ChevronLeft, ChevronRight, Mail, Undo2, GripVertical } from "lucide-react";
 import CampaignJarvisPanel from "@/components/CampaignJarvisPanel";
 import {
   Dialog,
@@ -88,6 +91,28 @@ function LinkedinCaptionSection({ post }: { post: { id: number; linkedinCaption?
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function SortablePostWrapper({ id, children }: { id: number; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, zIndex: isDragging ? 10 : undefined }}
+      className="relative"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing bg-black/30 hover:bg-black/50 rounded p-1 touch-none"
+        title="Drag to reorder"
+        onPointerDown={e => e.stopPropagation()}
+      >
+        <GripVertical className="w-3 h-3 text-white" />
+      </div>
+      {children}
     </div>
   );
 }
@@ -570,6 +595,23 @@ export default function MarketingCampaignWorkspace() {
     onSuccess: ({ count }) => { toast.success(`${count} posts rescheduled`); setRescheduleDate(""); refetch(); },
     onError: () => toast.error("Failed to reschedule"),
   });
+  const reorderMutation = trpc.campaign.post.reorder.useMutation({
+    onError: () => { toast.error("Failed to save order"); refetch(); },
+  });
+  const [localPostOrder, setLocalPostOrder] = useState<number[]>([]);
+  useEffect(() => { setLocalPostOrder(posts.map(p => p.id)); }, [posts.length]);
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setLocalPostOrder(prev => {
+      const oldIdx = prev.indexOf(active.id as number);
+      const newIdx = prev.indexOf(over.id as number);
+      const newOrder = arrayMove(prev, oldIdx, newIdx);
+      reorderMutation.mutate({ campaignId, order: newOrder });
+      return newOrder;
+    });
+  }, [campaignId, reorderMutation]);
   const updateStatusMutation = trpc.campaign.updateStatus.useMutation({
     onSuccess: () => { toast.success("Campaign activated"); refetch(); },
     onError: () => toast.error("Failed to activate campaign"),
@@ -1298,9 +1340,12 @@ export default function MarketingCampaignWorkspace() {
               </div>
 
               {/* Post grid */}
+              <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={localPostOrder} strategy={rectSortingStrategy}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {posts.map(post => (
-                  <div key={post.id} className="rounded-xl border bg-card overflow-hidden">
+                {localPostOrder.map(id => { const post = posts.find(p => p.id === id); if (!post) return null; return (
+                  <SortablePostWrapper key={post.id} id={post.id}>
+                  <div className="rounded-xl border bg-card overflow-hidden">
                     {/* Media area */}
                     <div className="relative aspect-square bg-muted group/img">
                       {generatingPostIds.has(post.id) ? (
@@ -1632,8 +1677,11 @@ export default function MarketingCampaignWorkspace() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  </SortablePostWrapper>
+                ); })}
               </div>
+              </SortableContext>
+              </DndContext>
             </>
           )}
         </TabsContent>

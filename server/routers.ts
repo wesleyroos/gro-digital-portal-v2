@@ -1315,6 +1315,16 @@ export const appRouter = router({
           return { success: true };
         }),
 
+      reorder: protectedProcedure
+        .input(z.object({ campaignId: z.number().int(), order: z.array(z.number().int()) }))
+        .mutation(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
+          await Promise.all(input.order.map((postId, idx) => updatePostContent(postId, { sortOrder: idx })));
+          return { success: true };
+        }),
+
       rescheduleAll: protectedProcedure
         .input(z.object({ campaignId: z.number().int(), startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
         .mutation(async ({ ctx, input }) => {
@@ -1323,11 +1333,7 @@ export const appRouter = router({
           assertCampaignAccess(ctx.user, campaign.clientSlug);
           const posts = await getPostsByCampaign(input.campaignId);
           if (posts.length === 0) return { count: 0 };
-          const sorted = [...posts].sort((a, b) => {
-            const aT = a.scheduledAt ? new Date(a.scheduledAt as string).getTime() : (a.sortOrder ?? 0);
-            const bT = b.scheduledAt ? new Date(b.scheduledAt as string).getTime() : (b.sortOrder ?? 0);
-            return (aT as number) - (bT as number);
-          });
+          const sorted = [...posts].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
           const postDays = new Set([1, 3, 5]); // Mon, Wed, Fri
           const postTimes = ['09:00:00', '12:00:00', '18:00:00'];
           const cursor = new Date(input.startDate + 'T00:00:00');
