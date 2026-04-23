@@ -1315,6 +1315,33 @@ export const appRouter = router({
           return { success: true };
         }),
 
+      rescheduleAll: protectedProcedure
+        .input(z.object({ campaignId: z.number().int(), startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
+        .mutation(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
+          const posts = await getPostsByCampaign(input.campaignId);
+          if (posts.length === 0) return { count: 0 };
+          const sorted = [...posts].sort((a, b) => {
+            const aT = a.scheduledAt ? new Date(a.scheduledAt as string).getTime() : (a.sortOrder ?? 0);
+            const bT = b.scheduledAt ? new Date(b.scheduledAt as string).getTime() : (b.sortOrder ?? 0);
+            return (aT as number) - (bT as number);
+          });
+          const postDays = new Set([1, 3, 5]); // Mon, Wed, Fri
+          const postTimes = ['09:00:00', '12:00:00', '18:00:00'];
+          const cursor = new Date(input.startDate + 'T00:00:00');
+          const newDates: string[] = [];
+          while (newDates.length < sorted.length) {
+            if (postDays.has(cursor.getDay())) {
+              newDates.push(`${cursor.toISOString().slice(0, 10)}T${postTimes[newDates.length % postTimes.length]}`);
+            }
+            cursor.setDate(cursor.getDate() + 1);
+          }
+          await Promise.all(sorted.map((post, i) => updatePostContent(post.id, { scheduledAt: newDates[i] })));
+          return { count: sorted.length };
+        }),
+
       getInsights: protectedProcedure
         .input(z.object({ postId: z.number().int() }))
         .query(async ({ ctx, input }) => {

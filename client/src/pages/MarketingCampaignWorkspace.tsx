@@ -142,6 +142,7 @@ export default function MarketingCampaignWorkspace() {
   const [generatingPostIds, setGeneratingPostIds] = useState<Set<number>>(new Set());
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState({ caption: "", hashtags: "", imagePrompt: "", scheduledAt: "" });
+  const [rescheduleDate, setRescheduleDate] = useState("");
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -563,6 +564,10 @@ export default function MarketingCampaignWorkspace() {
   const approveAllMutation = trpc.campaign.post.approveAll.useMutation({
     onSuccess: () => { toast.success("All draft posts approved"); refetch(); },
     onError: () => toast.error("Failed to approve all"),
+  });
+  const rescheduleAllMutation = trpc.campaign.post.rescheduleAll.useMutation({
+    onSuccess: ({ count }) => { toast.success(`${count} posts rescheduled`); setRescheduleDate(""); refetch(); },
+    onError: () => toast.error("Failed to reschedule"),
   });
   const updateStatusMutation = trpc.campaign.updateStatus.useMutation({
     onSuccess: () => { toast.success("Campaign activated"); refetch(); },
@@ -1139,7 +1144,7 @@ export default function MarketingCampaignWorkspace() {
           ) : (
             <>
               {/* Bulk action bar */}
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <div className="flex items-center gap-2 mb-4 flex-wrap justify-between">
                 {hasDraftPosts && (
                   <Button
                     size="sm"
@@ -1270,6 +1275,25 @@ export default function MarketingCampaignWorkspace() {
                     Deactivate
                   </Button>
                 )}
+                {/* Reschedule all posts */}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <input
+                    type="date"
+                    value={rescheduleDate}
+                    onChange={e => setRescheduleDate(e.target.value)}
+                    className="text-xs h-7 rounded-md border border-input bg-background px-2 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-7 text-xs"
+                    disabled={!rescheduleDate || rescheduleAllMutation.isPending}
+                    onClick={() => rescheduleAllMutation.mutate({ campaignId, startDate: rescheduleDate })}
+                  >
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    Reschedule from date
+                  </Button>
+                </div>
               </div>
 
               {/* Post grid */}
