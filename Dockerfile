@@ -7,6 +7,7 @@ RUN npm install -g pnpm@10 --quiet
 
 # Install deps as a cacheable layer — only re-runs when lockfile changes
 COPY package.json pnpm-lock.yaml ./
+COPY patches/ ./patches/
 RUN pnpm install --frozen-lockfile
 
 # Copy source and build
