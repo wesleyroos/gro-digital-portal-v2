@@ -108,7 +108,6 @@ function SortablePostWrapper({ id, children }: { id: number; children: React.Rea
         {...listeners}
         className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing bg-black/30 hover:bg-black/50 rounded p-1 touch-none"
         title="Drag to reorder"
-        onPointerDown={e => e.stopPropagation()}
       >
         <GripVertical className="w-3 h-3 text-white" />
       </div>
