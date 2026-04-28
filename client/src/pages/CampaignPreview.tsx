@@ -59,11 +59,7 @@ export default function CampaignPreview() {
     { enabled: !!token && submittedPassword !== null, retry: false }
   );
 
-  const { data: perfData } = trpc.campaign.post.getPerformance.useQuery(
-    { campaignId: data?.campaign.id ?? 0 },
-    { enabled: !!data?.campaign.id }
-  );
-  const rowByPostId = new Map(perfData?.rows.map(r => [r.post.id, r]) ?? []);
+  const rowByPostId = new Map();
 
   const approveMutation = trpc.campaign.post.approveByToken.useMutation({
     onSuccess: () => { toast.success("Post approved"); refetch(); },
@@ -494,7 +490,7 @@ function PerformanceSection({ campaignId, token }: { campaignId: number; token: 
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
   const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "email">("all");
 
-  const { data: perfData, isLoading } = trpc.campaign.post.getPerformance.useQuery({ campaignId });
+  const { data: perfData, isLoading } = trpc.campaign.post.getPerformance.useQuery({ campaignId }, { enabled: false });
   const { data: mailerRows } = trpc.campaign.mailer.getAnalyticsByShareToken.useQuery({ token }, { enabled: !!token });
 
   if (isLoading) return <div className="flex justify-center py-8"><span className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" /></div>;
