@@ -1897,9 +1897,11 @@ DESIGN REQUIREMENTS:
           if (!segmentId) return { segmentId: null, subscriberCount: 0 };
           try {
             const resend = new Resend(ENV.resendApiKey);
-            const allRes = await resend.contacts.list({ segmentId, limit: 1000 });
+            const allRes = await resend.contacts.list({ segmentId, limit: 100 });
+            if (allRes.error) console.error('[getSegmentStatus] Resend error:', allRes.error);
             return { segmentId, subscriberCount: allRes?.data?.data?.length ?? 0 };
-          } catch {
+          } catch (e) {
+            console.error('[getSegmentStatus] Exception:', e);
             return { segmentId, subscriberCount: 0 };
           }
         }),
@@ -1929,7 +1931,8 @@ DESIGN REQUIREMENTS:
           if (!segmentId) return [];
           try {
             const resend = new Resend(ENV.resendApiKey);
-            const res = await resend.contacts.list({ segmentId, limit: 1000 });
+            const res = await resend.contacts.list({ segmentId, limit: 100 });
+            if (res.error) console.error('[listSubscribers] Resend error:', res.error);
             return (res?.data?.data ?? []) as { id: string; email: string; first_name: string; last_name: string; unsubscribed: boolean; created_at: string }[];
           } catch {
             return [];
