@@ -194,6 +194,8 @@ export default function MarketingCampaignWorkspace() {
 
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
   const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "li" | "mailers" | "mailchimp">("all");
+  const [mailchimpKeyInput, setMailchimpKeyInput] = useState("");
+  const [showMailchimpKeyPrompt, setShowMailchimpKeyPrompt] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
@@ -264,6 +266,14 @@ export default function MarketingCampaignWorkspace() {
     { campaignId },
     { enabled: !!campaignId }
   );
+  const setMailchimpKeyMutation = trpc.campaign.mailer.setMailchimpApiKey.useMutation({
+    onSuccess: () => {
+      toast.success('Mailchimp API key saved');
+      setShowMailchimpKeyPrompt(false);
+      setMailchimpKeyInput("");
+    },
+    onError: () => toast.error('Failed to save Mailchimp API key'),
+  });
   const createMailerMutation = trpc.campaign.mailer.create.useMutation({
     onSuccess: (mailer) => {
       refetchMailers();
@@ -2490,7 +2500,40 @@ export default function MarketingCampaignWorkspace() {
                 <div className="space-y-4">
                   {platformTabs}
                   <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                    <p className="text-sm text-muted-foreground">No Mailchimp campaigns found. Make sure <code className="text-xs bg-muted px-1 rounded">MAILCHIMP_API_KEY</code> is set.</p>
+                    <p className="text-sm font-medium">No Mailchimp campaigns found</p>
+                    {!showMailchimpKeyPrompt ? (
+                      <button
+                        className="text-xs text-[#241C15] bg-[#FFE01B] hover:bg-[#f5d700] border border-[#FFE01B] px-3 py-1.5 rounded-md font-medium transition-colors"
+                        onClick={() => setShowMailchimpKeyPrompt(true)}
+                      >
+                        Connect Mailchimp API key
+                      </button>
+                    ) : (
+                      <div className="flex flex-col gap-2 w-full max-w-xs">
+                        <input
+                          type="password"
+                          className="w-full border rounded-md px-3 py-1.5 text-sm bg-background"
+                          placeholder="Paste Mailchimp API key (ends in -us13 etc.)"
+                          value={mailchimpKeyInput}
+                          onChange={e => setMailchimpKeyInput(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            className="flex-1 text-xs bg-[#FFE01B] hover:bg-[#f5d700] text-[#241C15] border border-[#FFE01B] px-3 py-1.5 rounded-md font-medium transition-colors disabled:opacity-50"
+                            disabled={!mailchimpKeyInput.trim() || setMailchimpKeyMutation.isPending}
+                            onClick={() => setMailchimpKeyMutation.mutate({ clientSlug: clientSlug, apiKey: mailchimpKeyInput.trim() })}
+                          >
+                            {setMailchimpKeyMutation.isPending ? 'Saving…' : 'Save'}
+                          </button>
+                          <button
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2"
+                            onClick={() => { setShowMailchimpKeyPrompt(false); setMailchimpKeyInput(""); }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

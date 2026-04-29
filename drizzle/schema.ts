@@ -131,6 +131,7 @@ export const clientProfiles = mysqlTable("clientProfiles", {
   linkedinOrganizationName: varchar("linkedinOrganizationName", { length: 255 }),
   linkedinPostTarget: mysqlEnum("linkedinPostTarget", ["personal", "organization"]).default("personal"),
   resendSegmentId: varchar("resendSegmentId", { length: 255 }),
+  mailchimpApiKey: varchar("mailchimpApiKey", { length: 255 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 

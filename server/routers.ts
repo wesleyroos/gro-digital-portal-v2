@@ -97,6 +97,8 @@ import {
   getCampaignMailerById,
   getResendSegmentId,
   setResendSegmentId,
+  getMailchimpApiKey,
+  setMailchimpApiKey,
   getSetting,
   setSetting,
   getMailerChatMessages,
@@ -1670,12 +1672,14 @@ Instructions:
         .input(z.object({ campaignId: z.number().int() }))
         .query(async ({ ctx, input }) => {
           const campaign = await getCampaignById(input.campaignId);
-          if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
-          if (!ENV.mailchimpApiKey) return { campaigns: [] };
-          const parts = ENV.mailchimpApiKey.split('-');
+          if (!campaign) return { campaigns: [] };
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
+          const apiKey = await getMailchimpApiKey(campaign.clientSlug);
+          if (!apiKey) return { campaigns: [] };
+          const parts = apiKey.split('-');
           const dc = parts[parts.length - 1];
           if (!dc) return { campaigns: [] };
-          const auth = 'Basic ' + Buffer.from(`anystring:${ENV.mailchimpApiKey}`).toString('base64');
+          const auth = 'Basic ' + Buffer.from(`anystring:${apiKey}`).toString('base64');
           try {
             const res = await fetch(`https://${dc}.api.mailchimp.com/3.0/reports?count=100&sort_field=send_time&sort_dir=DESC`, {
               headers: { Authorization: auth },
@@ -1698,6 +1702,13 @@ Instructions:
           } catch {
             return { campaigns: [] };
           }
+        }),
+
+      setMailchimpApiKey: adminProcedure
+        .input(z.object({ clientSlug: z.string(), apiKey: z.string() }))
+        .mutation(async ({ input }) => {
+          await setMailchimpApiKey(input.clientSlug, input.apiKey);
+          return { ok: true };
         }),
 
       create: protectedProcedure

@@ -1955,6 +1955,19 @@ export async function setResendSegmentId(clientSlug: string, segmentId: string):
   await db.insert(clientProfiles).values({ clientSlug, resendSegmentId: segmentId }).onDuplicateKeyUpdate({ set: { resendSegmentId: segmentId } });
 }
 
+export async function getMailchimpApiKey(clientSlug: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select({ mailchimpApiKey: clientProfiles.mailchimpApiKey }).from(clientProfiles).where(eq(clientProfiles.clientSlug, clientSlug)).limit(1);
+  return rows[0]?.mailchimpApiKey ?? null;
+}
+
+export async function setMailchimpApiKey(clientSlug: string, apiKey: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  await db.insert(clientProfiles).values({ clientSlug, mailchimpApiKey: apiKey }).onDuplicateKeyUpdate({ set: { mailchimpApiKey: apiKey } });
+}
+
 // ── Portal settings ──
 
 export async function getSetting(key: string): Promise<string | null> {
