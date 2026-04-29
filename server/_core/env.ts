@@ -33,6 +33,7 @@ export const ENV = {
   mcpApiKey: process.env.MCP_API_KEY ?? "",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   resendFromEmail: process.env.RESEND_FROM_EMAIL ?? "",
+  mailchimpApiKey: process.env.MAILCHIMP_API_KEY ?? "",
   ownerEmail: process.env.OWNER_EMAIL ?? "",
   googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY ?? "",
   hunterApiKey: process.env.HUNTER_API_KEY ?? "",

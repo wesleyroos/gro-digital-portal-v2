@@ -193,7 +193,7 @@ export default function MarketingCampaignWorkspace() {
   }, [lightboxUrl, lightboxImages]);
 
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
-  const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "li" | "mailers">("all");
+  const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "li" | "mailers" | "mailchimp">("all");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
@@ -254,6 +254,10 @@ export default function MarketingCampaignWorkspace() {
   const { data: mailerAnalytics, isLoading: mailerAnalyticsLoading } = trpc.campaign.mailer.getAnalytics.useQuery(
     { campaignId },
     { enabled: perfPlatform === 'mailers' }
+  );
+  const { data: mailchimpData, isLoading: mailchimpLoading } = trpc.campaign.mailer.getMailchimpReports.useQuery(
+    { campaignId },
+    { enabled: perfPlatform === 'mailchimp' }
   );
 
   const { data: mailers = [], refetch: refetchMailers } = trpc.campaign.mailer.list.useQuery(
@@ -2418,7 +2422,7 @@ export default function MarketingCampaignWorkspace() {
               <span className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm">Fetching analytics…</span>
             </div>
-          ) : !perfData?.rows.length && perfPlatform !== 'mailers' ? (
+          ) : !perfData?.rows.length && perfPlatform !== 'mailers' && perfPlatform !== 'mailchimp' ? (
             <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
               <TrendingUp className="w-8 h-8 text-muted-foreground/50" />
               <p className="text-sm text-muted-foreground">No published posts yet — analytics will appear here once posts are live.</p>
@@ -2434,7 +2438,8 @@ export default function MarketingCampaignWorkspace() {
                   { key: "ig" as const,  label: "Instagram",     activeClass: 'bg-pink-500 text-white border-pink-500' },
                   { key: "fb" as const,  label: "Facebook",      activeClass: 'bg-blue-600 text-white border-blue-600' },
                   { key: "li" as const,  label: "LinkedIn",      activeClass: 'bg-[#0a66c2] text-white border-[#0a66c2]' },
-                  { key: "mailers" as const, label: "Mailers",   activeClass: 'bg-emerald-600 text-white border-emerald-600' },
+                  { key: "mailers" as const,   label: "Mailers",    activeClass: 'bg-emerald-600 text-white border-emerald-600' },
+                  { key: "mailchimp" as const, label: "Mailchimp",  activeClass: 'bg-[#FFE01B] text-[#241C15] border-[#FFE01B]' },
                 ]).map(opt => (
                   <button
                     key={opt.key}
@@ -2464,6 +2469,87 @@ export default function MarketingCampaignWorkspace() {
             );
 
             // ── Mailers analytics view ──
+            if (perfPlatform === 'mailchimp') {
+              if (mailchimpLoading) return (
+                <div className="space-y-4">
+                  {platformTabs}
+                  <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                    <span className="w-4 h-4 border-2 border-[#FFE01B] border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm">Fetching Mailchimp analytics…</span>
+                  </div>
+                </div>
+              );
+              const mcRows = mailchimpData?.campaigns ?? [];
+              const totalSent = mcRows.reduce((s, r) => s + r.emailsSent, 0);
+              const totalOpens = mcRows.reduce((s, r) => s + r.opens, 0);
+              const totalClicks = mcRows.reduce((s, r) => s + r.clicks, 0);
+              const avgOpenRate = mcRows.length > 0 ? (mcRows.reduce((s, r) => s + r.openRate, 0) / mcRows.length * 100).toFixed(1) : null;
+              const avgClickRate = mcRows.length > 0 ? (mcRows.reduce((s, r) => s + r.clickRate, 0) / mcRows.length * 100).toFixed(1) : null;
+
+              if (!mcRows.length) return (
+                <div className="space-y-4">
+                  {platformTabs}
+                  <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                    <p className="text-sm text-muted-foreground">No Mailchimp campaigns found. Make sure <code className="text-xs bg-muted px-1 rounded">MAILCHIMP_API_KEY</code> is set.</p>
+                  </div>
+                </div>
+              );
+
+              return (
+                <div className="space-y-4">
+                  {platformTabs}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    {[
+                      { label: 'Sent', value: totalSent > 0 ? totalSent.toLocaleString() : '—', color: 'text-foreground' },
+                      { label: 'Opens', value: totalOpens.toLocaleString(), color: 'text-emerald-600' },
+                      { label: 'Open Rate', value: avgOpenRate ? `${avgOpenRate}%` : '—', color: 'text-emerald-600' },
+                      { label: 'Clicks', value: totalClicks.toLocaleString(), color: 'text-blue-600' },
+                      { label: 'Click Rate', value: avgClickRate ? `${avgClickRate}%` : '—', color: 'text-blue-600' },
+                    ].map(c => (
+                      <div key={c.label} className="rounded-xl border bg-card px-3 py-2.5 text-center">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{c.label}</p>
+                        <p className={`text-xl font-bold mt-0.5 ${c.color}`}>{c.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-xl border overflow-hidden">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-muted/50 border-b">
+                          <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Subject</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recipients</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Opens</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Open Rate</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-blue-600">Clicks</th>
+                          <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-blue-600">Click Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mcRows.map(row => {
+                          const sentDate = row.sendTime
+                            ? new Date(row.sendTime).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Johannesburg' })
+                            : null;
+                          return (
+                            <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                              <td className="px-3 py-3">
+                                <p className="text-xs font-medium">{row.subject}</p>
+                                {sentDate && <p className="text-[10px] text-muted-foreground mt-0.5">Sent {sentDate}</p>}
+                              </td>
+                              <td className="px-3 py-3 text-right tabular-nums text-foreground">{row.emailsSent > 0 ? row.emailsSent.toLocaleString() : '—'}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-emerald-600 font-semibold">{row.opens.toLocaleString()}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-emerald-600">{(row.openRate * 100).toFixed(1)}%</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-blue-600 font-semibold">{row.clicks.toLocaleString()}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-blue-600">{(row.clickRate * 100).toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            }
+
             if (perfPlatform === 'mailers') {
               if (mailerAnalyticsLoading) return (
                 <div className="space-y-4">

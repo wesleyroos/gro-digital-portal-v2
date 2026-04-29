@@ -1666,6 +1666,40 @@ Instructions:
           return getMailerAnalytics(campaign.id);
         }),
 
+      getMailchimpReports: protectedProcedure
+        .input(z.object({ campaignId: z.number().int() }))
+        .query(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (campaign) assertCampaignAccess(ctx.user, campaign.clientSlug);
+          if (!ENV.mailchimpApiKey) return { campaigns: [] };
+          const parts = ENV.mailchimpApiKey.split('-');
+          const dc = parts[parts.length - 1];
+          if (!dc) return { campaigns: [] };
+          const auth = 'Basic ' + Buffer.from(`anystring:${ENV.mailchimpApiKey}`).toString('base64');
+          try {
+            const res = await fetch(`https://${dc}.api.mailchimp.com/3.0/reports?count=100&sort_field=send_time&sort_dir=DESC`, {
+              headers: { Authorization: auth },
+              signal: AbortSignal.timeout(15_000),
+            });
+            const json = await res.json() as any;
+            return {
+              campaigns: ((json.reports ?? []) as any[]).map(r => ({
+                id: r.id as string,
+                subject: (r.subject_line || r.campaign_title || '(No subject)') as string,
+                title: (r.campaign_title ?? '') as string,
+                sendTime: (r.send_time ?? null) as string | null,
+                emailsSent: (r.emails_sent ?? 0) as number,
+                opens: (r.opens?.unique_opens ?? 0) as number,
+                openRate: (r.opens?.open_rate ?? 0) as number,
+                clicks: (r.clicks?.unique_clicks ?? 0) as number,
+                clickRate: (r.clicks?.click_rate ?? 0) as number,
+              })),
+            };
+          } catch {
+            return { campaigns: [] };
+          }
+        }),
+
       create: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
         .mutation(async ({ ctx, input }) => {
