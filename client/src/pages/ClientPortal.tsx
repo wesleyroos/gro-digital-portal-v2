@@ -952,235 +952,170 @@ export default function ClientPortal() {
 
         {/* ── Connections tab ── */}
         {tab === "connections" && (
-          <div className="space-y-8">
+          <div className="max-w-2xl space-y-6">
 
-            {/* Social platforms */}
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Social Platforms</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Single list card */}
+            <Card className="shadow-sm">
+              <div className="divide-y divide-border">
 
                 {/* Instagram */}
-                <Card className={`shadow-sm ${igStatus?.connected ? "border-pink-200/60 bg-pink-50/10" : ""}`}>
-                  <CardContent className="p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${igStatus?.connected ? "bg-gradient-to-br from-pink-500 to-purple-600" : "bg-muted"}`}>
-                          <AtSign className={`w-4 h-4 ${igStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
-                        </div>
-                        <p className="text-sm font-semibold">Instagram</p>
-                      </div>
-                      {igStatus?.connected && <span className="text-[10px] font-medium bg-pink-100 text-pink-700 border border-pink-200 px-2 py-0.5 rounded-full">Connected</span>}
-                    </div>
-                    {igStatus?.connected ? (
-                      <>
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Account</p>
-                          <p className="text-sm font-medium">@{igStatus.username}</p>
-                          {igStatus.businessId && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">ID: {igStatus.businessId}</p>}
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1.5 w-full justify-start"
-                          onClick={() => disconnectIg.mutate({ clientSlug: slug })} disabled={disconnectIg.isPending}>
-                          <X className="w-3 h-3" /> Disconnect
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-muted-foreground">Not connected.</p>
-                        <a href={`/api/auth/instagram/init/${encodeURIComponent(slug)}`}>
-                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
-                            <Link2 className="w-3 h-3" /> Connect Instagram
-                          </Button>
-                        </a>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center ${igStatus?.connected ? "bg-gradient-to-br from-pink-500 to-purple-600" : "bg-muted"}`}>
+                    <AtSign className={`w-3.5 h-3.5 ${igStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium leading-none">Instagram</p>
+                    {igStatus?.connected
+                      ? <p className="text-xs text-muted-foreground mt-0.5">@{igStatus.username}</p>
+                      : <p className="text-xs text-muted-foreground mt-0.5">Not connected</p>}
+                  </div>
+                  {igStatus?.connected ? (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1 shrink-0"
+                      onClick={() => disconnectIg.mutate({ clientSlug: slug })} disabled={disconnectIg.isPending}>
+                      <X className="w-3 h-3" /> Disconnect
+                    </Button>
+                  ) : (
+                    <a href={`/api/auth/instagram/init/${encodeURIComponent(slug)}`}>
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0">
+                        <Link2 className="w-3 h-3" /> Connect
+                      </Button>
+                    </a>
+                  )}
+                </div>
 
                 {/* Facebook */}
-                <Card className={`shadow-sm ${fbStatus?.connected ? "border-blue-200/60 bg-blue-50/10" : ""}`}>
-                  <CardContent className="p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${fbStatus?.connected ? "bg-blue-600" : "bg-muted"}`}>
-                          <Share2 className={`w-4 h-4 ${fbStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
-                        </div>
-                        <p className="text-sm font-semibold">Facebook</p>
-                      </div>
-                      {fbStatus?.connected && <span className="text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">Connected</span>}
-                    </div>
-                    {fbStatus?.connected ? (
-                      <>
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Page</p>
-                          <p className="text-sm font-medium">{fbStatus.pageName}</p>
-                          {fbStatus.pageId && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">ID: {fbStatus.pageId}</p>}
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1.5 w-full justify-start"
-                          onClick={() => disconnectFb.mutate({ clientSlug: slug })} disabled={disconnectFb.isPending}>
-                          <X className="w-3 h-3" /> Disconnect
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-muted-foreground">Not connected.</p>
-                        <a href={`/api/auth/facebook/init/${encodeURIComponent(slug)}`}>
-                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
-                            <Link2 className="w-3 h-3" /> Connect Facebook
-                          </Button>
-                        </a>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center ${fbStatus?.connected ? "bg-blue-600" : "bg-muted"}`}>
+                    <Share2 className={`w-3.5 h-3.5 ${fbStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium leading-none">Facebook</p>
+                    {fbStatus?.connected
+                      ? <p className="text-xs text-muted-foreground mt-0.5">{fbStatus.pageName}</p>
+                      : <p className="text-xs text-muted-foreground mt-0.5">Not connected</p>}
+                  </div>
+                  {fbStatus?.connected ? (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1 shrink-0"
+                      onClick={() => disconnectFb.mutate({ clientSlug: slug })} disabled={disconnectFb.isPending}>
+                      <X className="w-3 h-3" /> Disconnect
+                    </Button>
+                  ) : (
+                    <a href={`/api/auth/facebook/init/${encodeURIComponent(slug)}`}>
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0">
+                        <Link2 className="w-3 h-3" /> Connect
+                      </Button>
+                    </a>
+                  )}
+                </div>
 
                 {/* LinkedIn */}
-                <Card className={`shadow-sm ${liStatus?.connected ? "border-sky-200/60 bg-sky-50/10" : ""}`}>
-                  <CardContent className="p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${liStatus?.connected ? "bg-sky-700" : "bg-muted"}`}>
-                          <Globe className={`w-4 h-4 ${liStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
-                        </div>
-                        <p className="text-sm font-semibold">LinkedIn</p>
-                      </div>
-                      {liStatus?.connected && <span className="text-[10px] font-medium bg-sky-100 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-full">Connected</span>}
-                    </div>
-                    {liStatus?.connected ? (
-                      <>
-                        <div>
-                          {liStatus.orgName && <><p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Organisation</p><p className="text-sm font-medium">{liStatus.orgName}</p></>}
-                          {liStatus.personUrn && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{liStatus.personUrn}</p>}
-                          <div className="mt-2">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Post as</p>
-                            <div className="flex gap-1.5">
-                              {(["personal", "organization"] as const).map(t => (
-                                <button key={t} onClick={() => setLiPostTargetMutation.mutate({ clientSlug: slug, target: t })}
-                                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${liStatus.postTarget === t ? "bg-sky-100 text-sky-700 border-sky-300 font-semibold" : "text-muted-foreground border-border hover:bg-muted"}`}>
-                                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1.5 w-full justify-start"
-                          onClick={() => disconnectLi.mutate({ clientSlug: slug })} disabled={disconnectLi.isPending}>
-                          <X className="w-3 h-3" /> Disconnect
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-muted-foreground">Not connected.</p>
-                        <a href={`/api/auth/linkedin/init/${encodeURIComponent(slug)}`}>
-                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
-                            <Link2 className="w-3 h-3" /> Connect LinkedIn
-                          </Button>
-                        </a>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Email</p>
-              <Card className="shadow-sm max-w-md">
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${profile?.mailchimpApiKey ? "bg-[#FFE01B]" : "bg-muted"}`}>
-                        <Mail className={`w-4 h-4 ${profile?.mailchimpApiKey ? "text-[#241C15]" : "text-muted-foreground"}`} />
-                      </div>
-                      <p className="text-sm font-semibold">Mailchimp</p>
-                    </div>
-                    {profile?.mailchimpApiKey && <span className="text-[10px] font-medium bg-yellow-100 text-yellow-700 border border-yellow-200 px-2 py-0.5 rounded-full">Key set</span>}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center ${liStatus?.connected ? "bg-sky-700" : "bg-muted"}`}>
+                    <Globe className={`w-3.5 h-3.5 ${liStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
                   </div>
-                  <p className="text-xs text-muted-foreground">{profile?.mailchimpApiKey ? "API key is configured. Update it below." : "Enter your Mailchimp API key to enable analytics in marketing campaigns."}</p>
-                  <div className="flex gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium leading-none">LinkedIn</p>
+                    {liStatus?.connected
+                      ? <p className="text-xs text-muted-foreground mt-0.5">{liStatus.orgName || liStatus.personUrn || "Connected"}</p>
+                      : <p className="text-xs text-muted-foreground mt-0.5">Not connected</p>}
+                  </div>
+                  {liStatus?.connected ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex gap-1">
+                        {(["personal", "organization"] as const).map(t => (
+                          <button key={t} onClick={() => setLiPostTargetMutation.mutate({ clientSlug: slug, target: t })}
+                            className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${liStatus.postTarget === t ? "bg-sky-100 text-sky-700 border-sky-300 font-semibold" : "text-muted-foreground border-border hover:bg-muted"}`}>
+                            {t === "personal" ? "Personal" : "Org"}
+                          </button>
+                        ))}
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1"
+                        onClick={() => disconnectLi.mutate({ clientSlug: slug })} disabled={disconnectLi.isPending}>
+                        <X className="w-3 h-3" /> Disconnect
+                      </Button>
+                    </div>
+                  ) : (
+                    <a href={`/api/auth/linkedin/init/${encodeURIComponent(slug)}`}>
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0">
+                        <Link2 className="w-3 h-3" /> Connect
+                      </Button>
+                    </a>
+                  )}
+                </div>
+
+                {/* Mailchimp */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center ${profile?.mailchimpApiKey ? "bg-[#FFE01B]" : "bg-muted"}`}>
+                    <Mail className={`w-3.5 h-3.5 ${profile?.mailchimpApiKey ? "text-[#241C15]" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium leading-none">Mailchimp</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{profile?.mailchimpApiKey ? "API key configured" : "No API key set"}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <Input
                       type="password"
-                      className="h-8 text-xs font-mono flex-1"
-                      placeholder={profile?.mailchimpApiKey ? "Enter new key to update" : "Paste API key (ends in -us13 etc.)"}
+                      className="h-7 text-xs font-mono w-44"
+                      placeholder={profile?.mailchimpApiKey ? "Update key…" : "Paste key…"}
                       value={mailchimpKeyInput}
                       onChange={e => setMailchimpKeyInput(e.target.value)}
                     />
-                    <Button size="sm" className="h-8 text-xs shrink-0"
+                    <Button size="sm" className="h-7 text-xs"
                       disabled={!mailchimpKeyInput.trim() || setMailchimpKeyMutation.isPending}
                       onClick={() => setMailchimpKeyMutation.mutate({ clientSlug: slug, apiKey: mailchimpKeyInput.trim() })}>
-                      {setMailchimpKeyMutation.isPending ? "Saving…" : "Save"}
+                      {setMailchimpKeyMutation.isPending ? "…" : "Save"}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
 
-            {/* Analytics */}
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Analytics</p>
-              <Card className={`shadow-sm max-w-md ${profile?.analyticsToken ? "border-indigo-200/60 bg-indigo-50/10" : ""}`}>
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${profile?.analyticsToken ? "bg-indigo-600" : "bg-muted"}`}>
-                        <BarChart2 className={`w-4 h-4 ${profile?.analyticsToken ? "text-white" : "text-muted-foreground"}`} />
-                      </div>
-                      <p className="text-sm font-semibold">Plausible Analytics</p>
-                    </div>
-                    {profile?.analyticsToken && <span className="text-[10px] font-medium bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full">Active</span>}
+                {/* Plausible Analytics */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className={`w-7 h-7 rounded-md shrink-0 flex items-center justify-center ${profile?.analyticsToken ? "bg-indigo-600" : "bg-muted"}`}>
+                    <BarChart2 className={`w-3.5 h-3.5 ${profile?.analyticsToken ? "text-white" : "text-muted-foreground"}`} />
                   </div>
-                  {profile?.analyticsToken && (
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Shareable link</p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 text-[11px] bg-muted border border-border rounded px-2 py-1.5 text-muted-foreground truncate">
-                          {`${window.location.origin}/analytics/${profile.analyticsToken}`}
-                        </code>
-                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0"
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium leading-none">Plausible Analytics</p>
+                    {profile?.analyticsToken
+                      ? <p className="text-xs text-muted-foreground mt-0.5 truncate">{window.location.origin}/analytics/{profile.analyticsToken}</p>
+                      : <p className="text-xs text-muted-foreground mt-0.5">No embed configured</p>}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {profile?.analyticsToken && (
+                      <>
+                        <Button variant="outline" size="sm" className="h-7 w-7 p-0"
                           onClick={() => navigator.clipboard.writeText(`${window.location.origin}/analytics/${profile!.analyticsToken!}`).then(() => toast.success("Link copied"))}>
-                          <Link2 className="w-3.5 h-3.5" />
+                          <Link2 className="w-3 h-3" />
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0"
+                        <Button variant="outline" size="sm" className="h-7 w-7 p-0"
                           onClick={() => window.open(`/analytics/${profile!.analyticsToken}`, "_blank")}>
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <ExternalLink className="w-3 h-3" />
                         </Button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] text-muted-foreground">{profile?.analyticsToken ? "Update embed URL" : "Paste your Plausible embed URL to enable a shareable analytics page for this client."}</p>
+                      </>
+                    )}
                     <Input
-                      className="h-8 text-xs"
-                      placeholder="https://plausible.io/your-site?embed=true&theme=light"
+                      className="h-7 text-xs w-44"
+                      placeholder="https://plausible.io/…?embed=true"
                       value={embedUrl}
                       onChange={e => setEmbedUrl(e.target.value)}
                     />
-                    {embedUrlWarning(embedUrl) && (
-                      <div className="flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-2">
-                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
-                        {embedUrlWarning(embedUrl)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
                     {(!profile?.analyticsToken || embedUrl) && (
-                      <Button size="sm" className="h-8 text-xs"
+                      <Button size="sm" className="h-7 text-xs"
                         disabled={!embedUrl.trim() || setAnalyticsMutation.isPending}
                         onClick={() => { if (embedUrl.trim()) setAnalyticsMutation.mutate({ clientSlug: slug, analyticsEmbed: embedUrl.trim() }); }}>
-                        {setAnalyticsMutation.isPending ? "Saving…" : profile?.analyticsToken ? "Update" : "Enable Analytics"}
+                        {setAnalyticsMutation.isPending ? "…" : profile?.analyticsToken ? "Update" : "Enable"}
                       </Button>
                     )}
-                    {profile?.analyticsToken && (
-                      <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive gap-1.5"
+                    {profile?.analyticsToken && !embedUrl && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive"
                         onClick={() => clearAnalyticsMutation.mutate({ clientSlug: slug })} disabled={clearAnalyticsMutation.isPending}>
-                        <Trash2 className="w-3 h-3" /> Remove
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
 
+              </div>
+            </Card>
           </div>
         )}
 
