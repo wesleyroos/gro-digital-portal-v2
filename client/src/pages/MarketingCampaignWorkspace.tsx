@@ -260,6 +260,11 @@ export default function MarketingCampaignWorkspace() {
     { enabled: perfPlatform === 'mailchimp' }
   );
 
+  const { data: mailchimpUpcoming } = trpc.campaign.mailer.getMailchimpUpcoming.useQuery(
+    { campaignId },
+    { enabled: !!campaignId }
+  );
+
   const { data: mailers = [], refetch: refetchMailers } = trpc.campaign.mailer.list.useQuery(
     { campaignId },
     { enabled: !!campaignId }
@@ -1740,6 +1745,36 @@ export default function MarketingCampaignWorkspace() {
                 )}
               </button>
             ))}
+
+            {mailchimpUpcoming && mailchimpUpcoming.campaigns.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 pt-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mailchimp</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                {mailchimpUpcoming.campaigns.map(c => (
+                  <div key={c.id} className="rounded-xl border border-border bg-card p-3 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-medium text-foreground leading-snug">{c.subject}</p>
+                      <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                        c.status === 'schedule' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                      }`}>{c.status === 'schedule' ? 'scheduled' : 'draft'}</span>
+                    </div>
+                    {c.scheduledFor && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(c.scheduledFor).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Johannesburg' })}
+                        {' · '}
+                        {new Date(c.scheduledFor).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Johannesburg' })}
+                      </p>
+                    )}
+                    {c.listName && (
+                      <p className="text-[10px] text-muted-foreground truncate">{c.listName}{c.recipientCount > 0 ? ` · ${c.recipientCount.toLocaleString()} recipients` : ''}</p>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           {/* Right: editor */}

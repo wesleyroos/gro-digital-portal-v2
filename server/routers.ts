@@ -1704,6 +1704,41 @@ Instructions:
           }
         }),
 
+      getMailchimpUpcoming: protectedProcedure
+        .input(z.object({ campaignId: z.number().int() }))
+        .query(async ({ ctx, input }) => {
+          const campaign = await getCampaignById(input.campaignId);
+          if (!campaign) return { campaigns: [] };
+          assertCampaignAccess(ctx.user, campaign.clientSlug);
+          const apiKey = await getMailchimpApiKey(campaign.clientSlug);
+          if (!apiKey) return { campaigns: [] };
+          const parts = apiKey.split('-');
+          const dc = parts[parts.length - 1];
+          if (!dc) return { campaigns: [] };
+          const auth = 'Basic ' + Buffer.from(`anystring:${apiKey}`).toString('base64');
+          const base = `https://${dc}.api.mailchimp.com/3.0/campaigns?count=100&sort_field=create_time&sort_dir=DESC`;
+          try {
+            const [r1, r2] = await Promise.all([
+              fetch(`${base}&status=schedule`, { headers: { Authorization: auth }, signal: AbortSignal.timeout(15_000) }),
+              fetch(`${base}&status=save`, { headers: { Authorization: auth }, signal: AbortSignal.timeout(15_000) }),
+            ]);
+            const [j1, j2] = await Promise.all([r1.json() as Promise<any>, r2.json() as Promise<any>]);
+            const all = [...(j1.campaigns ?? []), ...(j2.campaigns ?? [])];
+            return {
+              campaigns: all.map(c => ({
+                id: c.id as string,
+                status: c.status as string,
+                subject: (c.settings?.subject_line || c.settings?.title || '(No subject)') as string,
+                scheduledFor: (c.send_time ?? null) as string | null,
+                listName: (c.recipients?.list_name ?? null) as string | null,
+                recipientCount: (c.recipients?.recipient_count ?? 0) as number,
+              })),
+            };
+          } catch {
+            return { campaigns: [] };
+          }
+        }),
+
       setMailchimpApiKey: adminProcedure
         .input(z.object({ clientSlug: z.string(), apiKey: z.string() }))
         .mutation(async ({ input }) => {
