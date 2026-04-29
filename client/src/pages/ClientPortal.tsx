@@ -31,7 +31,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -108,7 +107,7 @@ function TypeIcon({ type }: { type: string }) {
   return <FileText className="w-5 h-5 text-primary" />;
 }
 
-type AdminTab = "overview" | "social" | "billing" | "tasks" | "portalAccess";
+type AdminTab = "overview" | "social" | "connections" | "billing" | "tasks" | "portalAccess";
 
 export default function ClientPortal() {
   const params = useParams<{ slug: string }>();
@@ -124,6 +123,7 @@ export default function ClientPortal() {
   const { data: allTasks = [] } = trpc.task.list.useQuery(undefined, { enabled: isAdmin });
   const { data: igStatus } = trpc.instagram.getStatus.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: fbStatus } = trpc.facebook.getStatus.useQuery({ clientSlug: slug }, { enabled: isAdmin });
+  const { data: liStatus } = trpc.linkedin.getStatus.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: emailStatus } = trpc.campaign.mailer.getSegmentStatus.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: allCampaigns = [] } = trpc.campaign.list.useQuery(undefined, { enabled: isAdmin });
   const { data: portalUsers = [], refetch: refetchPortalUsers } = trpc.portalUsers.listByClient.useQuery(
@@ -141,8 +141,8 @@ export default function ClientPortal() {
   const [addressDraft, setAddressDraft] = useState("");
   const [editingContact, setEditingContact] = useState(false);
   const [contactDraft, setContactDraft] = useState({ name: "", contact: "", email: "", phone: "" });
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [embedUrl, setEmbedUrl] = useState("");
+  const [mailchimpKeyInput, setMailchimpKeyInput] = useState("");
 
   const setAnalyticsMutation = trpc.client.setAnalytics.useMutation({
     onSuccess: () => {
@@ -185,6 +185,31 @@ export default function ClientPortal() {
       toast.success("Facebook disconnected");
     },
     onError: () => toast.error("Failed to disconnect Facebook"),
+  });
+
+  const disconnectLi = trpc.linkedin.disconnect.useMutation({
+    onSuccess: () => {
+      utils.linkedin.getStatus.invalidate({ clientSlug: slug });
+      toast.success("LinkedIn disconnected");
+    },
+    onError: () => toast.error("Failed to disconnect LinkedIn"),
+  });
+
+  const setLiPostTargetMutation = trpc.linkedin.setPostTarget.useMutation({
+    onSuccess: () => {
+      utils.linkedin.getStatus.invalidate({ clientSlug: slug });
+      toast.success("LinkedIn post target updated");
+    },
+    onError: () => toast.error("Failed to update LinkedIn post target"),
+  });
+
+  const setMailchimpKeyMutation = trpc.campaign.mailer.setMailchimpApiKey.useMutation({
+    onSuccess: () => {
+      utils.client.getProfile.invalidate({ clientSlug: slug });
+      setMailchimpKeyInput("");
+      toast.success("Mailchimp API key saved");
+    },
+    onError: () => toast.error("Failed to save Mailchimp API key"),
   });
 
   // ── Recurring invoice config ──
@@ -635,20 +660,6 @@ export default function ClientPortal() {
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={startEditingContact}>
                   Edit
                 </Button>
-                <button
-                  onClick={() => { setEmbedUrl(""); setAnalyticsOpen(true); }}
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md border transition-colors h-7 ${
-                    profile?.analyticsToken
-                      ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
-                      : "bg-muted/60 text-muted-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  <BarChart2 className="w-3 h-3" />
-                  Analytics
-                  {profile?.analyticsToken && (
-                    <span className="text-[9px] font-bold bg-indigo-600 text-white px-1.5 py-0.5 rounded-full leading-none">ON</span>
-                  )}
-                </button>
                 <Link href={`/invoice/new?client=${slug}`}>
                   <Button size="sm" className="gap-1.5 text-xs h-7">
                     <Plus className="w-3 h-3" />
@@ -661,19 +672,27 @@ export default function ClientPortal() {
         </div>
 
         {/* ── Tab navigation ── */}
-        <div className="flex items-center gap-0 border-b border-border mb-8">
-          {(["overview", "social", "billing", "tasks", "portalAccess"] as const).map((t) => (
+        <div className="flex items-center gap-0 border-b border-border mb-8 overflow-x-auto">
+          {(["overview", "social", "connections", "billing", "tasks", "portalAccess"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px relative ${
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px relative whitespace-nowrap ${
                 tab === t
                   ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               {t === "overview" && "Overview"}
-              {t === "social" && "Social & Audiences"}
+              {t === "social" && "Audiences"}
+              {t === "connections" && (
+                <>
+                  Connections
+                  {(igStatus?.connected || fbStatus?.connected || liStatus?.connected || profile?.mailchimpApiKey || profile?.analyticsToken) && (
+                    <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 align-middle" />
+                  )}
+                </>
+              )}
               {t === "billing" && "Billing"}
               {t === "tasks" && (
                 <>
@@ -816,143 +835,75 @@ export default function ClientPortal() {
           </div>
         )}
 
-        {/* ── Social & Audiences tab ── */}
+        {/* ── Audiences tab ── */}
         {tab === "social" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-              {/* Instagram */}
-              <Card className={`shadow-sm ${igStatus?.connected ? "border-pink-200/60 bg-pink-50/10" : ""}`}>
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${igStatus?.connected ? "bg-gradient-to-br from-pink-500 to-purple-600" : "bg-muted"}`}>
-                        <AtSign className={`w-4 h-4 ${igStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">Instagram</p>
+              {/* Social reach summary */}
+              {[
+                { label: "Instagram", connected: igStatus?.connected, detail: igStatus?.connected ? `@${igStatus.username}` : null, color: "pink" },
+                { label: "Facebook", connected: fbStatus?.connected, detail: fbStatus?.connected ? fbStatus.pageName : null, color: "blue" },
+                { label: "LinkedIn", connected: liStatus?.connected, detail: liStatus?.connected ? (liStatus.orgName || liStatus.personUrn) : null, color: "sky" },
+              ].map(({ label, connected, detail, color }) => (
+                <Card key={label} className="shadow-sm">
+                  <CardContent className="p-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground">{label}</p>
+                      {detail && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{detail}</p>}
                     </div>
-                    {igStatus?.connected && (
-                      <span className="text-[10px] font-medium bg-pink-100 text-pink-700 border border-pink-200 px-2 py-0.5 rounded-full">Connected</span>
-                    )}
-                  </div>
-                  {igStatus?.connected ? (
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Account</p>
-                        <p className="text-sm font-medium text-foreground">@{igStatus.username}</p>
-                        {igStatus.businessId && (
-                          <p className="text-[11px] text-muted-foreground font-mono mt-0.5">ID: {igStatus.businessId}</p>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-destructive hover:text-destructive gap-1.5 w-full justify-start"
-                        onClick={() => disconnectIg.mutate({ clientSlug: slug })}
-                        disabled={disconnectIg.isPending}
+                    {connected ? (
+                      <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border ${color === "pink" ? "bg-pink-50 text-pink-700 border-pink-200" : color === "blue" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-sky-50 text-sky-700 border-sky-200"}`}>
+                        Connected
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setTab("connections")}
+                        className="shrink-0 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <X className="w-3 h-3" />
-                        Disconnect
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">Not connected. Connect via a Marketing campaign.</p>
-                      <Link href="/marketing">
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
-                          <Megaphone className="w-3 h-3" />
-                          Go to Marketing
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Facebook */}
-              <Card className={`shadow-sm ${fbStatus?.connected ? "border-blue-200/60 bg-blue-50/10" : ""}`}>
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${fbStatus?.connected ? "bg-blue-600" : "bg-muted"}`}>
-                        <Share2 className={`w-4 h-4 ${fbStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">Facebook</p>
-                    </div>
-                    {fbStatus?.connected && (
-                      <span className="text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">Connected</span>
+                        Connect →
+                      </button>
                     )}
-                  </div>
-                  {fbStatus?.connected ? (
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Page</p>
-                        <p className="text-sm font-medium text-foreground">{fbStatus.pageName}</p>
-                        {fbStatus.pageId && (
-                          <p className="text-[11px] text-muted-foreground font-mono mt-0.5">ID: {fbStatus.pageId}</p>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-destructive hover:text-destructive gap-1.5 w-full justify-start"
-                        onClick={() => disconnectFb.mutate({ clientSlug: slug })}
-                        disabled={disconnectFb.isPending}
-                      >
-                        <X className="w-3 h-3" />
-                        Disconnect
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">Not connected. Connect via a Marketing campaign.</p>
-                      <Link href="/marketing">
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
-                          <Megaphone className="w-3 h-3" />
-                          Go to Marketing
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Email / Audience */}
-              <Card className={`shadow-sm ${emailStatus?.segmentId ? "border-emerald-200/60 bg-emerald-50/10" : ""}`}>
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${emailStatus?.segmentId ? "bg-emerald-600" : "bg-muted"}`}>
-                        <Users className={`w-4 h-4 ${emailStatus?.segmentId ? "text-white" : "text-muted-foreground"}`} />
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">Email Audience</p>
-                    </div>
-                    {emailStatus?.segmentId && (
-                      <span className="text-[10px] font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">Active</span>
-                    )}
-                  </div>
-                  {emailStatus?.segmentId ? (
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Subscribers</p>
-                        <p className="text-2xl font-bold font-mono text-foreground">{emailStatus.subscriberCount}</p>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground font-mono truncate">Segment: {emailStatus.segmentId}</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">No email audience set up yet. Add subscribers via a Marketing campaign.</p>
-                      <Link href="/marketing">
-                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
-                          <Megaphone className="w-3 h-3" />
-                          Go to Marketing
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
+
+            {/* Email audience */}
+            <Card className={`shadow-sm ${emailStatus?.segmentId ? "border-emerald-200/60 bg-emerald-50/10" : ""}`}>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${emailStatus?.segmentId ? "bg-emerald-600" : "bg-muted"}`}>
+                      <Users className={`w-4 h-4 ${emailStatus?.segmentId ? "text-white" : "text-muted-foreground"}`} />
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">Email Audience</p>
+                  </div>
+                  {emailStatus?.segmentId && (
+                    <span className="text-[10px] font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </div>
+                {emailStatus?.segmentId ? (
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Subscribers</p>
+                      <p className="text-2xl font-bold font-mono text-foreground">{emailStatus.subscriberCount}</p>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-mono truncate">Segment: {emailStatus.segmentId}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">No email audience set up yet. Add subscribers via a Marketing campaign.</p>
+                    <Link href="/marketing">
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
+                        <Megaphone className="w-3 h-3" />
+                        Go to Marketing
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Campaigns summary */}
             <Card className="shadow-sm">
@@ -996,6 +947,240 @@ export default function ClientPortal() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* ── Connections tab ── */}
+        {tab === "connections" && (
+          <div className="space-y-8">
+
+            {/* Social platforms */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Social Platforms</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                {/* Instagram */}
+                <Card className={`shadow-sm ${igStatus?.connected ? "border-pink-200/60 bg-pink-50/10" : ""}`}>
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${igStatus?.connected ? "bg-gradient-to-br from-pink-500 to-purple-600" : "bg-muted"}`}>
+                          <AtSign className={`w-4 h-4 ${igStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
+                        </div>
+                        <p className="text-sm font-semibold">Instagram</p>
+                      </div>
+                      {igStatus?.connected && <span className="text-[10px] font-medium bg-pink-100 text-pink-700 border border-pink-200 px-2 py-0.5 rounded-full">Connected</span>}
+                    </div>
+                    {igStatus?.connected ? (
+                      <>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Account</p>
+                          <p className="text-sm font-medium">@{igStatus.username}</p>
+                          {igStatus.businessId && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">ID: {igStatus.businessId}</p>}
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1.5 w-full justify-start"
+                          onClick={() => disconnectIg.mutate({ clientSlug: slug })} disabled={disconnectIg.isPending}>
+                          <X className="w-3 h-3" /> Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground">Not connected.</p>
+                        <a href={`/api/auth/instagram/init/${encodeURIComponent(slug)}`}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
+                            <Link2 className="w-3 h-3" /> Connect Instagram
+                          </Button>
+                        </a>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Facebook */}
+                <Card className={`shadow-sm ${fbStatus?.connected ? "border-blue-200/60 bg-blue-50/10" : ""}`}>
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${fbStatus?.connected ? "bg-blue-600" : "bg-muted"}`}>
+                          <Share2 className={`w-4 h-4 ${fbStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
+                        </div>
+                        <p className="text-sm font-semibold">Facebook</p>
+                      </div>
+                      {fbStatus?.connected && <span className="text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">Connected</span>}
+                    </div>
+                    {fbStatus?.connected ? (
+                      <>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Page</p>
+                          <p className="text-sm font-medium">{fbStatus.pageName}</p>
+                          {fbStatus.pageId && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">ID: {fbStatus.pageId}</p>}
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1.5 w-full justify-start"
+                          onClick={() => disconnectFb.mutate({ clientSlug: slug })} disabled={disconnectFb.isPending}>
+                          <X className="w-3 h-3" /> Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground">Not connected.</p>
+                        <a href={`/api/auth/facebook/init/${encodeURIComponent(slug)}`}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
+                            <Link2 className="w-3 h-3" /> Connect Facebook
+                          </Button>
+                        </a>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* LinkedIn */}
+                <Card className={`shadow-sm ${liStatus?.connected ? "border-sky-200/60 bg-sky-50/10" : ""}`}>
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${liStatus?.connected ? "bg-sky-700" : "bg-muted"}`}>
+                          <Globe className={`w-4 h-4 ${liStatus?.connected ? "text-white" : "text-muted-foreground"}`} />
+                        </div>
+                        <p className="text-sm font-semibold">LinkedIn</p>
+                      </div>
+                      {liStatus?.connected && <span className="text-[10px] font-medium bg-sky-100 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-full">Connected</span>}
+                    </div>
+                    {liStatus?.connected ? (
+                      <>
+                        <div>
+                          {liStatus.orgName && <><p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Organisation</p><p className="text-sm font-medium">{liStatus.orgName}</p></>}
+                          {liStatus.personUrn && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{liStatus.personUrn}</p>}
+                          <div className="mt-2">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Post as</p>
+                            <div className="flex gap-1.5">
+                              {(["personal", "organization"] as const).map(t => (
+                                <button key={t} onClick={() => setLiPostTargetMutation.mutate({ clientSlug: slug, target: t })}
+                                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${liStatus.postTarget === t ? "bg-sky-100 text-sky-700 border-sky-300 font-semibold" : "text-muted-foreground border-border hover:bg-muted"}`}>
+                                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive gap-1.5 w-full justify-start"
+                          onClick={() => disconnectLi.mutate({ clientSlug: slug })} disabled={disconnectLi.isPending}>
+                          <X className="w-3 h-3" /> Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground">Not connected.</p>
+                        <a href={`/api/auth/linkedin/init/${encodeURIComponent(slug)}`}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full">
+                            <Link2 className="w-3 h-3" /> Connect LinkedIn
+                          </Button>
+                        </a>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Email */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Email</p>
+              <Card className="shadow-sm max-w-md">
+                <CardContent className="p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${profile?.mailchimpApiKey ? "bg-[#FFE01B]" : "bg-muted"}`}>
+                        <Mail className={`w-4 h-4 ${profile?.mailchimpApiKey ? "text-[#241C15]" : "text-muted-foreground"}`} />
+                      </div>
+                      <p className="text-sm font-semibold">Mailchimp</p>
+                    </div>
+                    {profile?.mailchimpApiKey && <span className="text-[10px] font-medium bg-yellow-100 text-yellow-700 border border-yellow-200 px-2 py-0.5 rounded-full">Key set</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{profile?.mailchimpApiKey ? "API key is configured. Update it below." : "Enter your Mailchimp API key to enable analytics in marketing campaigns."}</p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      className="h-8 text-xs font-mono flex-1"
+                      placeholder={profile?.mailchimpApiKey ? "Enter new key to update" : "Paste API key (ends in -us13 etc.)"}
+                      value={mailchimpKeyInput}
+                      onChange={e => setMailchimpKeyInput(e.target.value)}
+                    />
+                    <Button size="sm" className="h-8 text-xs shrink-0"
+                      disabled={!mailchimpKeyInput.trim() || setMailchimpKeyMutation.isPending}
+                      onClick={() => setMailchimpKeyMutation.mutate({ clientSlug: slug, apiKey: mailchimpKeyInput.trim() })}>
+                      {setMailchimpKeyMutation.isPending ? "Saving…" : "Save"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Analytics */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Analytics</p>
+              <Card className={`shadow-sm max-w-md ${profile?.analyticsToken ? "border-indigo-200/60 bg-indigo-50/10" : ""}`}>
+                <CardContent className="p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${profile?.analyticsToken ? "bg-indigo-600" : "bg-muted"}`}>
+                        <BarChart2 className={`w-4 h-4 ${profile?.analyticsToken ? "text-white" : "text-muted-foreground"}`} />
+                      </div>
+                      <p className="text-sm font-semibold">Plausible Analytics</p>
+                    </div>
+                    {profile?.analyticsToken && <span className="text-[10px] font-medium bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full">Active</span>}
+                  </div>
+                  {profile?.analyticsToken && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Shareable link</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 text-[11px] bg-muted border border-border rounded px-2 py-1.5 text-muted-foreground truncate">
+                          {`${window.location.origin}/analytics/${profile.analyticsToken}`}
+                        </code>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0"
+                          onClick={() => navigator.clipboard.writeText(`${window.location.origin}/analytics/${profile!.analyticsToken!}`).then(() => toast.success("Link copied"))}>
+                          <Link2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0"
+                          onClick={() => window.open(`/analytics/${profile!.analyticsToken}`, "_blank")}>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-muted-foreground">{profile?.analyticsToken ? "Update embed URL" : "Paste your Plausible embed URL to enable a shareable analytics page for this client."}</p>
+                    <Input
+                      className="h-8 text-xs"
+                      placeholder="https://plausible.io/your-site?embed=true&theme=light"
+                      value={embedUrl}
+                      onChange={e => setEmbedUrl(e.target.value)}
+                    />
+                    {embedUrlWarning(embedUrl) && (
+                      <div className="flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-2">
+                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                        {embedUrlWarning(embedUrl)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    {(!profile?.analyticsToken || embedUrl) && (
+                      <Button size="sm" className="h-8 text-xs"
+                        disabled={!embedUrl.trim() || setAnalyticsMutation.isPending}
+                        onClick={() => { if (embedUrl.trim()) setAnalyticsMutation.mutate({ clientSlug: slug, analyticsEmbed: embedUrl.trim() }); }}>
+                        {setAnalyticsMutation.isPending ? "Saving…" : profile?.analyticsToken ? "Update" : "Enable Analytics"}
+                      </Button>
+                    )}
+                    {profile?.analyticsToken && (
+                      <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive gap-1.5"
+                        onClick={() => clearAnalyticsMutation.mutate({ clientSlug: slug })} disabled={clearAnalyticsMutation.isPending}>
+                        <Trash2 className="w-3 h-3" /> Remove
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
           </div>
         )}
 
@@ -1488,112 +1673,6 @@ export default function ClientPortal() {
 
       </div>
 
-      {/* Analytics management sheet */}
-      <Sheet open={analyticsOpen} onOpenChange={(v) => { setAnalyticsOpen(v); if (!v) setEmbedUrl(""); }}>
-        <SheetContent className="w-full sm:max-w-md flex flex-col">
-          <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
-            <SheetTitle className="flex items-center gap-2">
-              <BarChart2 className="w-4 h-4" />
-              Analytics — {clientName}
-            </SheetTitle>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-            {profile?.analyticsToken ? (
-              <>
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-4 space-y-3">
-                  <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Analytics Active</p>
-                  <p className="text-xs text-muted-foreground">Share the link below with your client to give them access to their analytics dashboard.</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-background border border-border rounded px-2 py-1.5 text-muted-foreground truncate">
-                      {`${window.location.origin}/analytics/${profile.analyticsToken}`}
-                    </code>
-                    <Button
-                      variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0" title="Copy link"
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/analytics/${profile!.analyticsToken!}`).then(() => toast.success("Link copied")).catch(() => toast.error("Failed to copy"))}
-                    >
-                      <Link2 className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0" title="Open analytics page"
-                      onClick={() => window.open(`/analytics/${profile!.analyticsToken}`, "_blank")}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Update embed URL</Label>
-                  <Input
-                    placeholder="https://plausible.io/grodigital.co.za?embed=true&theme=light"
-                    value={embedUrl}
-                    onChange={e => setEmbedUrl(e.target.value)}
-                  />
-                  {embedUrlWarning(embedUrl) && (
-                    <div className="flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-2">
-                      <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
-                      {embedUrlWarning(embedUrl)}
-                    </div>
-                  )}
-                  <p className="text-[11px] text-muted-foreground">Paste the Plausible embed URL or the full embed code — either works.</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Configure a Plausible analytics dashboard for <strong>{clientName}</strong>. A unique shareable link will be generated.
-                </p>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Plausible embed URL</Label>
-                  <Input
-                    placeholder="https://plausible.io/grodigital.co.za?embed=true&theme=light"
-                    value={embedUrl}
-                    onChange={e => setEmbedUrl(e.target.value)}
-                    autoFocus
-                  />
-                  {embedUrlWarning(embedUrl) && (
-                    <div className="flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-2">
-                      <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
-                      {embedUrlWarning(embedUrl)}
-                    </div>
-                  )}
-                  <p className="text-[11px] text-muted-foreground">In Plausible, go to your site → Shared links → Create a shared link with embed enabled. Paste the embed URL or the full embed code — either works.</p>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="shrink-0 px-6 py-4 border-t border-border flex items-center justify-between gap-2">
-            {profile?.analyticsToken && (
-              <Button
-                variant="ghost" size="sm"
-                className="text-destructive hover:text-destructive gap-1.5 text-xs"
-                onClick={() => clearAnalyticsMutation.mutate({ clientSlug: slug })}
-                disabled={clearAnalyticsMutation.isPending}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Remove
-              </Button>
-            )}
-            <div className="flex gap-2 ml-auto">
-              <Button variant="outline" size="sm" onClick={() => setAnalyticsOpen(false)}>
-                {profile?.analyticsToken && !embedUrl ? "Close" : "Cancel"}
-              </Button>
-              {(!profile?.analyticsToken || embedUrl) && (
-                <Button
-                  size="sm"
-                  disabled={!embedUrl.trim() || setAnalyticsMutation.isPending}
-                  onClick={() => {
-                    if (embedUrl.trim()) setAnalyticsMutation.mutate({ clientSlug: slug, analyticsEmbed: embedUrl.trim() });
-                  }}
-                >
-                  {setAnalyticsMutation.isPending ? "Saving…" : profile?.analyticsToken ? "Update" : "Enable Analytics"}
-                </Button>
-              )}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
