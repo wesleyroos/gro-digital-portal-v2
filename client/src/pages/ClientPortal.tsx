@@ -118,7 +118,7 @@ export default function ClientPortal() {
   const isAdmin = me?.role === "admin" || me?.role === "superAdmin";
 
   const { data: invoices, isLoading, error } = trpc.invoice.listByClient.useQuery({ clientSlug: slug });
-  const { data: profile } = trpc.client.getProfile.useQuery({ clientSlug: slug }, { enabled: isAdmin });
+  const { data: profile, refetch: refetchProfile } = trpc.client.getProfile.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: clientProposals = [] } = trpc.proposal.listByClient.useQuery({ clientSlug: slug }, { enabled: isAdmin });
   const { data: allTasks = [] } = trpc.task.list.useQuery(undefined, { enabled: isAdmin });
   const { data: igStatus } = trpc.instagram.getStatus.useQuery({ clientSlug: slug }, { enabled: isAdmin });
@@ -146,7 +146,7 @@ export default function ClientPortal() {
 
   const setAnalyticsMutation = trpc.client.setAnalytics.useMutation({
     onSuccess: () => {
-      utils.client.getProfile.invalidate({ clientSlug: slug });
+      refetchProfile();
       toast.success("Analytics configured");
       setEmbedUrl("");
     },
@@ -155,7 +155,7 @@ export default function ClientPortal() {
 
   const clearAnalyticsMutation = trpc.client.clearAnalytics.useMutation({
     onSuccess: () => {
-      utils.client.getProfile.invalidate({ clientSlug: slug });
+      refetchProfile();
       toast.success("Analytics removed");
     },
     onError: () => toast.error("Failed to remove analytics"),
@@ -163,7 +163,7 @@ export default function ClientPortal() {
 
   const updateProfile = trpc.client.updateProfile.useMutation({
     onSuccess: () => {
-      utils.client.getProfile.invalidate({ clientSlug: slug });
+      refetchProfile();
     },
   });
 
@@ -205,7 +205,7 @@ export default function ClientPortal() {
 
   const setMailchimpKeyMutation = trpc.campaign.mailer.setMailchimpApiKey.useMutation({
     onSuccess: () => {
-      utils.client.getProfile.invalidate({ clientSlug: slug });
+      refetchProfile();
       setMailchimpKeyInput("");
       toast.success("Mailchimp API key saved");
     },
