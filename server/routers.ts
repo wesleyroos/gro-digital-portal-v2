@@ -63,6 +63,7 @@ import {
   getPostsByCampaign,
   getPostById,
   updatePostStatus,
+  maybeSendBatchCompleteEmail,
   updatePostContent,
   approveAllPosts,
   getCampaignMessages,
@@ -1509,6 +1510,7 @@ export const appRouter = router({
           const post = await getPostById(input.postId);
           if (!post || post.campaignId !== campaign.id) throw new TRPCError({ code: 'NOT_FOUND' });
           await updatePostStatus(input.postId, 'approved');
+          maybeSendBatchCompleteEmail(campaign.id, campaign).catch(() => {});
           return { success: true };
         }),
 
@@ -1568,6 +1570,7 @@ Instructions:
           const post = await getPostById(input.postId);
           if (!post || post.campaignId !== campaign.id) throw new TRPCError({ code: 'NOT_FOUND' });
           await updatePostStatus(input.postId, 'rejected', { notes: input.notes });
+          maybeSendBatchCompleteEmail(campaign.id, campaign).catch(() => {});
           return { success: true };
         }),
 

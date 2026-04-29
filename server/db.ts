@@ -698,6 +698,86 @@ export async function updateInvoice(
   }
 }
 
+// ── Campaign approval batch notification ──
+
+export async function maybeSendBatchCompleteEmail(campaignId: number, campaign: { name: string; clientSlug: string }) {
+  const posts = await getPostsByCampaign(campaignId);
+  const pending = posts.filter(p => p.status === 'draft');
+  if (pending.length > 0) return; // still posts to review
+
+  const approved = posts.filter(p => p.status === 'approved');
+  const rejected = posts.filter(p => p.status === 'rejected');
+  // Only notify if at least one post was actually reviewed in this batch
+  if (approved.length === 0 && rejected.length === 0) return;
+
+  const { Resend } = await import('resend');
+  const apiKey = process.env.RESEND_API_KEY;
+  const ownerEmail = process.env.OWNER_EMAIL;
+  const appUrl = (process.env.APP_URL ?? '').trim();
+  if (!apiKey || !ownerEmail) return;
+
+  const profile = await getClientProfile(campaign.clientSlug);
+  const clientName = profile?.name ?? campaign.clientSlug;
+  const campaignUrl = `${appUrl}/marketing/${campaignId}`;
+
+  const rejectedRows = rejected.map(p => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#111;">${p.theme ?? `Post #${p.id}`}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#555;">${p.notes ?? '—'}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+        <tr><td style="background:#0d1904;padding:20px 28px;">
+          <p style="margin:0;font-size:15px;font-weight:600;color:#fff;">Gro Digital</p>
+        </td></tr>
+        <tr><td style="padding:28px;">
+          <h2 style="margin:0 0 6px;font-size:18px;color:#111;">Client review complete</h2>
+          <p style="margin:0 0 20px;font-size:14px;color:#555;"><strong>${clientName}</strong> has reviewed all posts in <strong>${campaign.name}</strong>.</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+            <tr>
+              <td style="padding:12px 16px;background:#f0fdf4;border-radius:6px;text-align:center;width:48%;">
+                <p style="margin:0;font-size:28px;font-weight:700;color:#16a34a;">${approved.length}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#555;text-transform:uppercase;letter-spacing:.05em;">Approved</p>
+              </td>
+              <td style="width:4%;"></td>
+              <td style="padding:12px 16px;background:#fef2f2;border-radius:6px;text-align:center;width:48%;">
+                <p style="margin:0;font-size:28px;font-weight:700;color:#dc2626;">${rejected.length}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#555;text-transform:uppercase;letter-spacing:.05em;">Rejected</p>
+              </td>
+            </tr>
+          </table>
+          ${rejected.length > 0 ? `
+          <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#111;">Rejection notes</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin-bottom:20px;">
+            <tr style="background:#f9fafb;">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;font-weight:600;">Post</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;font-weight:600;">Client notes</th>
+            </tr>
+            ${rejectedRows}
+          </table>` : ''}
+          <a href="${campaignUrl}" style="display:inline-block;background:#0d1904;color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;">View Campaign →</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const resend = new Resend(apiKey);
+  await resend.emails.send({
+    from: 'Gro Digital <hello@grodigital.co.za>',
+    to: ownerEmail,
+    subject: `✅ ${clientName} reviewed all posts — ${campaign.name}`,
+    html,
+  });
+}
+
 // ── Email ──
 
 export async function sendWelcomeEmail(opts: {
