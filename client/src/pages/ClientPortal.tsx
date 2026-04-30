@@ -1187,11 +1187,11 @@ export default function ClientPortal() {
                     <div className="flex items-center gap-2">
                       <Input
                         readOnly
-                        value={`${window.location.origin}/m/${mandate.shareToken}`}
+                        value={`${window.location.origin}/billing/${mandate.shareToken}`}
                         className="text-xs h-7 font-mono"
                       />
                       <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/m/${mandate.shareToken}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/billing/${mandate.shareToken}`);
                         toast.success("Link copied");
                       }}>
                         <Copy className="w-3 h-3 mr-1" /> Copy

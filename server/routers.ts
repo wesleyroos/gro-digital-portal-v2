@@ -3791,7 +3791,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
         const baseUrl = `${ctx.req.protocol}://${ctx.req.get("host")}`;
-        const setupUrl = `${baseUrl}/m/${mandate.shareToken}`;
+        const setupUrl = `${baseUrl}/billing/${mandate.shareToken}`;
         const items = await getMandateLineItems(input.mandateId);
         const lineItemsHtml = items.map(item =>
           `<tr><td style="padding:8px 0;font-size:14px;color:#111;">${item.description}</td><td style="padding:8px 0;font-size:14px;color:#111;text-align:right;">R${parseFloat(String(item.amount)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}/${item.interval === "monthly" ? "mo" : "yr"}</td></tr>`

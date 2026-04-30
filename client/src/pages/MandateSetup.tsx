@@ -36,7 +36,7 @@ function loadPaystackScript(): Promise<void> {
 }
 
 export default function MandateSetup() {
-  const { token } = useParams<{ token: string }>();
+  const { token } = useParams<{ token: string }>(); // route: /billing/:token
   const [cardState, setCardState] = useState<"idle" | "loading" | "success" | "cancelled" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 

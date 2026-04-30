@@ -53,7 +53,7 @@ function Router() {
       {/* Public client-facing routes — no sidebar */}
       <Route path={"/client/:slug/invoice/:invoiceNumber"} component={Invoice} />
       <Route path={"/i/:token"} component={SharedInvoice} />
-      <Route path={"/m/:token"} component={MandateSetup} />
+      <Route path={"/billing/:token"} component={MandateSetup} />
       <Route path={"/q/:token"} component={SharedQuote} />
       <Route path={"/analytics/:token"} component={ClientAnalytics} />
       <Route path={"/campaign/preview/:token"} component={CampaignPreview} />
