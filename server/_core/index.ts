@@ -12,7 +12,7 @@ import { registerCampaignJarvisRoutes } from "../campaign-jarvis";
 import { registerInstagramOAuthRoutes } from "../instagram-oauth";
 import { registerFacebookOAuthRoutes } from "../facebook-oauth";
 import { registerLinkedinOAuthRoutes } from "../linkedin-oauth";
-import { startScheduler, runRecurringInvoiceTick } from "../scheduler";
+import { startScheduler, runRecurringInvoiceTick, runMandateBillingTick } from "../scheduler";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -41,7 +41,10 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
+  app.use(express.json({
+    limit: "50mb",
+    verify: (req: any, _res, buf) => { req.rawBody = buf; },
+  }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
@@ -88,3 +91,7 @@ setInterval(() => markOverdueInvoices().catch(console.error), 60 * 60 * 1000);
 // Recurring invoice automation — runs on startup then every hour
 runRecurringInvoiceTick().catch(console.error);
 setInterval(() => runRecurringInvoiceTick().catch(console.error), 60 * 60 * 1000);
+
+// Mandate billing — runs on startup then every hour
+runMandateBillingTick().catch(console.error);
+setInterval(() => runMandateBillingTick().catch(console.error), 60 * 60 * 1000);

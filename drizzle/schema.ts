@@ -56,6 +56,7 @@ export const invoices = mysqlTable("invoices", {
   notes: text("notes"),
   clientAddress: text("clientAddress"),
   shareToken: varchar("shareToken", { length: 21 }).unique(),
+  mandateId: int("mandateId"),
   invoiceDate: timestamp("invoiceDate").notNull(),
   dueDate: timestamp("dueDate"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -523,6 +524,53 @@ export const quotes = mysqlTable("quotes", {
 
 export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = typeof quotes.$inferInsert;
+
+/**
+ * Billing mandates — one per client, stores tokenised Paystack card and drives
+ * auto-charging across multiple billing intervals (monthly + annual).
+ */
+export const billingMandates = mysqlTable("billingMandates", {
+  id: int("id").autoincrement().primaryKey(),
+  clientSlug: varchar("clientSlug", { length: 128 }).notNull(),
+  clientName: varchar("clientName", { length: 255 }).notNull(),
+  clientEmail: varchar("clientEmail", { length: 320 }).notNull(),
+  shareToken: varchar("shareToken", { length: 32 }).notNull().unique(),
+  status: mysqlEnum("status", ["pending_card", "active", "paused", "cancelled", "failed"]).default("pending_card").notNull(),
+  paystackAuthCode: varchar("paystackAuthCode", { length: 128 }),
+  paystackCustomerCode: varchar("paystackCustomerCode", { length: 128 }),
+  cardLast4: varchar("cardLast4", { length: 4 }),
+  cardBrand: varchar("cardBrand", { length: 32 }),
+  cardExpMonth: varchar("cardExpMonth", { length: 2 }),
+  cardExpYear: varchar("cardExpYear", { length: 4 }),
+  startDate: date("startDate").notNull(),
+  activatedAt: timestamp("activatedAt"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BillingMandate = typeof billingMandates.$inferSelect;
+export type InsertBillingMandate = typeof billingMandates.$inferInsert;
+
+/**
+ * Mandate line items — individual billable services within a mandate,
+ * each with its own interval and next billing date.
+ */
+export const mandateLineItems = mysqlTable("mandateLineItems", {
+  id: int("id").autoincrement().primaryKey(),
+  mandateId: int("mandateId").notNull(),
+  description: varchar("description", { length: 512 }).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  interval: mysqlEnum("interval", ["monthly", "annual"]).notNull(),
+  status: mysqlEnum("status", ["active", "paused"]).default("active").notNull(),
+  nextBillingDate: date("nextBillingDate").notNull(),
+  lastBilledAt: timestamp("lastBilledAt"),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MandateLineItem = typeof mandateLineItems.$inferSelect;
+export type InsertMandateLineItem = typeof mandateLineItems.$inferInsert;
 
 /**
  * Autonomous feedback pipeline — tracks feedback submissions that can be

@@ -220,8 +220,23 @@ export default function SharedInvoice() {
           </Card>
         )}
 
-        {/* PayFast payment button for recurring invoices */}
-        {isRecurring && invoice.paymentUrl && (
+        {/* Mandate-backed invoice — charged automatically via card on file */}
+        {invoice.mandateId && (
+          <Card className="mb-8 shadow-sm border-2 border-green-200 bg-green-50/30">
+            <CardContent className="p-5 sm:p-6 text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <h3 className="text-sm font-semibold text-green-800">Charged automatically</h3>
+              </div>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                This invoice has been or will be charged automatically to your card on file. No action needed.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PayFast payment button for recurring invoices (non-mandate only) */}
+        {!invoice.mandateId && isRecurring && invoice.paymentUrl && (
           <Card className={`mb-8 shadow-sm border-2 ${invoice.invoiceType === "monthly" ? "border-blue-200 bg-blue-50/30" : "border-purple-200 bg-purple-50/30"}`}>
             <CardContent className="p-5 sm:p-6 text-center">
               <div className="flex items-center justify-center gap-2 mb-3">

@@ -47,4 +47,6 @@ export const ENV = {
   githubRepoName: process.env.GITHUB_REPO_NAME ?? "gro-digital-portal-v2",
   feedbackApprovalSecret: process.env.FEEDBACK_APPROVAL_SECRET ?? "",
   githubSyncToken: process.env.GITHUB_SYNC_TOKEN ?? process.env.GITHUB_TOKEN_FOR_DISPATCH ?? "",
+  paystackSecretKey: process.env.PAYSTACK_SECRET_KEY ?? "",
+  paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY ?? "",
 };

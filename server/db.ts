@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -2447,4 +2447,227 @@ export async function setFeedbackApprovalStatus(id: number, status: string, extr
   if (status === "approved" || status === "dismissed") update.decidedAt = new Date();
   if (extra?.completed) update.completedAt = new Date();
   await db.update(feedbackApprovals).set(update).where(eq(feedbackApprovals.id, id));
+}
+
+// ── Billing Mandates ─────────────────────────────────────────────────────────
+
+function advanceDateByInterval(dateStr: string, interval: "monthly" | "annual"): string {
+  const d = new Date(dateStr);
+  if (interval === "monthly") {
+    d.setMonth(d.getMonth() + 1);
+  } else {
+    d.setFullYear(d.getFullYear() + 1);
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+export async function createMandate(
+  data: { clientSlug: string; clientName: string; clientEmail: string; startDate: string; notes?: string },
+  items: { description: string; amount: string; interval: "monthly" | "annual"; sortOrder: number }[]
+): Promise<{ id: number; shareToken: string }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const shareToken = nanoid(32);
+  const result = await db.insert(billingMandates).values({
+    clientSlug: data.clientSlug,
+    clientName: data.clientName,
+    clientEmail: data.clientEmail,
+    shareToken,
+    startDate: data.startDate,
+    notes: data.notes ?? null,
+  }).$returningId();
+
+  const mandateId = result[0].id;
+
+  if (items.length > 0) {
+    await db.insert(mandateLineItems).values(
+      items.map(item => ({
+        mandateId,
+        description: item.description,
+        amount: item.amount,
+        interval: item.interval,
+        nextBillingDate: data.startDate,
+        sortOrder: item.sortOrder,
+      }))
+    );
+  }
+
+  return { id: mandateId, shareToken };
+}
+
+export async function getMandateByToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(billingMandates).where(eq(billingMandates.shareToken, token)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getMandateById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(billingMandates).where(eq(billingMandates.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getMandatesByClientSlug(clientSlug: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(billingMandates).where(eq(billingMandates.clientSlug, clientSlug)).orderBy(desc(billingMandates.createdAt));
+}
+
+export async function getMandateLineItems(mandateId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(mandateLineItems).where(eq(mandateLineItems.mandateId, mandateId)).orderBy(mandateLineItems.sortOrder);
+}
+
+export async function activateMandate(
+  mandateId: number,
+  paystackAuthCode: string,
+  paystackCustomerCode: string,
+  card: { cardLast4: string; cardBrand: string; cardExpMonth: string; cardExpYear: string }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(billingMandates).set({
+    status: "active",
+    paystackAuthCode,
+    paystackCustomerCode,
+    cardLast4: card.cardLast4,
+    cardBrand: card.cardBrand,
+    cardExpMonth: card.cardExpMonth,
+    cardExpYear: card.cardExpYear,
+    activatedAt: new Date(),
+  }).where(eq(billingMandates.id, mandateId));
+
+  // Advance nextBillingDate for all items since initial charge is happening now
+  const items = await getMandateLineItems(mandateId);
+  for (const item of items) {
+    const nextDate = advanceDateByInterval(item.nextBillingDate, item.interval as "monthly" | "annual");
+    await db.update(mandateLineItems).set({
+      nextBillingDate: nextDate,
+      lastBilledAt: new Date(),
+    }).where(eq(mandateLineItems.id, item.id));
+  }
+}
+
+export async function updateMandateStatus(mandateId: number, status: "active" | "paused" | "cancelled" | "failed") {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(billingMandates).set({ status }).where(eq(billingMandates.id, mandateId));
+}
+
+export async function replaceMandateLineItems(
+  mandateId: number,
+  items: { description: string; amount: string; interval: "monthly" | "annual"; sortOrder: number; nextBillingDate: string }[]
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(mandateLineItems).where(eq(mandateLineItems.mandateId, mandateId));
+  if (items.length > 0) {
+    await db.insert(mandateLineItems).values(items.map(item => ({ ...item, mandateId })));
+  }
+}
+
+export async function getDueMandateLineItems(todayStr: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      item: mandateLineItems,
+      mandate: billingMandates,
+    })
+    .from(mandateLineItems)
+    .innerJoin(billingMandates, eq(mandateLineItems.mandateId, billingMandates.id))
+    .where(
+      and(
+        eq(billingMandates.status, "active"),
+        eq(mandateLineItems.status, "active"),
+        sql`${mandateLineItems.nextBillingDate} <= ${todayStr}`
+      )
+    )
+    .orderBy(mandateLineItems.mandateId);
+
+  return rows;
+}
+
+export async function advanceLineItemNextBillingDate(itemId: number, interval: "monthly" | "annual") {
+  const db = await getDb();
+  if (!db) return;
+  const rows = await db.select().from(mandateLineItems).where(eq(mandateLineItems.id, itemId)).limit(1);
+  if (!rows[0]) return;
+  const nextDate = advanceDateByInterval(rows[0].nextBillingDate, interval);
+  await db.update(mandateLineItems).set({
+    nextBillingDate: nextDate,
+    lastBilledAt: new Date(),
+  }).where(eq(mandateLineItems.id, itemId));
+}
+
+export async function markMandateInvoicePaidByReference(reference: string) {
+  const db = await getDb();
+  if (!db) return;
+  const parts = reference.split("_");
+  const invIdx = parts.indexOf("inv");
+  if (invIdx === -1) return;
+  const invoiceId = parseInt(parts[invIdx + 1]);
+  if (!invoiceId || isNaN(invoiceId)) return;
+  await db.update(invoices).set({ status: "paid" }).where(eq(invoices.id, invoiceId));
+}
+
+export async function createMandateInvoiceForItems(
+  mandate: Awaited<ReturnType<typeof getMandateById>>,
+  items: Awaited<ReturnType<typeof getMandateLineItems>>,
+  invoiceNumber: string
+): Promise<{ invoiceId: number; shareToken: string; totalAmount: number }> {
+  if (!mandate) throw new Error("Mandate not found");
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const totalAmount = items.reduce((sum, item) => sum + parseFloat(String(item.amount)), 0);
+  const amountStr = String(totalAmount);
+  const shareToken = nanoid();
+  const now = new Date();
+
+  const result = await db.insert(invoices).values({
+    invoiceNumber,
+    clientSlug: mandate.clientSlug,
+    clientName: mandate.clientName,
+    clientEmail: mandate.clientEmail,
+    invoiceType: "monthly",
+    status: "sent",
+    subtotal: amountStr,
+    discountPercent: "0",
+    discountAmount: "0",
+    totalAmount: amountStr,
+    amountDue: amountStr,
+    paymentTerms: "Auto-charged via card on file",
+    mandateId: mandate.id,
+    shareToken,
+    invoiceDate: now,
+    bankName: null,
+    accountHolder: null,
+    accountNumber: null,
+    accountType: null,
+    branchCode: null,
+  }).$returningId();
+
+  const invoiceId = result[0].id;
+
+  await db.insert(invoiceItems).values(
+    items.map((item, i) => ({
+      invoiceId,
+      description: item.description,
+      frequency: item.interval === "monthly" ? "Monthly" : "Annual",
+      vat: "No VAT",
+      unitPrice: String(item.amount),
+      quantity: 1,
+      lineTotal: String(item.amount),
+      sortOrder: i + 1,
+    }))
+  );
+
+  return { invoiceId, shareToken, totalAmount };
 }

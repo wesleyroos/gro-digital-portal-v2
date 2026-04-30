@@ -9,6 +9,7 @@ import ClientLayout from "./components/ClientLayout";
 import Home from "./pages/Home";
 import Invoice from "./pages/Invoice";
 import SharedInvoice from "./pages/SharedInvoice";
+import MandateSetup from "./pages/MandateSetup";
 import ClientPortal from "./pages/ClientPortal";
 import CreateInvoice from "./pages/CreateInvoice";
 import EditInvoice from "./pages/EditInvoice";
@@ -52,6 +53,7 @@ function Router() {
       {/* Public client-facing routes — no sidebar */}
       <Route path={"/client/:slug/invoice/:invoiceNumber"} component={Invoice} />
       <Route path={"/i/:token"} component={SharedInvoice} />
+      <Route path={"/m/:token"} component={MandateSetup} />
       <Route path={"/q/:token"} component={SharedQuote} />
       <Route path={"/analytics/:token"} component={ClientAnalytics} />
       <Route path={"/campaign/preview/:token"} component={CampaignPreview} />

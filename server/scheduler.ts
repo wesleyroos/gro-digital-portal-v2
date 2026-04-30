@@ -1,4 +1,5 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus } from './db';
+import { chargeAuthorization, randsToCents } from './paystack';
 import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia } from './instagram';
 import { postImageToPage, postVideoToPage } from './facebook';
@@ -122,6 +123,75 @@ export function startScheduler() {
   runSchedulerTick().catch(console.error);
   setInterval(() => runSchedulerTick().catch(console.error), 60_000);
   console.log('[Scheduler] Started');
+}
+
+export async function runMandateBillingTick() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  let dueRows: Awaited<ReturnType<typeof getDueMandateLineItems>>;
+  try {
+    dueRows = await getDueMandateLineItems(todayStr);
+  } catch (e) {
+    console.error('[MandateBilling] Failed to fetch due items:', e);
+    return;
+  }
+
+  if (dueRows.length === 0) return;
+
+  // Group by mandateId — charge all due items for a mandate in one invoice
+  const byMandate = new Map<number, typeof dueRows>();
+  for (const row of dueRows) {
+    const id = row.mandate.id;
+    if (!byMandate.has(id)) byMandate.set(id, []);
+    byMandate.get(id)!.push(row);
+  }
+
+  for (const [mandateId, rows] of byMandate) {
+    try {
+      const mandate = rows[0].mandate;
+      if (!mandate.paystackAuthCode) {
+        console.warn(`[MandateBilling] Mandate ${mandateId} has no auth code, skipping`);
+        continue;
+      }
+
+      const items = rows.map(r => r.item);
+      const totalRands = items.reduce((sum, item) => sum + parseFloat(String(item.amount)), 0);
+      const invoiceNumber = await getNextInvoiceNumber(mandate.clientSlug);
+
+      const fullMandate = await getMandateById(mandateId);
+      const { invoiceId } = await createMandateInvoiceForItems(fullMandate, items, invoiceNumber);
+
+      // Build reference that encodes mandateId and invoiceId for webhook reconciliation
+      // Format: m_{mandateId}_inv_{invoiceId}_item_{itemId}_{interval}  (first item only for single-item mandates)
+      // For multi-item, we use m_{mandateId}_inv_{invoiceId}
+      const reference = `m_${mandateId}_inv_${invoiceId}`;
+
+      const chargeResult = await chargeAuthorization({
+        authCode: mandate.paystackAuthCode,
+        email: mandate.clientEmail,
+        amount: randsToCents(totalRands),
+        reference,
+        metadata: { mandateId, invoiceId, itemIds: items.map(i => i.id) },
+      });
+
+      if (chargeResult.status === 'success') {
+        // Advance billing dates for all charged items (webhook also does this as fallback)
+        const { updateInvoiceStatus, advanceLineItemNextBillingDate } = await import('./db');
+        await updateInvoiceStatus(invoiceId, 'paid');
+        for (const item of items) {
+          await advanceLineItemNextBillingDate(item.id, item.interval as 'monthly' | 'annual');
+        }
+        console.log(`[MandateBilling] Charged mandate ${mandateId} R${totalRands} — invoice ${invoiceNumber}`);
+      } else {
+        console.warn(`[MandateBilling] Charge pending for mandate ${mandateId}: ${chargeResult.gateway_response}`);
+      }
+    } catch (e) {
+      console.error(`[MandateBilling] Failed for mandate ${mandateId}:`, e);
+      try {
+        await updateMandateStatus(mandateId, 'failed');
+      } catch { /* ignore secondary error */ }
+    }
+  }
 }
 
 /**

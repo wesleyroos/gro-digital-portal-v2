@@ -139,8 +139,16 @@ import {
   updateQuote,
   deleteQuote,
   signQuote,
+  createMandate,
+  getMandateByToken,
+  getMandateById,
+  getMandatesByClientSlug,
+  getMandateLineItems,
+  updateMandateStatus,
+  replaceMandateLineItems,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
+import { initializeTransaction, randsToCents } from "./paystack";
 import Anthropic from "@anthropic-ai/sdk";
 import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
@@ -3638,6 +3646,169 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         }
 
         return { synced: active.length, skipped: repos.length - active.length };
+      }),
+  }),
+
+  mandate: router({
+    create: adminProcedure
+      .input(z.object({
+        clientSlug: z.string(),
+        clientName: z.string(),
+        clientEmail: z.string().email(),
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        notes: z.string().optional(),
+        lineItems: z.array(z.object({
+          description: z.string().min(1),
+          amount: z.string(),
+          interval: z.enum(["monthly", "annual"]),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, shareToken } = await createMandate(
+          {
+            clientSlug: input.clientSlug,
+            clientName: input.clientName,
+            clientEmail: input.clientEmail,
+            startDate: input.startDate,
+            notes: input.notes,
+          },
+          input.lineItems.map((item, i) => ({ ...item, sortOrder: i + 1 }))
+        );
+        return { id, shareToken };
+      }),
+
+    get: adminProcedure
+      .input(z.object({ clientSlug: z.string() }))
+      .query(async ({ input }) => {
+        const mandates = await getMandatesByClientSlug(input.clientSlug);
+        const active = mandates.find(m => m.status !== "cancelled") ?? mandates[0] ?? null;
+        if (!active) return null;
+        const items = await getMandateLineItems(active.id);
+        return { ...active, lineItems: items };
+      }),
+
+    pause: adminProcedure
+      .input(z.object({ mandateId: z.number() }))
+      .mutation(async ({ input }) => {
+        await updateMandateStatus(input.mandateId, "paused");
+        return { success: true };
+      }),
+
+    resume: adminProcedure
+      .input(z.object({ mandateId: z.number() }))
+      .mutation(async ({ input }) => {
+        await updateMandateStatus(input.mandateId, "active");
+        return { success: true };
+      }),
+
+    cancel: adminProcedure
+      .input(z.object({ mandateId: z.number() }))
+      .mutation(async ({ input }) => {
+        await updateMandateStatus(input.mandateId, "cancelled");
+        return { success: true };
+      }),
+
+    updateLineItems: adminProcedure
+      .input(z.object({
+        mandateId: z.number(),
+        lineItems: z.array(z.object({
+          description: z.string().min(1),
+          amount: z.string(),
+          interval: z.enum(["monthly", "annual"]),
+          nextBillingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        await replaceMandateLineItems(
+          input.mandateId,
+          input.lineItems.map((item, i) => ({ ...item, sortOrder: i + 1 }))
+        );
+        return { success: true };
+      }),
+
+    getByToken: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const mandate = await getMandateByToken(input.token);
+        if (!mandate) return null;
+        const items = await getMandateLineItems(mandate.id);
+        return {
+          id: mandate.id,
+          clientName: mandate.clientName,
+          status: mandate.status,
+          cardLast4: mandate.cardLast4,
+          cardBrand: mandate.cardBrand,
+          startDate: mandate.startDate,
+          lineItems: items.map(item => ({
+            id: item.id,
+            description: item.description,
+            amount: item.amount,
+            interval: item.interval,
+            nextBillingDate: item.nextBillingDate,
+          })),
+        };
+      }),
+
+    initializeCardSetup: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .mutation(async ({ input }) => {
+        const mandate = await getMandateByToken(input.token);
+        if (!mandate) throw new TRPCError({ code: "NOT_FOUND", message: "Mandate not found" });
+        if (mandate.status !== "pending_card") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Mandate is not awaiting card setup" });
+        }
+
+        const items = await getMandateLineItems(mandate.id);
+        const totalRands = items.reduce((sum, item) => sum + parseFloat(String(item.amount)), 0);
+        const reference = `m_${mandate.id}_setup`;
+
+        const { access_code } = await initializeTransaction({
+          email: mandate.clientEmail,
+          amount: randsToCents(totalRands),
+          reference,
+          metadata: { mandateId: mandate.id, type: "mandate_setup" },
+        });
+
+        const { ENV } = await import("./_core/env");
+        return { accessCode: access_code, publicKey: ENV.paystackPublicKey };
+      }),
+
+    sendSetupEmail: adminProcedure
+      .input(z.object({ mandateId: z.number(), email: z.string().email() }))
+      .mutation(async ({ input, ctx }) => {
+        const mandate = await getMandateById(input.mandateId);
+        if (!mandate) throw new TRPCError({ code: "NOT_FOUND" });
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const baseUrl = `${ctx.req.protocol}://${ctx.req.get("host")}`;
+        const setupUrl = `${baseUrl}/m/${mandate.shareToken}`;
+        const items = await getMandateLineItems(input.mandateId);
+        const lineItemsHtml = items.map(item =>
+          `<tr><td style="padding:8px 0;font-size:14px;color:#111;">${item.description}</td><td style="padding:8px 0;font-size:14px;color:#111;text-align:right;">R${parseFloat(String(item.amount)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}/${item.interval === "monthly" ? "mo" : "yr"}</td></tr>`
+        ).join("");
+        await resend.emails.send({
+          from: "Wesley @ Gro Digital <wesley@grodigital.co.za>",
+          to: input.email,
+          subject: "Set up your billing with Gro Digital",
+          html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;background:#fff;">
+              <div style="background:#fff;padding:28px 32px 20px;border:1px solid #e5e7eb;border-bottom:3px solid #2286c2;border-radius:12px 12px 0 0;">
+                <img src="https://pub-7689bb2e0fe5474fb166518d32366c41.r2.dev/media/1773557375019-ei1drt50gii.png" alt="Gro Digital" height="32" style="height:32px;width:auto;display:block;" />
+              </div>
+              <div style="padding:36px 32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+                <p style="font-size:16px;font-weight:600;margin:0 0 6px;color:#111;">Hi ${mandate.clientName.split(" ")[0]},</p>
+                <p style="font-size:14px;color:#555;line-height:1.7;margin:0 0 24px;">Please click the button below to securely enter your card details and set up recurring billing for your Gro Digital services.</p>
+                <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
+                  <thead><tr><th style="text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Service</th><th style="text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;">Amount</th></tr></thead>
+                  <tbody>${lineItemsHtml}</tbody>
+                </table>
+                <a href="${setupUrl}" style="display:inline-block;background:#2286c2;color:#fff;text-decoration:none;padding:13px 30px;border-radius:8px;font-size:14px;font-weight:600;margin-bottom:32px;">Set up billing →</a>
+                <p style="font-size:12px;color:#9ca3af;margin:0;padding-top:24px;border-top:1px solid #f3f4f6;">Your card details are secured by Paystack. Questions? Email <a href="mailto:wesley@grodigital.co.za" style="color:#2286c2;text-decoration:none;">wesley@grodigital.co.za</a></p>
+              </div>
+            </div>
+          `,
+        });
+        return { success: true };
       }),
   }),
 });

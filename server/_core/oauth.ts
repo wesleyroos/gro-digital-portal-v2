@@ -1787,4 +1787,121 @@ function gdSubmitAccept(token) {
       if (!res.writableEnded) res.end();
     }
   });
+
+  // ── Paystack webhook ──────────────────────────────────────────────────────
+  app.post('/api/webhooks/paystack', async (req: Request, res: Response) => {
+    try {
+      const { verifyWebhookSignature } = await import('../paystack');
+      const {
+        activateMandate,
+        getMandateById,
+        getMandateLineItems,
+        getNextInvoiceNumber,
+        createMandateInvoiceForItems,
+        updateInvoiceStatus,
+        updateMandateStatus,
+        markMandateInvoicePaidByReference,
+        advanceLineItemNextBillingDate,
+      } = await import('../db');
+
+      const rawBody = (req as any).rawBody as Buffer | undefined;
+      const signature = req.headers['x-paystack-signature'] as string ?? '';
+
+      if (rawBody && !verifyWebhookSignature(rawBody, signature)) {
+        res.status(400).json({ error: 'Invalid signature' });
+        return;
+      }
+
+      const event = req.body as { event: string; data: any };
+
+      if (event.event === 'charge.success') {
+        const { reference, authorization, customer } = event.data;
+
+        if (typeof reference === 'string' && reference.startsWith('m_') && reference.endsWith('_setup')) {
+          // Initial card capture — activate mandate and record first charge
+          const mandateId = parseInt(reference.split('_')[1]);
+          if (!isNaN(mandateId)) {
+            await activateMandate(mandateId, authorization.authorization_code, customer.customer_code, {
+              cardLast4: authorization.last4 ?? '',
+              cardBrand: authorization.brand ?? '',
+              cardExpMonth: authorization.exp_month ?? '',
+              cardExpYear: authorization.exp_year ?? '',
+            });
+
+            // Create an invoice for the initial charge (already paid)
+            const mandate = await getMandateById(mandateId);
+            const items = await getMandateLineItems(mandateId);
+            if (mandate && items.length > 0) {
+              const invoiceNumber = await getNextInvoiceNumber(mandate.clientSlug);
+              const { invoiceId } = await createMandateInvoiceForItems(mandate, items, invoiceNumber);
+              await updateInvoiceStatus(invoiceId, 'paid');
+            }
+
+            // Notify admin
+            const resend = new Resend(process.env.RESEND_API_KEY);
+            const ownerEmail = process.env.OWNER_EMAIL;
+            if (ownerEmail && mandate) {
+              resend.emails.send({
+                from: 'Gro Digital Portal <wesley@grodigital.co.za>',
+                to: ownerEmail,
+                subject: `Mandate activated: ${mandate.clientName}`,
+                html: `<p>${mandate.clientName} has entered their card and their billing mandate is now active. Card on file: ${authorization.brand} ···· ${authorization.last4}.</p>`,
+              }).catch(() => {});
+            }
+          }
+        } else if (typeof reference === 'string' && reference.includes('_inv_')) {
+          // Recurring charge for an existing mandate invoice
+          await markMandateInvoicePaidByReference(reference);
+
+          // Advance nextBillingDate for the charged item
+          const parts = reference.split('_');
+          const itemIdx = parts.indexOf('item');
+          if (itemIdx !== -1) {
+            const itemId = parseInt(parts[itemIdx + 1]);
+            const intervalRaw = parts[itemIdx + 2];
+            if (!isNaN(itemId) && (intervalRaw === 'monthly' || intervalRaw === 'annual')) {
+              await advanceLineItemNextBillingDate(itemId, intervalRaw);
+            }
+          }
+        }
+      }
+
+      if (event.event === 'charge.failed') {
+        const { reference } = event.data;
+        if (typeof reference === 'string' && reference.includes('_inv_')) {
+          // Mark the invoice overdue
+          const parts = reference.split('_');
+          const invIdx = parts.indexOf('inv');
+          if (invIdx !== -1) {
+            const invoiceId = parseInt(parts[invIdx + 1]);
+            if (!isNaN(invoiceId)) await updateInvoiceStatus(invoiceId, 'overdue');
+          }
+          // Mark mandate failed and notify admin
+          const mIdx = parts.indexOf('m');
+          if (mIdx !== -1) {
+            const mandateId = parseInt(parts[mIdx + 1]);
+            if (!isNaN(mandateId)) {
+              await updateMandateStatus(mandateId, 'failed');
+              const mandate = await getMandateById(mandateId);
+              const resend = new Resend(process.env.RESEND_API_KEY);
+              const ownerEmail = process.env.OWNER_EMAIL;
+              if (ownerEmail && mandate) {
+                resend.emails.send({
+                  from: 'Gro Digital Portal <wesley@grodigital.co.za>',
+                  to: ownerEmail,
+                  subject: `Charge failed: ${mandate.clientName}`,
+                  html: `<p>A recurring charge for <strong>${mandate.clientName}</strong> failed. Please check their mandate in the portal and follow up with the client.</p><p>Reference: ${reference}</p>`,
+                }).catch(() => {});
+              }
+            }
+          }
+        }
+      }
+
+      res.json({ received: true });
+    } catch (e) {
+      console.error('[Paystack webhook] Error:', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
 }
