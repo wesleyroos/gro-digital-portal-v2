@@ -49,4 +49,6 @@ export const ENV = {
   githubSyncToken: process.env.GITHUB_SYNC_TOKEN ?? process.env.GITHUB_TOKEN_FOR_DISPATCH ?? "",
   paystackSecretKey: process.env.PAYSTACK_SECRET_KEY ?? "",
   paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY ?? "",
+  paystackSecretKeyTest: process.env.PAYSTACK_SECRET_KEY_TEST ?? "",
+  paystackPublicKeyTest: process.env.PAYSTACK_PUBLIC_KEY_TEST ?? "",
 };

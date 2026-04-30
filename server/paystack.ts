@@ -3,11 +3,28 @@ import { ENV } from "./_core/env";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
 
+export type PaystackMode = "live" | "test";
+
+export async function getPaystackMode(): Promise<PaystackMode> {
+  const { getSetting } = await import("./db");
+  const mode = await getSetting("paystack_mode");
+  return mode === "test" ? "test" : "live";
+}
+
+export async function getPaystackKeys(): Promise<{ secretKey: string; publicKey: string; mode: PaystackMode }> {
+  const mode = await getPaystackMode();
+  if (mode === "test") {
+    return { secretKey: ENV.paystackSecretKeyTest, publicKey: ENV.paystackPublicKeyTest, mode };
+  }
+  return { secretKey: ENV.paystackSecretKey, publicKey: ENV.paystackPublicKey, mode };
+}
+
 async function paystackRequest(method: string, path: string, body?: object) {
+  const { secretKey } = await getPaystackKeys();
   const res = await fetch(`${PAYSTACK_BASE}${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${ENV.paystackSecretKey}`,
+      Authorization: `Bearer ${secretKey}`,
       "Content-Type": "application/json",
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -60,13 +77,15 @@ export async function chargeAuthorization(opts: {
 
 /**
  * Verify a Paystack webhook signature.
- * Returns true if the signature matches.
+ * Tries the active mode's key first, then falls back to the other mode's key
+ * to handle in-flight transactions when the mode is switched.
  */
 export function verifyWebhookSignature(rawBody: Buffer, signature: string): boolean {
-  const secret = ENV.paystackSecretKey;
-  if (!secret) return false;
-  const hash = createHmac("sha512", secret).update(rawBody).digest("hex");
-  return hash === signature;
+  const keys = [ENV.paystackSecretKey, ENV.paystackSecretKeyTest].filter(Boolean);
+  return keys.some(secret => {
+    const hash = createHmac("sha512", secret).update(rawBody).digest("hex");
+    return hash === signature;
+  });
 }
 
 /** Convert ZAR rands to kobo/cents (Paystack smallest unit). */

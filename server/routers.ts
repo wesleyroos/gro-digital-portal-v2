@@ -148,7 +148,7 @@ import {
   replaceMandateLineItems,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
-import { initializeTransaction, randsToCents } from "./paystack";
+import { initializeTransaction, randsToCents, getPaystackKeys } from "./paystack";
 import Anthropic from "@anthropic-ai/sdk";
 import { describeImageForBrand } from "./_core/imageGeneration";
 import { nanoid } from "nanoid";
@@ -784,6 +784,16 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await setSetting('aiModel', input.model);
         return { model: input.model };
+      }),
+    getPaystackMode: adminProcedure.query(async () => {
+      const mode = (await getSetting('paystack_mode')) ?? 'live';
+      return { mode: mode as 'live' | 'test' };
+    }),
+    setPaystackMode: adminProcedure
+      .input(z.object({ mode: z.enum(['live', 'test']) }))
+      .mutation(async ({ input }) => {
+        await setSetting('paystack_mode', input.mode);
+        return { mode: input.mode };
       }),
   }),
 
@@ -3769,8 +3779,8 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
           metadata: { mandateId: mandate.id, type: "mandate_setup" },
         });
 
-        const { ENV } = await import("./_core/env");
-        return { accessCode: access_code, publicKey: ENV.paystackPublicKey };
+        const { publicKey, mode } = await getPaystackKeys();
+        return { accessCode: access_code, publicKey, mode };
       }),
 
     sendSetupEmail: adminProcedure

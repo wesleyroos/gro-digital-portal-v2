@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import { RefreshCw, ExternalLink, Instagram, Facebook, Copy } from "lucide-react";
+import { RefreshCw, ExternalLink, Instagram, Facebook, Copy, CreditCard } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 // --- Railway Status types ---
 type PageStatus = "OPERATIONAL" | "HASISSUES" | "UNDERMAINTENANCE" | "MAJOROUTAGE" | string;
@@ -548,6 +549,9 @@ export default function Settings() {
               )}
             </div>
 
+            {/* Paystack mode */}
+            <PaystackModeCard />
+
             {/* Client social media connections matrix */}
             <div className="rounded-xl border bg-card overflow-hidden">
               <div className="px-6 py-4 border-b border-border">
@@ -619,6 +623,58 @@ const AI_MODELS = [
   { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", description: "Balanced — recommended for most tasks" },
   { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", description: "Fastest — lower cost, great for simple content" },
 ];
+
+function PaystackModeCard() {
+  const { data, isLoading, refetch } = trpc.settings.getPaystackMode.useQuery();
+  const setMode = trpc.settings.setPaystackMode.useMutation({
+    onSuccess: (res) => {
+      refetch();
+      toast.success(`Paystack switched to ${res.mode === "test" ? "test" : "live"} mode`);
+    },
+    onError: () => toast.error("Failed to update Paystack mode"),
+  });
+
+  const isTest = data?.mode === "test";
+
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 mb-1">
+          <CreditCard className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Paystack</h2>
+          {!isLoading && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${isTest ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+              {isTest ? "TEST MODE" : "LIVE"}
+            </span>
+          )}
+        </div>
+        {isLoading ? (
+          <div className="h-6 w-24 rounded-md bg-muted animate-pulse" />
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{isTest ? "Test" : "Live"}</span>
+            <Switch
+              checked={isTest}
+              onCheckedChange={(v) => setMode.mutate({ mode: v ? "test" : "live" })}
+              disabled={setMode.isPending}
+            />
+            <span className="text-xs text-muted-foreground w-8">Test</span>
+          </div>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground mt-1">
+        {isTest
+          ? "Using test keys — charges are simulated. Use Paystack test card 4084 0840 8408 4081 (CVV 408)."
+          : "Using live keys — real charges will be made to client cards."}
+      </p>
+      {isTest && (
+        <p className="text-xs text-amber-600 mt-2 font-medium">
+          Remember to add PAYSTACK_SECRET_KEY_TEST and PAYSTACK_PUBLIC_KEY_TEST to your Railway env vars.
+        </p>
+      )}
+    </div>
+  );
+}
 
 function AiModelCard() {
   const { data, isLoading } = trpc.settings.getAiModel.useQuery();
