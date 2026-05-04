@@ -1739,6 +1739,47 @@ Instructions:
           return getMailerAnalytics(campaign.id);
         }),
 
+      getMailchimpReportsByShareToken: publicProcedure
+        .input(z.object({ token: z.string(), password: z.string().optional() }))
+        .query(async ({ input }) => {
+          const campaign = await getCampaignByShareToken(input.token);
+          if (!campaign) return { campaigns: [] };
+          if (campaign.sharePassword) {
+            const provided = input.password
+              ? createHash('sha256').update(input.password).digest('hex')
+              : null;
+            if (provided !== campaign.sharePassword) throw new TRPCError({ code: 'UNAUTHORIZED' });
+          }
+          const apiKey = await getMailchimpApiKey(campaign.clientSlug);
+          if (!apiKey) return { campaigns: [] };
+          const parts = apiKey.split('-');
+          const dc = parts[parts.length - 1];
+          if (!dc) return { campaigns: [] };
+          const auth = 'Basic ' + Buffer.from(`anystring:${apiKey}`).toString('base64');
+          try {
+            const res = await fetch(`https://${dc}.api.mailchimp.com/3.0/reports?count=100&sort_field=send_time&sort_dir=DESC`, {
+              headers: { Authorization: auth },
+              signal: AbortSignal.timeout(15_000),
+            });
+            const json = await res.json() as any;
+            return {
+              campaigns: ((json.reports ?? []) as any[]).map(r => ({
+                id: r.id as string,
+                subject: (r.subject_line || r.campaign_title || '(No subject)') as string,
+                title: (r.campaign_title ?? '') as string,
+                sendTime: (r.send_time ?? null) as string | null,
+                emailsSent: (r.emails_sent ?? 0) as number,
+                opens: (r.opens?.unique_opens ?? 0) as number,
+                openRate: (r.opens?.open_rate ?? 0) as number,
+                clicks: (r.clicks?.unique_clicks ?? 0) as number,
+                clickRate: (r.clicks?.click_rate ?? 0) as number,
+              })),
+            };
+          } catch {
+            return { campaigns: [] };
+          }
+        }),
+
       getMailchimpReports: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
         .query(async ({ ctx, input }) => {

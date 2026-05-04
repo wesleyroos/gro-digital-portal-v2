@@ -445,15 +445,13 @@ export default function CampaignPreview() {
           </div>
         )}
 
-        {/* Performance */}
-        {postedPosts.length > 0 && (
-          <section>
-            <h2 className="text-base font-semibold text-slate-900 mb-5 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-violet-600" /> Performance
-            </h2>
-            <PerformanceSection campaignId={campaign.id} token={token} />
-          </section>
-        )}
+        {/* Performance — always render; component hides itself if nothing to show */}
+        <section>
+          <h2 className="text-base font-semibold text-slate-900 mb-5 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-violet-600" /> Performance
+          </h2>
+          <PerformanceSection campaignId={campaign.id} token={token} password={submittedPassword} />
+        </section>
       </div>
 
       <footer className="border-t border-slate-200 bg-white mt-8">
@@ -491,17 +489,23 @@ function PasswordGate({ token, onSubmit }: { token: string; onSubmit: (pw: strin
   );
 }
 
-function PerformanceSection({ campaignId: _campaignId, token }: { campaignId: number; token: string }) {
+function PerformanceSection({ campaignId: _campaignId, token, password }: { campaignId: number; token: string; password: string | null }) {
   const [perfSort, setPerfSort] = useState<{ key: string; dir: "desc" | "asc" }>({ key: "bestOverall", dir: "desc" });
   const [perfPlatform, setPerfPlatform] = useState<"all" | "ig" | "fb" | "email">("all");
 
-  const { data: perfData, isLoading } = trpc.campaign.post.getPerformanceByShareToken.useQuery({ token }, { enabled: !!token });
+  const { data: perfData, isLoading } = trpc.campaign.post.getPerformanceByShareToken.useQuery({ token, password: password || undefined }, { enabled: !!token });
   const { data: mailerRows } = trpc.campaign.mailer.getAnalyticsByShareToken.useQuery({ token }, { enabled: !!token });
+  const { data: mailchimpData } = trpc.campaign.mailer.getMailchimpReportsByShareToken.useQuery({ token, password: password || undefined }, { enabled: !!token });
+
+  const hasResendMailers = (mailerRows?.length ?? 0) > 0;
+  const hasMailchimpMailers = (mailchimpData?.campaigns.length ?? 0) > 0;
+  const hasMailers = hasResendMailers || hasMailchimpMailers;
+
+  // Auto-default to email tab if no social posts but there are mailers
+  const effectivePlatform = perfPlatform === "all" && !perfData?.rows.length && hasMailers ? "email" : perfPlatform;
 
   if (isLoading) return <div className="flex justify-center py-8"><span className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" /></div>;
-  if (!perfData?.rows.length && !mailerRows?.length) return null;
-
-  const hasMailers = (mailerRows?.length ?? 0) > 0;
+  if (!perfData?.rows.length && !hasMailers) return null;
 
   function renderTabs() {
     return ([
@@ -512,7 +516,7 @@ function PerformanceSection({ campaignId: _campaignId, token }: { campaignId: nu
     ] as const).map(opt => (
       <button key={opt.key} onClick={() => setPerfPlatform(opt.key as typeof perfPlatform)}
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-          perfPlatform === opt.key
+          effectivePlatform === opt.key
             ? opt.key === 'ig'    ? 'bg-pink-500 text-white border-pink-500'
             : opt.key === 'fb'    ? 'bg-blue-600 text-white border-blue-600'
             : opt.key === 'email' ? 'bg-emerald-600 text-white border-emerald-600'
@@ -523,25 +527,95 @@ function PerformanceSection({ campaignId: _campaignId, token }: { campaignId: nu
         {opt.label}
         {opt.key === 'ig' && <span className="opacity-70">{perfData?.rows.filter(r => r.post.instagramPostId).length ?? 0}</span>}
         {opt.key === 'fb' && <span className="opacity-70">{perfData?.rows.filter(r => r.post.facebookPostId).length ?? 0}</span>}
-        {opt.key === 'email' && <span className="opacity-70">{mailerRows?.length ?? 0}</span>}
+        {opt.key === 'email' && <span className="opacity-70">{hasResendMailers ? (mailerRows?.length ?? 0) : (mailchimpData?.campaigns.length ?? 0)}</span>}
       </button>
     ));
   }
 
   // ── Email tab ──
-  if (perfPlatform === 'email') {
-    const rows = mailerRows ?? [];
-    const sentRows = rows.filter(r => r.mailer.status === 'sent');
-    const totalSent = sentRows.reduce((s, r) => s + r.sentCount, 0);
-    const totalOpens = sentRows.reduce((s, r) => s + r.opens, 0);
-    const totalClicks = sentRows.reduce((s, r) => s + r.clicks, 0);
+  if (effectivePlatform === 'email') {
+    // Prefer Resend data; fall back to Mailchimp when no Resend rows exist
+    if (hasResendMailers) {
+      const rows = mailerRows ?? [];
+      const sentRows = rows.filter(r => r.mailer.status === 'sent');
+      const totalSent = sentRows.reduce((s, r) => s + r.sentCount, 0);
+      const totalOpens = sentRows.reduce((s, r) => s + r.opens, 0);
+      const totalClicks = sentRows.reduce((s, r) => s + r.clicks, 0);
+      const avgOpenRate = totalSent > 0 ? ((totalOpens / totalSent) * 100).toFixed(1) : null;
+      const avgClickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : null;
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">{renderTabs()}</div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {[
+              { label: 'Sent', value: totalSent > 0 ? totalSent.toLocaleString() : '—', color: 'text-slate-800' },
+              { label: 'Opens', value: totalOpens.toLocaleString(), color: 'text-emerald-600' },
+              { label: 'Open Rate', value: avgOpenRate ? `${avgOpenRate}%` : '—', color: 'text-emerald-600' },
+              { label: 'Clicks', value: totalClicks.toLocaleString(), color: 'text-blue-600' },
+              { label: 'Click Rate', value: avgClickRate ? `${avgClickRate}%` : '—', color: 'text-blue-600' },
+            ].map(c => (
+              <div key={c.label} className="bg-white rounded-2xl border border-slate-200 px-3 py-4 text-center shadow-sm">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{c.label}</p>
+                <p className={`text-xl font-bold mt-1 ${c.color}`}>{c.value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Subject</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Status</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recipients</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Opens</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Open Rate</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-blue-600">Clicks</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-blue-600">Click Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(row => {
+                  const isSent = row.mailer.status === 'sent';
+                  const openRate = row.sentCount > 0 ? ((row.opens / row.sentCount) * 100).toFixed(1) : null;
+                  const clickRate = row.sentCount > 0 ? ((row.clicks / row.sentCount) * 100).toFixed(1) : null;
+                  const schedDate = row.mailer.scheduledAt ? new Date(row.mailer.scheduledAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', timeZone: 'Africa/Johannesburg' }) : null;
+                  const sentDate = row.mailer.sentAt ? new Date(row.mailer.sentAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Johannesburg' }) : null;
+                  return (
+                    <tr key={row.mailer.id} className={`border-b border-slate-50 last:border-0 ${isSent ? 'hover:bg-slate-50/60' : 'opacity-50'}`}>
+                      <td className="px-4 py-3">
+                        <p className="text-xs font-medium text-slate-800">{row.mailer.subject || '(No subject)'}</p>
+                        {sentDate && <p className="text-[10px] text-slate-400 mt-0.5">Sent {sentDate}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isSent ? <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Sent</span>
+                          : row.mailer.status === 'scheduled' ? <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Scheduled{schedDate ? ` ${schedDate}` : ''}</span>
+                          : <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">Draft</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-xs text-slate-700">{isSent ? (row.sentCount > 0 ? row.sentCount.toLocaleString() : '—') : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-xs text-emerald-600 font-semibold">{isSent ? row.opens.toLocaleString() : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-xs text-emerald-600">{isSent ? (openRate ? `${openRate}%` : '—') : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-xs text-blue-600 font-semibold">{isSent ? row.clicks.toLocaleString() : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-xs text-blue-600">{isSent ? (clickRate ? `${clickRate}%` : '—') : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Mailchimp fallback ──
+    const mcRows = mailchimpData?.campaigns ?? [];
+    const totalSent = mcRows.reduce((s, r) => s + r.emailsSent, 0);
+    const totalOpens = mcRows.reduce((s, r) => s + r.opens, 0);
+    const totalClicks = mcRows.reduce((s, r) => s + r.clicks, 0);
     const avgOpenRate = totalSent > 0 ? ((totalOpens / totalSent) * 100).toFixed(1) : null;
     const avgClickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : null;
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          {renderTabs()}
-        </div>
+        <div className="flex items-center gap-2 flex-wrap">{renderTabs()}</div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
             { label: 'Sent', value: totalSent > 0 ? totalSent.toLocaleString() : '—', color: 'text-slate-800' },
@@ -561,8 +635,7 @@ function PerformanceSection({ campaignId: _campaignId, token }: { campaignId: nu
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Subject</th>
-                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Status</th>
-                <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recipients</th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Sent</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Opens</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Open Rate</th>
                 <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-blue-600">Clicks</th>
@@ -570,28 +643,19 @@ function PerformanceSection({ campaignId: _campaignId, token }: { campaignId: nu
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => {
-                const isSent = row.mailer.status === 'sent';
-                const openRate = row.sentCount > 0 ? ((row.opens / row.sentCount) * 100).toFixed(1) : null;
-                const clickRate = row.sentCount > 0 ? ((row.clicks / row.sentCount) * 100).toFixed(1) : null;
-                const schedDate = row.mailer.scheduledAt ? new Date(row.mailer.scheduledAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', timeZone: 'Africa/Johannesburg' }) : null;
-                const sentDate = row.mailer.sentAt ? new Date(row.mailer.sentAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Johannesburg' }) : null;
+              {mcRows.map(row => {
+                const sentDate = row.sendTime ? new Date(row.sendTime).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
                 return (
-                  <tr key={row.mailer.id} className={`border-b border-slate-50 last:border-0 ${isSent ? 'hover:bg-slate-50/60' : 'opacity-50'}`}>
+                  <tr key={row.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                     <td className="px-4 py-3">
-                      <p className="text-xs font-medium text-slate-800">{row.mailer.subject || '(No subject)'}</p>
+                      <p className="text-xs font-medium text-slate-800">{row.subject}</p>
                       {sentDate && <p className="text-[10px] text-slate-400 mt-0.5">Sent {sentDate}</p>}
                     </td>
-                    <td className="px-4 py-3">
-                      {isSent ? <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Sent</span>
-                        : row.mailer.status === 'scheduled' ? <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Scheduled{schedDate ? ` ${schedDate}` : ''}</span>
-                        : <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">Draft</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-xs text-slate-700">{isSent ? (row.sentCount > 0 ? row.sentCount.toLocaleString() : '—') : '—'}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-xs text-emerald-600 font-semibold">{isSent ? row.opens.toLocaleString() : '—'}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-xs text-emerald-600">{isSent ? (openRate ? `${openRate}%` : '—') : '—'}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-xs text-blue-600 font-semibold">{isSent ? row.clicks.toLocaleString() : '—'}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-xs text-blue-600">{isSent ? (clickRate ? `${clickRate}%` : '—') : '—'}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-xs text-slate-700">{row.emailsSent > 0 ? row.emailsSent.toLocaleString() : '—'}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-xs text-emerald-600 font-semibold">{row.opens.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-xs text-emerald-600">{row.openRate > 0 ? `${(row.openRate * 100).toFixed(1)}%` : '—'}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-xs text-blue-600 font-semibold">{row.clicks.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-xs text-blue-600">{row.clickRate > 0 ? `${(row.clickRate * 100).toFixed(1)}%` : '—'}</td>
                   </tr>
                 );
               })}
@@ -602,7 +666,7 @@ function PerformanceSection({ campaignId: _campaignId, token }: { campaignId: nu
     );
   }
 
-  const isFbView = perfPlatform === 'fb';
+  const isFbView = effectivePlatform === 'fb';
 
   const METRICS = [
     { key: "reach",             label: isFbView ? "Reach (imp)" : "Reach",     color: "text-violet-600" },
@@ -617,12 +681,12 @@ function PerformanceSection({ campaignId: _campaignId, token }: { campaignId: nu
 
   const filteredRows = perfData.rows
     .filter(row => {
-      if (perfPlatform === 'ig') return !!row.post.instagramPostId;
-      if (perfPlatform === 'fb') return !!row.post.facebookPostId;
+      if (effectivePlatform === 'ig') return !!row.post.instagramPostId;
+      if (effectivePlatform === 'fb') return !!row.post.facebookPostId;
       return true;
     })
     .map(row => {
-      if (perfPlatform === 'fb') {
+      if (effectivePlatform === 'fb') {
         if (row.fbInsights) {
           const fb = row.fbInsights;
           return { ...row, insights: { reach: fb.reach, likes: fb.reactions, comments: fb.clicks, shares: fb.shares, saved: 0, totalInteractions: fb.reactions + fb.shares + fb.clicks } };
