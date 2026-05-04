@@ -1384,6 +1384,56 @@ export const appRouter = router({
           return insights;
         }),
 
+      getPerformanceByShareToken: publicProcedure
+        .input(z.object({ token: z.string(), password: z.string().optional() }))
+        .query(async ({ input }) => {
+          const campaign = await getCampaignByShareToken(input.token);
+          if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
+          if (campaign.sharePassword) {
+            const provided = input.password
+              ? createHash('sha256').update(input.password).digest('hex')
+              : null;
+            if (provided !== campaign.sharePassword) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Incorrect password' });
+          }
+          const posts = await getPostsByCampaign(campaign.id);
+          const postedPosts = posts.filter(p => p.status === 'posted' && (p.instagramPostId || p.facebookPostId));
+          if (postedPosts.length === 0) return { rows: [] };
+          const igTokens = await getInstagramTokens(campaign.clientSlug);
+          const fbTokens = await getFacebookTokens(campaign.clientSlug);
+          type FbInsights = Awaited<ReturnType<typeof getFacebookPostInsights>>;
+          type Row = {
+            post: typeof postedPosts[0];
+            insights: { reach: number; likes: number; comments: number; shares: number; saved: number; totalInteractions: number };
+            fbInsights: FbInsights | null;
+            fbInsightsSource: 'full' | null;
+            fbError: 'token_invalid' | null;
+          };
+          const results = await Promise.allSettled(
+            postedPosts.map(async (post): Promise<Row> => {
+              const igInsights = post.instagramPostId && igTokens
+                ? await getPostInsights(post.instagramPostId, igTokens.accessToken).catch(() => null)
+                : null;
+              let fbInsights: FbInsights | null = null;
+              let fbInsightsSource: Row['fbInsightsSource'] = null;
+              let fbError: Row['fbError'] = null;
+              if (post.facebookPostId && fbTokens) {
+                const full = await getFacebookPostInsights(post.facebookPostId, fbTokens.pageAccessToken).catch(() => null);
+                if (full) { fbInsights = full; fbInsightsSource = 'full'; } else { fbError = 'token_invalid'; }
+              }
+              const insights = igInsights ?? (fbInsights ? {
+                reach: fbInsights.reach, likes: fbInsights.reactions, comments: 0,
+                shares: fbInsights.shares, saved: 0,
+                totalInteractions: fbInsights.reactions + fbInsights.shares + fbInsights.clicks,
+              } : { reach: 0, likes: 0, comments: 0, shares: 0, saved: 0, totalInteractions: 0 });
+              return { post, insights, fbInsights, fbInsightsSource, fbError };
+            })
+          );
+          const rows = results
+            .filter((r): r is PromiseFulfilledResult<Row> => r.status === 'fulfilled')
+            .map(r => r.value);
+          return { rows };
+        }),
+
       getPerformance: protectedProcedure
         .input(z.object({ campaignId: z.number().int() }))
         .query(async ({ ctx, input }) => {
