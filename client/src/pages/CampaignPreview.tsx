@@ -497,9 +497,9 @@ function PerformanceSection({ campaignId: _campaignId, token, password }: { camp
   const { data: mailerRows } = trpc.campaign.mailer.getAnalyticsByShareToken.useQuery({ token }, { enabled: !!token });
   const { data: mailchimpData } = trpc.campaign.mailer.getMailchimpReportsByShareToken.useQuery({ token, password: password || undefined }, { enabled: !!token });
 
-  const hasResendMailers = (mailerRows?.length ?? 0) > 0;
+  const hasSentResendMailers = (mailerRows ?? []).some(r => r.mailer.status === 'sent');
   const hasMailchimpMailers = (mailchimpData?.campaigns.length ?? 0) > 0;
-  const hasMailers = hasResendMailers || hasMailchimpMailers;
+  const hasMailers = hasSentResendMailers || hasMailchimpMailers;
 
   // Auto-default to email tab if no social posts but there are mailers
   const effectivePlatform = perfPlatform === "all" && !perfData?.rows.length && hasMailers ? "email" : perfPlatform;
@@ -527,7 +527,7 @@ function PerformanceSection({ campaignId: _campaignId, token, password }: { camp
         {opt.label}
         {opt.key === 'ig' && <span className="opacity-70">{perfData?.rows.filter(r => r.post.instagramPostId).length ?? 0}</span>}
         {opt.key === 'fb' && <span className="opacity-70">{perfData?.rows.filter(r => r.post.facebookPostId).length ?? 0}</span>}
-        {opt.key === 'email' && <span className="opacity-70">{hasResendMailers ? (mailerRows?.length ?? 0) : (mailchimpData?.campaigns.length ?? 0)}</span>}
+        {opt.key === 'email' && <span className="opacity-70">{hasSentResendMailers ? (mailerRows?.length ?? 0) : (mailchimpData?.campaigns.length ?? 0)}</span>}
       </button>
     ));
   }
@@ -535,7 +535,7 @@ function PerformanceSection({ campaignId: _campaignId, token, password }: { camp
   // ── Email tab ──
   if (effectivePlatform === 'email') {
     // Prefer Resend data; fall back to Mailchimp when no Resend rows exist
-    if (hasResendMailers) {
+    if (hasSentResendMailers) {
       const rows = mailerRows ?? [];
       const sentRows = rows.filter(r => r.mailer.status === 'sent');
       const totalSent = sentRows.reduce((s, r) => s + r.sentCount, 0);
