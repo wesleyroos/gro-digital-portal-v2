@@ -1258,7 +1258,16 @@ export default function ClientPortal() {
                     </Button>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Mandate cancelled.</p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Mandate cancelled. You can create a new one to restart billing.</p>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
+                      setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual" })));
+                      setMandateStartDate(new Date().toISOString().slice(0, 10));
+                      setMandateFormOpen(true);
+                    }}>
+                      Create new mandate
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>

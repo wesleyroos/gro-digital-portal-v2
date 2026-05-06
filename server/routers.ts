@@ -3861,7 +3861,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
 
         const items = await getMandateLineItems(mandate.id);
         const totalRands = items.reduce((sum, item) => sum + parseFloat(String(item.amount)), 0);
-        const reference = `m_${mandate.id}_setup`;
+        const reference = `m_${mandate.id}_setup_${Date.now()}`;
 
         const { access_code } = await initializeTransaction({
           email: mandate.clientEmail,

@@ -1817,7 +1817,7 @@ function gdSubmitAccept(token) {
       if (event.event === 'charge.success') {
         const { reference, authorization, customer } = event.data;
 
-        if (typeof reference === 'string' && reference.startsWith('m_') && reference.endsWith('_setup')) {
+        if (typeof reference === 'string' && reference.startsWith('m_') && reference.includes('_setup')) {
           // Initial card capture — activate mandate and record first charge
           const mandateId = parseInt(reference.split('_')[1]);
           if (!isNaN(mandateId)) {
