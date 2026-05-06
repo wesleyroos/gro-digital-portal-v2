@@ -13,7 +13,7 @@ function formatCurrency(value: string | number | null | undefined): string {
 
 declare global {
   interface Window {
-    PaystackPop: {
+    PaystackPop: new () => {
       newTransaction: (opts: {
         key: string;
         accessCode: string;
@@ -54,7 +54,8 @@ export default function MandateSetup() {
     try {
       await loadPaystackScript();
       const { accessCode, publicKey } = await initMutation.mutateAsync({ token: token ?? "" });
-      window.PaystackPop.newTransaction({
+      const popup = new window.PaystackPop();
+      popup.newTransaction({
         key: publicKey,
         accessCode,
         onSuccess: async () => {
