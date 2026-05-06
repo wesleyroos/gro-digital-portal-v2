@@ -347,89 +347,115 @@ export default function SharedInvoice() {
         </Card>
 
         {/* Payment details */}
-        <div className={`grid grid-cols-1 gap-6 mb-8 ${!invoice.paymentUrl ? "md:grid-cols-2" : ""}`}>
-          {/* Banking details — hidden when a PayFast link is present */}
-          {!invoice.paymentUrl && <Card className="shadow-sm">
+        {invoice.mandateId ? (
+          // Mandate invoice — no banking details, no payment terms, just contact
+          <Card className="mb-8 shadow-sm">
             <CardContent className="p-5 sm:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Landmark className="w-4 h-4 text-primary" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-primary">Banking Details for EFT</h3>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Bank</span>
-                  <span className="text-sm font-medium text-foreground">{invoice.bankName}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Account Holder</span>
-                  <span className="text-sm font-medium text-foreground">{invoice.accountHolder}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Account Type</span>
-                  <span className="text-sm font-medium text-foreground">{invoice.accountType}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Account No.</span>
-                  <span className="text-sm font-semibold font-mono text-foreground">{invoice.accountNumber}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Branch Code</span>
-                  <span className="text-sm font-semibold font-mono text-foreground">{invoice.branchCode}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Reference</span>
-                  <span className="text-sm font-bold font-mono text-primary bg-primary/5 px-2.5 py-1 rounded">
-                    {invoice.paymentReference}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>}
-
-          {/* Payment terms */}
-          <Card className="shadow-sm">
-            <CardContent className="p-5 sm:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <CreditCard className="w-4 h-4 text-primary" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-primary">Payment Terms</h3>
-              </div>
-              <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-semibold text-amber-800">{invoice.paymentTerms}</span>
-                </div>
-                <p className="text-xs text-amber-700 mt-1">
-                  Please use the reference <span className="font-mono font-bold">{invoice.paymentReference}</span> when making payment.
-                </p>
-              </div>
               {invoice.notes && (
-                <div className="mt-4">
+                <>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Notes</p>
-                  <p className="text-sm text-foreground/80 leading-relaxed">{invoice.notes}</p>
-                </div>
+                  <p className="text-sm text-foreground/80 leading-relaxed mb-5">{invoice.notes}</p>
+                  <Separator className="mb-5" />
+                </>
               )}
-              <Separator className="my-5" />
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Contact Us</p>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-sm text-foreground">hello@grodigital.co.za</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-sm text-foreground">grodigital.co.za</span>
-                  </div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Questions?</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-sm text-foreground">hello@grodigital.co.za</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-sm text-foreground">grodigital.co.za</span>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </div>
+        ) : (
+          <div className={`grid grid-cols-1 gap-6 mb-8 ${!invoice.paymentUrl ? "md:grid-cols-2" : ""}`}>
+            {/* Banking details — hidden when a PayFast link is present */}
+            {!invoice.paymentUrl && <Card className="shadow-sm">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Landmark className="w-4 h-4 text-primary" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-primary">Banking Details for EFT</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Bank</span>
+                    <span className="text-sm font-medium text-foreground">{invoice.bankName}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Account Holder</span>
+                    <span className="text-sm font-medium text-foreground">{invoice.accountHolder}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Account Type</span>
+                    <span className="text-sm font-medium text-foreground">{invoice.accountType}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Account No.</span>
+                    <span className="text-sm font-semibold font-mono text-foreground">{invoice.accountNumber}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Branch Code</span>
+                    <span className="text-sm font-semibold font-mono text-foreground">{invoice.branchCode}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Reference</span>
+                    <span className="text-sm font-bold font-mono text-primary bg-primary/5 px-2.5 py-1 rounded">
+                      {invoice.paymentReference}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>}
+
+            {/* Payment terms */}
+            <Card className="shadow-sm">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-primary">Payment Terms</h3>
+                </div>
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-800">{invoice.paymentTerms}</span>
+                  </div>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Please use the reference <span className="font-mono font-bold">{invoice.paymentReference}</span> when making payment.
+                  </p>
+                </div>
+                {invoice.notes && (
+                  <div className="mt-4">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Notes</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{invoice.notes}</p>
+                  </div>
+                )}
+                <Separator className="my-5" />
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Contact Us</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-sm text-foreground">hello@grodigital.co.za</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-sm text-foreground">grodigital.co.za</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center py-8 border-t border-border">
