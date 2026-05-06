@@ -444,8 +444,23 @@ export default function Invoice() {
           </Card>
         )}
 
-        {/* PayFast payment button for recurring invoices */}
-        {isRecurring && (
+        {/* Mandate invoice — charged automatically */}
+        {invoice.mandateId && (
+          <Card className="mb-8 shadow-sm border-2 border-green-200 bg-green-50/30">
+            <CardContent className="p-5 sm:p-6 text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <h3 className="text-sm font-semibold text-green-800">Charged automatically</h3>
+              </div>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                This invoice has been charged automatically to the card on file. No further action needed.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PayFast payment button for recurring invoices (non-mandate only) */}
+        {isRecurring && !invoice.mandateId && (
           <Card className={`mb-8 shadow-sm border-2 ${invoice.invoiceType === "monthly" ? "border-blue-200 bg-blue-50/30" : "border-purple-200 bg-purple-50/30"}`}>
             <CardContent className="p-5 sm:p-6 text-center">
               <div className="flex items-center justify-center gap-2 mb-3">
@@ -502,32 +517,16 @@ export default function Invoice() {
                           value={payFastTokenDraft}
                           onChange={e => setPayFastTokenDraft(e.target.value)}
                         />
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="h-8 px-3 shrink-0"
-                          onClick={() => savePayFastUrl(invoice.id)}
-                          disabled={updatePaymentUrl.isPending}
-                        >
+                        <Button size="sm" variant="default" className="h-8 px-3 shrink-0" onClick={() => savePayFastUrl(invoice.id)} disabled={updatePaymentUrl.isPending}>
                           <Check className="w-3.5 h-3.5" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-3 shrink-0"
-                          onClick={() => setEditingPayFast(false)}
-                        >
+                        <Button size="sm" variant="ghost" className="h-8 px-3 shrink-0" onClick={() => setEditingPayFast(false)}>
                           <X className="w-3.5 h-3.5" />
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => startEditingPayFast(invoice.paymentUrl, invoice.paymentToken)}
-                    >
+                    <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={() => startEditingPayFast(invoice.paymentUrl, invoice.paymentToken)}>
                       <Pencil className="w-3 h-3" />
                       {invoice.paymentUrl ? "Edit PayFast link" : "Add PayFast link"}
                     </Button>
@@ -636,9 +635,9 @@ export default function Invoice() {
         </Card>
 
         {/* Payment details grid */}
-        <div className={`grid grid-cols-1 gap-6 mb-8 ${!invoice.paymentUrl ? "md:grid-cols-2" : ""}`}>
-          {/* Banking details — hidden when a PayFast link is present */}
-          {!invoice.paymentUrl && <Card className="shadow-sm">
+        <div className={`grid grid-cols-1 gap-6 mb-8 ${!invoice.paymentUrl && !invoice.mandateId ? "md:grid-cols-2" : ""}`}>
+          {/* Banking details — hidden when a PayFast link or mandate is present */}
+          {!invoice.paymentUrl && !invoice.mandateId && <Card className="shadow-sm">
             <CardContent className="p-5 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Landmark className="w-4 h-4 text-primary" />
@@ -680,47 +679,46 @@ export default function Invoice() {
             </CardContent>
           </Card>}
 
-          {/* Payment terms */}
-          <Card className="shadow-sm">
-            <CardContent className="p-5 sm:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <CreditCard className="w-4 h-4 text-primary" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-primary">Payment Terms</h3>
-              </div>
-              <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-semibold text-amber-800">{invoice.paymentTerms}</span>
+          {/* Payment terms — hidden for mandate invoices */}
+          {!invoice.mandateId && (
+            <Card className="shadow-sm">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-primary">Payment Terms</h3>
                 </div>
-                <p className="text-xs text-amber-700 mt-1">
-                  Please use the reference <span className="font-mono font-bold">{invoice.paymentReference}</span> when making payment.
-                </p>
-              </div>
-
-              {invoice.notes && (
-                <div className="mt-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Notes</p>
-                  <p className="text-sm text-foreground/80 leading-relaxed">{invoice.notes}</p>
-                </div>
-              )}
-
-              <Separator className="my-5" />
-
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Contact Us</p>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-sm text-foreground">hello@grodigital.co.za</span>
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-800">{invoice.paymentTerms}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-sm text-foreground">grodigital.co.za</span>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Please use the reference <span className="font-mono font-bold">{invoice.paymentReference}</span> when making payment.
+                  </p>
+                </div>
+                {invoice.notes && (
+                  <div className="mt-4">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Notes</p>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{invoice.notes}</p>
+                  </div>
+                )}
+                <Separator className="my-5" />
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Contact Us</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-sm text-foreground">hello@grodigital.co.za</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-sm text-foreground">grodigital.co.za</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Footer */}
