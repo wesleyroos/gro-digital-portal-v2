@@ -1219,7 +1219,7 @@ export default function ClientPortal() {
                         <div key={item.id} className="flex justify-between items-center px-3 py-2 border-b last:border-0">
                           <div>
                             <p className="text-gray-700">{item.description}</p>
-                            <p className="text-muted-foreground text-[10px]">Next: {item.nextBillingDate}</p>
+                            <p className="text-muted-foreground text-[10px]">Next: {item.nextBillingDate ? new Date(item.nextBillingDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "—"}</p>
                           </div>
                           <span className="font-medium">{formatCurrency(item.amount)}/{item.interval === "monthly" ? "mo" : "yr"}</span>
                         </div>
