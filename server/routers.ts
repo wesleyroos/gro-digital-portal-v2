@@ -3757,11 +3757,13 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         clientName: z.string(),
         clientEmail: z.string().email(),
         startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        chargeOnSetup: z.boolean().default(true),
         notes: z.string().optional(),
         lineItems: z.array(z.object({
           description: z.string().min(1),
           amount: z.string(),
           interval: z.enum(["monthly", "annual"]),
+          nextBillingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         })),
       }))
       .mutation(async ({ input }) => {
@@ -3771,6 +3773,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
             clientName: input.clientName,
             clientEmail: input.clientEmail,
             startDate: input.startDate,
+            chargeOnSetup: input.chargeOnSetup,
             notes: input.notes,
           },
           input.lineItems.map((item, i) => ({ ...item, sortOrder: i + 1 }))
@@ -3860,12 +3863,17 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         }
 
         const items = await getMandateLineItems(mandate.id);
-        const totalRands = items.reduce((sum, item) => sum + parseFloat(String(item.amount)), 0);
+        const chargeOnSetup = mandate.chargeOnSetup !== 0;
+        const totalRands = chargeOnSetup
+          ? items.reduce((sum, item) => sum + parseFloat(String(item.amount)), 0)
+          : 0;
+        // Paystack minimum is R1 — use it as a card verification fee when skipping initial charge
+        const amountCents = chargeOnSetup ? randsToCents(totalRands) : 100;
         const reference = `m_${mandate.id}_setup_${Date.now()}`;
 
         const { access_code } = await initializeTransaction({
           email: mandate.clientEmail,
-          amount: randsToCents(totalRands),
+          amount: amountCents,
           reference,
           metadata: { mandateId: mandate.id, type: "mandate_setup" },
         });

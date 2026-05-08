@@ -1828,12 +1828,15 @@ function gdSubmitAccept(token) {
               cardExpYear: authorization.exp_year ?? '',
             });
 
-            // Create an invoice for the initial charge (already paid)
             const mandate = await getMandateById(mandateId);
             const items = await getMandateLineItems(mandateId);
-            if (mandate && items.length > 0) {
-              const invoiceNumber = await getNextInvoiceNumber(mandate.clientSlug);
-              const { invoiceId } = await createMandateInvoiceForItems(mandate, items, invoiceNumber);
+
+            // Only create a paid invoice when the initial charge was real money.
+            // For migration mandates (chargeOnSetup = 0) we charged R1 to tokenize
+            // the card — no invoice needed, billing starts on the set nextBillingDates.
+            if (mandate?.chargeOnSetup !== 0 && items.length > 0) {
+              const invoiceNumber = await getNextInvoiceNumber(mandate!.clientSlug);
+              const { invoiceId } = await createMandateInvoiceForItems(mandate!, items, invoiceNumber);
               await updateInvoiceStatus(invoiceId, 'paid');
             }
 

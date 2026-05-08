@@ -2462,8 +2462,8 @@ function advanceDateByInterval(dateStr: string, interval: "monthly" | "annual"):
 }
 
 export async function createMandate(
-  data: { clientSlug: string; clientName: string; clientEmail: string; startDate: string; notes?: string },
-  items: { description: string; amount: string; interval: "monthly" | "annual"; sortOrder: number }[]
+  data: { clientSlug: string; clientName: string; clientEmail: string; startDate: string; chargeOnSetup: boolean; notes?: string },
+  items: { description: string; amount: string; interval: "monthly" | "annual"; nextBillingDate?: string; sortOrder: number }[]
 ): Promise<{ id: number; shareToken: string }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -2475,6 +2475,7 @@ export async function createMandate(
     clientEmail: data.clientEmail,
     shareToken,
     startDate: data.startDate,
+    chargeOnSetup: data.chargeOnSetup ? 1 : 0,
     notes: data.notes ?? null,
   }).$returningId();
 
@@ -2487,7 +2488,7 @@ export async function createMandate(
         description: item.description,
         amount: item.amount,
         interval: item.interval,
-        nextBillingDate: data.startDate,
+        nextBillingDate: item.nextBillingDate ?? data.startDate,
         sortOrder: item.sortOrder,
       }))
     );
@@ -2531,6 +2532,9 @@ export async function activateMandate(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
+  const mandateRows = await db.select().from(billingMandates).where(eq(billingMandates.id, mandateId)).limit(1);
+  const mandate = mandateRows[0];
+
   await db.update(billingMandates).set({
     status: "active",
     paystackAuthCode,
@@ -2542,14 +2546,18 @@ export async function activateMandate(
     activatedAt: new Date(),
   }).where(eq(billingMandates.id, mandateId));
 
-  // Advance nextBillingDate for all items since initial charge is happening now
-  const items = await getMandateLineItems(mandateId);
-  for (const item of items) {
-    const nextDate = advanceDateByInterval(item.nextBillingDate, item.interval as "monthly" | "annual");
-    await db.update(mandateLineItems).set({
-      nextBillingDate: nextDate,
-      lastBilledAt: new Date(),
-    }).where(eq(mandateLineItems.id, item.id));
+  // Only advance nextBillingDate when the initial charge actually happened.
+  // For migration mandates (chargeOnSetup = 0), the admin already set the
+  // correct nextBillingDate on each line item — leave them untouched.
+  if (mandate?.chargeOnSetup !== 0) {
+    const items = await getMandateLineItems(mandateId);
+    for (const item of items) {
+      const nextDate = advanceDateByInterval(item.nextBillingDate, item.interval as "monthly" | "annual");
+      await db.update(mandateLineItems).set({
+        nextBillingDate: nextDate,
+        lastBilledAt: new Date(),
+      }).where(eq(mandateLineItems.id, item.id));
+    }
   }
 }
 

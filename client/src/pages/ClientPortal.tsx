@@ -226,8 +226,9 @@ export default function ClientPortal() {
   const cancelMandate = trpc.mandate.cancel.useMutation({ onSuccess: () => { refetchMandate(); toast.success("Mandate cancelled"); } });
   const sendSetupEmail = trpc.mandate.sendSetupEmail.useMutation({ onSuccess: () => toast.success("Setup email sent"), onError: () => toast.error("Failed to send email") });
   const [mandateFormOpen, setMandateFormOpen] = useState(false);
-  const [mandateLineItems, setMandateLineItems] = useState([{ description: "", amount: "", interval: "monthly" as "monthly" | "annual" }]);
+  const [mandateLineItems, setMandateLineItems] = useState([{ description: "", amount: "", interval: "monthly" as "monthly" | "annual", nextBillingDate: "" }]);
   const [mandateStartDate, setMandateStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [mandateChargeOnSetup, setMandateChargeOnSetup] = useState(true);
 
   // ── Recurring invoice config ──
   const { data: recurringConfig, refetch: refetchRecurring } =
@@ -1163,8 +1164,9 @@ export default function ClientPortal() {
                   </div>
                   {!mandate && (
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                      setMandateLineItems([{ description: "", amount: "", interval: "monthly" }]);
+                      setMandateLineItems([{ description: "", amount: "", interval: "monthly", nextBillingDate: "" }]);
                       setMandateStartDate(new Date().toISOString().slice(0, 10));
+                      setMandateChargeOnSetup(true);
                       setMandateFormOpen(true);
                     }}>
                       <Plus className="w-3 h-3 mr-1" /> Set up
@@ -1250,8 +1252,9 @@ export default function ClientPortal() {
                   <div className="space-y-2">
                     <p className="text-xs text-red-600">A charge failed. Please contact the client to update their card details — create a new mandate to restart billing.</p>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                      setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual" })));
+                      setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual", nextBillingDate: "" })));
                       setMandateStartDate(new Date().toISOString().slice(0, 10));
+                      setMandateChargeOnSetup(true);
                       setMandateFormOpen(true);
                     }}>
                       Create new mandate
@@ -1261,8 +1264,9 @@ export default function ClientPortal() {
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">Mandate cancelled. You can create a new one to restart billing.</p>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                      setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual" })));
+                      setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual", nextBillingDate: "" })));
                       setMandateStartDate(new Date().toISOString().slice(0, 10));
+                      setMandateChargeOnSetup(true);
                       setMandateFormOpen(true);
                     }}>
                       Create new mandate
@@ -1315,7 +1319,7 @@ export default function ClientPortal() {
                         )}
                       </div>
                     ))}
-                    <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground px-1" onClick={() => setMandateLineItems(prev => [...prev, { description: "", amount: "", interval: "monthly" }])}>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground px-1" onClick={() => setMandateLineItems(prev => [...prev, { description: "", amount: "", interval: "monthly", nextBillingDate: "" }])}>
                       <Plus className="w-3 h-3 mr-1" /> Add line item
                     </Button>
                   </div>
@@ -1323,11 +1327,34 @@ export default function ClientPortal() {
                     <Label className="text-xs font-medium">Billing start date</Label>
                     <Input type="date" value={mandateStartDate} onChange={e => setMandateStartDate(e.target.value)} className="text-xs h-8" />
                   </div>
+                  <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                    <div>
+                      <p className="text-xs font-medium">Migrating existing client</p>
+                      <p className="text-[11px] text-muted-foreground">Skip initial charge — card will be tokenised with R1 only</p>
+                    </div>
+                    <Switch checked={!mandateChargeOnSetup} onCheckedChange={v => setMandateChargeOnSetup(!v)} />
+                  </div>
+                  {!mandateChargeOnSetup && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Next billing date per line item</Label>
+                      {mandateLineItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground flex-1 truncate">{item.description || `Item ${idx + 1}`}</span>
+                          <Input
+                            type="date"
+                            value={item.nextBillingDate}
+                            onChange={e => setMandateLineItems(prev => prev.map((x, i) => i === idx ? { ...x, nextBillingDate: e.target.value } : x))}
+                            className="text-xs h-8 w-40"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button variant="outline" size="sm" onClick={() => setMandateFormOpen(false)}>Cancel</Button>
                   <Button size="sm" className="bg-[#2286c2] hover:bg-[#1a6fa0] text-white"
-                    disabled={createMandate.isPending || mandateLineItems.some(i => !i.description || !i.amount)}
+                    disabled={createMandate.isPending || mandateLineItems.some(i => !i.description || !i.amount) || (!mandateChargeOnSetup && mandateLineItems.some(i => !i.nextBillingDate))}
                     onClick={() => {
                       const clientEmail = profile?.email ?? "";
                       if (!clientEmail) { toast.error("Client has no email on file"); return; }
@@ -1336,7 +1363,8 @@ export default function ClientPortal() {
                         clientName: profile?.name ?? slug,
                         clientEmail,
                         startDate: mandateStartDate,
-                        lineItems: mandateLineItems.map(i => ({ description: i.description, amount: i.amount, interval: i.interval })),
+                        chargeOnSetup: mandateChargeOnSetup,
+                        lineItems: mandateLineItems.map(i => ({ description: i.description, amount: i.amount, interval: i.interval, nextBillingDate: i.nextBillingDate || undefined })),
                       });
                     }}>
                     {createMandate.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}

@@ -1,4 +1,4 @@
-import { boolean, date, decimal, int, mediumtext, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, date, decimal, int, mediumtext, mysqlEnum, mysqlTable, text, timestamp, tinyint, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -543,6 +543,7 @@ export const billingMandates = mysqlTable("billingMandates", {
   cardExpMonth: varchar("cardExpMonth", { length: 2 }),
   cardExpYear: varchar("cardExpYear", { length: 4 }),
   startDate: date("startDate").notNull(),
+  chargeOnSetup: tinyint("chargeOnSetup").default(1).notNull(),
   activatedAt: timestamp("activatedAt"),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
