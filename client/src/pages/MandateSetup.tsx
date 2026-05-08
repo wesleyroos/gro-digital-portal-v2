@@ -99,6 +99,7 @@ export default function MandateSetup() {
 
   const totalRands = mandate.lineItems.reduce((sum, item) => sum + parseFloat(String(item.amount)), 0);
   const isAlreadyActive = mandate.status === "active";
+  const skipCharge = mandate.chargeOnSetup === false;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
@@ -146,12 +147,14 @@ export default function MandateSetup() {
                 ))}
                 <div className="px-4 py-3 flex justify-between items-center border-t border-gray-200 bg-gray-50">
                   <span className="text-sm font-semibold text-gray-900">Charged today</span>
-                  <span className="text-sm font-bold text-gray-900">{formatCurrency(totalRands)}</span>
+                  <span className="text-sm font-bold text-gray-900">{skipCharge ? "R1,00" : formatCurrency(totalRands)}</span>
                 </div>
               </div>
 
               <p className="text-xs text-muted-foreground mb-5">
-                You'll be charged {formatCurrency(totalRands)} today for the first billing period, then automatically on schedule. You can cancel at any time by contacting us.
+                {skipCharge
+                  ? "We'll charge R1,00 today just to verify your card — your billing will begin on your scheduled dates. You can cancel at any time by contacting us."
+                  : `You'll be charged ${formatCurrency(totalRands)} today for the first billing period, then automatically on schedule. You can cancel at any time by contacting us.`}
               </p>
 
               {cardState === "cancelled" && (

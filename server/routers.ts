@@ -3843,6 +3843,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
           cardLast4: mandate.cardLast4,
           cardBrand: mandate.cardBrand,
           startDate: mandate.startDate,
+          chargeOnSetup: mandate.chargeOnSetup !== 0,
           lineItems: items.map(item => ({
             id: item.id,
             description: item.description,
