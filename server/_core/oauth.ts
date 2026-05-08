@@ -1802,6 +1802,7 @@ function gdSubmitAccept(token) {
         updateMandateStatus,
         markMandateInvoicePaidByReference,
         advanceLineItemNextBillingDate,
+        createSubscription,
       } = await import('../db');
 
       const rawBody = (req as any).rawBody as Buffer | undefined;
@@ -1830,6 +1831,18 @@ function gdSubmitAccept(token) {
 
             const mandate = await getMandateById(mandateId);
             const items = await getMandateLineItems(mandateId);
+
+            // Create one subscription record per line item for MRR/ARR tracking
+            for (const item of items) {
+              await createSubscription({
+                clientSlug: mandate!.clientSlug,
+                clientName: mandate!.clientName,
+                description: item.description,
+                amount: parseFloat(String(item.amount)),
+                type: item.interval as 'monthly' | 'annual',
+                status: 'active',
+              }).catch(() => {});
+            }
 
             // Only create a paid invoice when the initial charge was real money.
             // For migration mandates (chargeOnSetup = 0) we charged R1 to tokenize
