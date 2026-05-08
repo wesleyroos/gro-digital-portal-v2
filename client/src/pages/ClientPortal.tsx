@@ -225,7 +225,12 @@ export default function ClientPortal() {
   const resumeMandate = trpc.mandate.resume.useMutation({ onSuccess: () => refetchMandate() });
   const cancelMandate = trpc.mandate.cancel.useMutation({ onSuccess: () => { refetchMandate(); toast.success("Mandate cancelled"); } });
   const sendSetupEmail = trpc.mandate.sendSetupEmail.useMutation({ onSuccess: () => toast.success("Setup email sent"), onError: () => toast.error("Failed to send email") });
+  const updateLineItems = trpc.mandate.updateLineItems.useMutation({
+    onSuccess: () => { refetchMandate(); setMandateFormOpen(false); toast.success("Mandate updated"); },
+    onError: () => toast.error("Failed to update mandate"),
+  });
   const [mandateFormOpen, setMandateFormOpen] = useState(false);
+  const [mandateEditMode, setMandateEditMode] = useState(false);
   const [mandateLineItems, setMandateLineItems] = useState([{ description: "", amount: "", interval: "monthly" as "monthly" | "annual", nextBillingDate: "" }]);
   const [mandateStartDate, setMandateStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [mandateChargeOnSetup, setMandateChargeOnSetup] = useState(true);
@@ -1206,9 +1211,18 @@ export default function ClientPortal() {
                         {sendSetupEmail.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3 mr-1" />} Send
                       </Button>
                     </div>
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive px-2" onClick={() => {
-                      if (confirm("Cancel this mandate?")) cancelMandate.mutate({ mandateId: mandate.id });
-                    }}>Cancel mandate</Button>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-muted-foreground" onClick={() => {
+                        setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual", nextBillingDate: "" })));
+                        setMandateStartDate(new Date().toISOString().slice(0, 10));
+                        setMandateChargeOnSetup(true);
+                        setMandateEditMode(true);
+                        setMandateFormOpen(true);
+                      }}>Edit line items</Button>
+                      <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive px-2" onClick={() => {
+                        if (confirm("Cancel this mandate?")) cancelMandate.mutate({ mandateId: mandate.id });
+                      }}>Cancel mandate</Button>
+                    </div>
                   </div>
                 ) : mandate.status === "active" ? (
                   <div className="space-y-3">
@@ -1231,6 +1245,13 @@ export default function ClientPortal() {
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => pauseMandate.mutate({ mandateId: mandate.id })} disabled={pauseMandate.isPending}>
                         Pause
                       </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
+                        setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual", nextBillingDate: i.nextBillingDate ? new Date(i.nextBillingDate).toISOString().slice(0, 10) : "" })));
+                        setMandateStartDate(new Date().toISOString().slice(0, 10));
+                        setMandateChargeOnSetup(true);
+                        setMandateEditMode(true);
+                        setMandateFormOpen(true);
+                      }}>Edit</Button>
                       <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive px-2" onClick={() => {
                         if (confirm("Cancel this mandate? The client's card will no longer be charged.")) cancelMandate.mutate({ mandateId: mandate.id });
                       }}>Cancel</Button>
@@ -1276,11 +1297,11 @@ export default function ClientPortal() {
               </CardContent>
             </Card>
 
-            {/* Mandate creation dialog */}
-            <Dialog open={mandateFormOpen} onOpenChange={setMandateFormOpen}>
+            {/* Mandate creation / edit dialog */}
+            <Dialog open={mandateFormOpen} onOpenChange={v => { setMandateFormOpen(v); if (!v) setMandateEditMode(false); }}>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle className="text-base">Set up recurring billing</DialogTitle>
+                  <DialogTitle className="text-base">{mandateEditMode ? "Edit mandate" : "Set up recurring billing"}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                   <div className="space-y-2">
@@ -1323,20 +1344,43 @@ export default function ClientPortal() {
                       <Plus className="w-3 h-3 mr-1" /> Add line item
                     </Button>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Billing start date</Label>
-                    <Input type="date" value={mandateStartDate} onChange={e => setMandateStartDate(e.target.value)} className="text-xs h-8" />
-                  </div>
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                    <div>
-                      <p className="text-xs font-medium">Migrating existing client</p>
-                      <p className="text-[11px] text-muted-foreground">Skip initial charge — card will be tokenised with R1 only</p>
+                  {!mandateEditMode && (
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Billing start date</Label>
+                      <Input type="date" value={mandateStartDate} onChange={e => setMandateStartDate(e.target.value)} className="text-xs h-8" />
                     </div>
-                    <Switch checked={!mandateChargeOnSetup} onCheckedChange={v => setMandateChargeOnSetup(!v)} />
-                  </div>
-                  {!mandateChargeOnSetup && (
+                  )}
+                  {!mandateEditMode && (
+                    <>
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <div>
+                          <p className="text-xs font-medium">Migrating existing client</p>
+                          <p className="text-[11px] text-muted-foreground">Skip initial charge — card will be tokenised with R1 only</p>
+                        </div>
+                        <Switch checked={!mandateChargeOnSetup} onCheckedChange={v => setMandateChargeOnSetup(!v)} />
+                      </div>
+                      {!mandateChargeOnSetup && (
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Next billing date per line item</Label>
+                          {mandateLineItems.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground flex-1 truncate">{item.description || `Item ${idx + 1}`}</span>
+                              <Input
+                                type="date"
+                                value={item.nextBillingDate}
+                                onChange={e => setMandateLineItems(prev => prev.map((x, i) => i === idx ? { ...x, nextBillingDate: e.target.value } : x))}
+                                className="text-xs h-8 w-40"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {mandateEditMode && mandate?.status === "active" && (
                     <div className="space-y-2">
                       <Label className="text-xs font-medium">Next billing date per line item</Label>
+                      <p className="text-[11px] text-muted-foreground">Changes take effect from the next billing cycle.</p>
                       {mandateLineItems.map((item, idx) => (
                         <div key={idx} className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground flex-1 truncate">{item.description || `Item ${idx + 1}`}</span>
@@ -1352,23 +1396,35 @@ export default function ClientPortal() {
                   )}
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" size="sm" onClick={() => setMandateFormOpen(false)}>Cancel</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setMandateFormOpen(false); setMandateEditMode(false); }}>Cancel</Button>
                   <Button size="sm" className="bg-[#2286c2] hover:bg-[#1a6fa0] text-white"
-                    disabled={createMandate.isPending || mandateLineItems.some(i => !i.description || !i.amount) || (!mandateChargeOnSetup && mandateLineItems.some(i => !i.nextBillingDate))}
+                    disabled={
+                      (mandateEditMode ? updateLineItems.isPending : createMandate.isPending) ||
+                      mandateLineItems.some(i => !i.description || !i.amount) ||
+                      (!mandateChargeOnSetup && !mandateEditMode && mandateLineItems.some(i => !i.nextBillingDate)) ||
+                      (mandateEditMode && mandate?.status === "active" && mandateLineItems.some(i => !i.nextBillingDate))
+                    }
                     onClick={() => {
-                      const clientEmail = profile?.email ?? "";
-                      if (!clientEmail) { toast.error("Client has no email on file"); return; }
-                      createMandate.mutate({
-                        clientSlug: slug,
-                        clientName: profile?.name ?? slug,
-                        clientEmail,
-                        startDate: mandateStartDate,
-                        chargeOnSetup: mandateChargeOnSetup,
-                        lineItems: mandateLineItems.map(i => ({ description: i.description, amount: i.amount, interval: i.interval, nextBillingDate: i.nextBillingDate || undefined })),
-                      });
+                      if (mandateEditMode) {
+                        updateLineItems.mutate({
+                          mandateId: mandate!.id,
+                          lineItems: mandateLineItems.map(i => ({ description: i.description, amount: i.amount, interval: i.interval, nextBillingDate: i.nextBillingDate || new Date().toISOString().slice(0, 10) })),
+                        });
+                      } else {
+                        const clientEmail = profile?.email ?? "";
+                        if (!clientEmail) { toast.error("Client has no email on file"); return; }
+                        createMandate.mutate({
+                          clientSlug: slug,
+                          clientName: profile?.name ?? slug,
+                          clientEmail,
+                          startDate: mandateStartDate,
+                          chargeOnSetup: mandateChargeOnSetup,
+                          lineItems: mandateLineItems.map(i => ({ description: i.description, amount: i.amount, interval: i.interval, nextBillingDate: i.nextBillingDate || undefined })),
+                        });
+                      }
                     }}>
-                    {createMandate.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
-                    Create mandate
+                    {(mandateEditMode ? updateLineItems.isPending : createMandate.isPending) ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                    {mandateEditMode ? "Save changes" : "Create mandate"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
