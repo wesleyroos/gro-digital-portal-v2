@@ -61,7 +61,7 @@ export async function getFacebookPages(userToken: string): Promise<Array<{ id: s
 }
 
 /**
- * Post an image to a Facebook Page.
+ * Post an image to a Facebook Page as a feed post (shows in timeline, not Photos album).
  * Returns the post ID.
  */
 export async function postImageToPage(
@@ -70,16 +70,15 @@ export async function postImageToPage(
   imageUrl: string,
   message: string,
 ): Promise<string> {
-  const res = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
+  const res = await fetch(`${GRAPH_BASE}/${pageId}/feed`, {
     method: 'POST',
-    body: new URLSearchParams({ url: imageUrl, message, access_token: pageToken, published: 'true' }),
+    body: new URLSearchParams({ picture: imageUrl, message, access_token: pageToken }),
   });
-  const data = await res.json() as { id?: string; post_id?: string; error?: { message: string } };
-  if (!res.ok || (!data.id && !data.post_id)) {
+  const data = await res.json() as { id?: string; error?: { message: string } };
+  if (!res.ok || !data.id) {
     throw new Error(`postImageToPage failed: ${data.error?.message ?? JSON.stringify(data)}`);
   }
-  // post_id is the feed post ID; id is the photo node ID
-  return data.post_id ?? data.id!;
+  return data.id;
 }
 
 /**
