@@ -236,6 +236,9 @@ export default function MarketingCampaignWorkspace() {
   const [generateHeroUrl, setGenerateHeroUrl] = useState<string | null>(null);
   const [generatePurpose, setGeneratePurpose] = useState('');
   const [generateLogoUrl, setGenerateLogoUrl] = useState('');
+  const [strategyExpanded, setStrategyExpanded] = useState(false);
+  const [strategyEditing, setStrategyEditing] = useState(false);
+  const [strategyDraft, setStrategyDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assetFileRef = useRef<HTMLInputElement>(null);
@@ -803,6 +806,55 @@ export default function MarketingCampaignWorkspace() {
     URL.revokeObjectURL(a.href);
   }
 
+  function downloadStrategy() {
+    const text = campaign.strategy ?? '';
+    const slug = campaign.name.toLowerCase().replace(/\s+/g, '-');
+    const blob = new Blob([`# ${campaign.name} — Strategy\n\n${text}`], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${slug}-strategy.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function downloadContentSchedule() {
+    const slug = campaign.name.toLowerCase().replace(/\s+/g, '-');
+    const sorted = [...posts].sort((a, b) => {
+      if (!a.scheduledAt) return 1;
+      if (!b.scheduledAt) return -1;
+      return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    });
+    const lines: string[] = [
+      `# ${campaign.name} — Content Schedule`,
+      ``,
+      `**Posts:** ${posts.length}`,
+      campaign.startDate ? `**Period:** ${campaign.startDate}${campaign.endDate ? ` → ${campaign.endDate}` : ''}` : '',
+      ``,
+      `---`,
+      ``,
+    ].filter(Boolean);
+    sorted.forEach((post, i) => {
+      const date = post.scheduledAt
+        ? new Date(post.scheduledAt).toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        : 'Unscheduled';
+      lines.push(`## Post ${i + 1} — ${date}`);
+      if (post.theme) lines.push(`**Theme:** ${post.theme}`);
+      lines.push(`**Status:** ${post.status}`);
+      if (post.caption) { lines.push(``); lines.push(`**Caption:**`); lines.push(``); lines.push(post.caption); }
+      if (post.hashtags) { lines.push(``); lines.push(`**Hashtags:** ${post.hashtags}`); }
+      if (post.imagePrompt) { lines.push(``); lines.push(`**Image Prompt:**`); lines.push(``); lines.push(post.imagePrompt); }
+      lines.push(``);
+      lines.push(`---`);
+      lines.push(``);
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${slug}-content-schedule.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   const allPostsApproved = posts.length > 0 && posts.every(p => p.status === "approved" || p.status === "posted" || p.status === "scheduled");
   const hasDraftPosts = posts.some(p => p.status === "draft");
 
@@ -1031,8 +1083,63 @@ export default function MarketingCampaignWorkspace() {
           {/* Strategy summary card — only shown once strategy is saved */}
           {campaign.strategy && (
             <div className="shrink-0 mb-4 rounded-xl border bg-violet-50 border-violet-200 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 mb-1.5">Strategy</p>
-              <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-4">{campaign.strategy}</p>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-violet-600">Strategy</p>
+                <div className="flex items-center gap-1">
+                  {!strategyEditing && (
+                    <button
+                      className="text-xs text-violet-600 hover:text-violet-800 px-1.5 py-0.5 rounded hover:bg-violet-100 transition-colors"
+                      onClick={() => setStrategyExpanded(e => !e)}
+                    >
+                      {strategyExpanded ? 'Collapse' : 'Expand'}
+                    </button>
+                  )}
+                  <button
+                    className="text-xs text-violet-600 hover:text-violet-800 px-1.5 py-0.5 rounded hover:bg-violet-100 transition-colors"
+                    onClick={() => {
+                      if (!strategyEditing) {
+                        setStrategyDraft(campaign.strategy ?? '');
+                        setStrategyEditing(true);
+                        setStrategyExpanded(true);
+                      } else {
+                        setStrategyEditing(false);
+                      }
+                    }}
+                  >
+                    {strategyEditing ? 'Cancel' : 'Edit'}
+                  </button>
+                  {!strategyEditing && (
+                    <button
+                      className="text-xs text-violet-600 hover:text-violet-800 px-1.5 py-0.5 rounded hover:bg-violet-100 transition-colors"
+                      onClick={downloadStrategy}
+                    >
+                      Download
+                    </button>
+                  )}
+                </div>
+              </div>
+              {strategyEditing ? (
+                <div className="flex flex-col gap-2">
+                  <textarea
+                    className="w-full text-sm bg-white border border-violet-300 rounded-lg p-2 min-h-[200px] resize-y focus:outline-none focus:ring-2 focus:ring-violet-400"
+                    value={strategyDraft}
+                    onChange={e => setStrategyDraft(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    className="self-end bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+                    onClick={() => saveStrategyMutation.mutate({ id: campaignId, strategy: strategyDraft }, { onSuccess: () => setStrategyEditing(false) })}
+                    disabled={saveStrategyMutation.isPending}
+                  >
+                    {saveStrategyMutation.isPending
+                      ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      : <Check className="w-3.5 h-3.5" />}
+                    Save
+                  </Button>
+                </div>
+              ) : (
+                <p className={`text-sm text-foreground whitespace-pre-wrap ${strategyExpanded ? '' : 'line-clamp-4'}`}>{campaign.strategy}</p>
+              )}
             </div>
           )}
 
@@ -1343,6 +1450,15 @@ export default function MarketingCampaignWorkspace() {
                   >
                     <CalendarDays className="w-3.5 h-3.5" />
                     Reschedule from date
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-7 text-xs"
+                    onClick={downloadContentSchedule}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export .md
                   </Button>
                 </div>
               </div>
