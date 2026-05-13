@@ -1667,6 +1667,21 @@ export default function MarketingCampaignWorkspace() {
                             Re-post
                           </Button>
                         )}
+                        {post.status === "failed" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-7 text-xs gap-1 border-red-300 text-red-600 hover:bg-red-50"
+                            onClick={() => publishNowMutation.mutate({ postId: post.id })}
+                            disabled={publishNowMutation.isPending}
+                          >
+                            {publishNowMutation.isPending
+                              ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              : <RefreshCw className="w-3 h-3" />
+                            }
+                            Retry
+                          </Button>
+                        )}
                         {post.status === "approved" && post.imageUrl && igStatus?.connected && (
                           <Button
                             size="sm"
