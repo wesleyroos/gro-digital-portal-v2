@@ -61,10 +61,9 @@ export async function getFacebookPages(userToken: string): Promise<Array<{ id: s
 }
 
 /**
- * Post an image to a Facebook Page as a timeline feed post (not a Photos album entry).
- * Step 1: upload photo silently (no_story=true) to get a photo node ID.
- * Step 2: publish to /feed with object_attachment so it appears as a regular post.
- * Returns the feed post ID.
+ * Post an image to a Facebook Page feed.
+ * Uses a single /photos call with published=true — the reliable approach
+ * that posts to the timeline and returns the post ID.
  */
 export async function postImageToPage(
   pageId: string,
@@ -72,26 +71,15 @@ export async function postImageToPage(
   imageUrl: string,
   message: string,
 ): Promise<string> {
-  // Step 1: upload photo without creating a story
-  const uploadRes = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
+  const res = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
     method: 'POST',
-    body: new URLSearchParams({ url: imageUrl, published: 'false', no_story: 'true', access_token: pageToken }),
+    body: new URLSearchParams({ url: imageUrl, message, published: 'true', access_token: pageToken }),
   });
-  const uploadData = await uploadRes.json() as { id?: string; error?: { message: string } };
-  if (!uploadRes.ok || !uploadData.id) {
-    throw new Error(`postImageToPage (upload) failed: ${uploadData.error?.message ?? JSON.stringify(uploadData)}`);
+  const data = await res.json() as { id?: string; post_id?: string; error?: { message: string; code?: number } };
+  if (!res.ok || (!data.id && !data.post_id)) {
+    throw new Error(`postImageToPage failed: ${data.error?.message ?? JSON.stringify(data)}`);
   }
-
-  // Step 2: publish as a feed post with the photo attached
-  const feedRes = await fetch(`${GRAPH_BASE}/${pageId}/feed`, {
-    method: 'POST',
-    body: new URLSearchParams({ message, object_attachment: uploadData.id, access_token: pageToken }),
-  });
-  const feedData = await feedRes.json() as { id?: string; error?: { message: string } };
-  if (!feedRes.ok || !feedData.id) {
-    throw new Error(`postImageToPage (feed) failed: ${feedData.error?.message ?? JSON.stringify(feedData)}`);
-  }
-  return feedData.id;
+  return data.post_id ?? data.id!;
 }
 
 /**
