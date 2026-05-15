@@ -3116,9 +3116,10 @@ export default function MarketingCampaignWorkspace() {
         const hasIG = !!repostPost.instagramPostId;
         const hasFB = !!repostPost.facebookPostId;
         const hasLI = !!((repostPost as any).linkedinPostId);
-        const igEnabled = campaign.postToInstagram !== false;
-        const fbEnabled = !!campaign.postToFacebook;
-        const liEnabled = !!(campaign as any).postToLinkedin;
+        // Show a platform if the campaign has it enabled OR if the post was ever published there
+        const igEnabled = campaign.postToInstagram !== false || hasIG;
+        const fbEnabled = !!campaign.postToFacebook || hasFB;
+        const liEnabled = !!(campaign as any).postToLinkedin || hasLI;
         const anySelected = repostPlatforms.instagram || repostPlatforms.facebook || repostPlatforms.linkedin;
         return (
           <Dialog open={!!repostModalPostId} onOpenChange={open => { if (!open) setRepostModalPostId(null); }}>
