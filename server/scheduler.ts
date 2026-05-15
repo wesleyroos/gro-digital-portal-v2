@@ -1,4 +1,4 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus } from './db';
 import { chargeAuthorization, randsToCents } from './paystack';
 import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia } from './instagram';
@@ -34,35 +34,48 @@ async function runSchedulerTick() {
 
       const caption = [post.caption ?? '', post.hashtags ?? ''].filter(Boolean).join('\n\n');
       let published = false;
+      const platformErrors: string[] = [];
 
       // ── Instagram ──────────────────────────────────────────────────────────
       if (campaign.postToInstagram !== false) {
-        const igTokens = await getInstagramTokens(campaign.clientSlug);
-        if (!igTokens) {
-          console.warn(`[Scheduler] No Instagram tokens for ${campaign.clientSlug}, skipping IG for post ${post.id}`);
-        } else {
-          const creationId = isVideo
-            ? await createVideoMediaContainer(igTokens.businessId, igTokens.accessToken, mediaUrl, caption)
-            : await createMediaContainer(igTokens.businessId, igTokens.accessToken, mediaUrl, caption);
-          const instagramPostId = await publishMedia(igTokens.businessId, igTokens.accessToken, creationId);
-          await updatePostStatus(post.id, 'posted', { instagramPostId });
-          console.log(`[Scheduler] Post ${post.id} → Instagram ${instagramPostId}`);
-          published = true;
+        try {
+          const igTokens = await getInstagramTokens(campaign.clientSlug);
+          if (!igTokens) {
+            console.warn(`[Scheduler] No Instagram tokens for ${campaign.clientSlug}, skipping IG for post ${post.id}`);
+          } else {
+            const creationId = isVideo
+              ? await createVideoMediaContainer(igTokens.businessId, igTokens.accessToken, mediaUrl, caption)
+              : await createMediaContainer(igTokens.businessId, igTokens.accessToken, mediaUrl, caption);
+            const instagramPostId = await publishMedia(igTokens.businessId, igTokens.accessToken, creationId);
+            await updatePostStatus(post.id, 'posted', { instagramPostId });
+            console.log(`[Scheduler] Post ${post.id} → Instagram ${instagramPostId}`);
+            published = true;
+          }
+        } catch (igErr) {
+          const msg = igErr instanceof Error ? igErr.message : String(igErr);
+          console.error(`[Scheduler] Instagram failed for post ${post.id}:`, igErr);
+          platformErrors.push(`Instagram: ${msg}`);
         }
       }
 
       // ── Facebook ───────────────────────────────────────────────────────────
       if (campaign.postToFacebook) {
-        const fbTokens = await getFacebookTokens(campaign.clientSlug);
-        if (!fbTokens) {
-          console.warn(`[Scheduler] No Facebook tokens for ${campaign.clientSlug}, skipping FB for post ${post.id}`);
-        } else {
-          const facebookPostId = isVideo
-            ? await postVideoToPage(fbTokens.pageId, fbTokens.pageAccessToken, mediaUrl, caption)
-            : await postImageToPage(fbTokens.pageId, fbTokens.pageAccessToken, mediaUrl, caption);
-          await updatePostFacebookId(post.id, facebookPostId);
-          console.log(`[Scheduler] Post ${post.id} → Facebook ${facebookPostId}`);
-          published = true;
+        try {
+          const fbTokens = await getFacebookTokens(campaign.clientSlug);
+          if (!fbTokens) {
+            console.warn(`[Scheduler] No Facebook tokens for ${campaign.clientSlug}, skipping FB for post ${post.id}`);
+          } else {
+            const facebookPostId = isVideo
+              ? await postVideoToPage(fbTokens.pageId, fbTokens.pageAccessToken, mediaUrl, caption)
+              : await postImageToPage(fbTokens.pageId, fbTokens.pageAccessToken, mediaUrl, caption);
+            await updatePostFacebookId(post.id, facebookPostId);
+            console.log(`[Scheduler] Post ${post.id} → Facebook ${facebookPostId}`);
+            published = true;
+          }
+        } catch (fbErr) {
+          const msg = fbErr instanceof Error ? fbErr.message : String(fbErr);
+          console.error(`[Scheduler] Facebook failed for post ${post.id}:`, fbErr);
+          platformErrors.push(`Facebook: ${msg}`);
         }
       }
 
@@ -82,7 +95,6 @@ async function runSchedulerTick() {
 
             let linkedinPostId: string;
             if (!isVideo && mediaUrl) {
-              // Fetch image and upload to LinkedIn
               const imgRes = await fetch(mediaUrl, { signal: AbortSignal.timeout(30_000) });
               if (imgRes.ok) {
                 const buffer = Buffer.from(await imgRes.arrayBuffer());
@@ -93,7 +105,6 @@ async function runSchedulerTick() {
                 linkedinPostId = await createTextPost(authorUrn, liCaption, liToken);
               }
             } else {
-              // Video: text-only fallback for now
               linkedinPostId = await createTextPost(authorUrn, liCaption, liToken);
             }
 
@@ -102,18 +113,26 @@ async function runSchedulerTick() {
             published = true;
           }
         } catch (liErr) {
+          const msg = liErr instanceof Error ? liErr.message : String(liErr);
           console.error(`[Scheduler] LinkedIn failed for post ${post.id}:`, liErr);
+          platformErrors.push(`LinkedIn: ${msg}`);
         }
       }
 
-      // Mark as posted if not already done via Instagram path above
-      if (published && campaign.postToInstagram === false) {
-        await updatePostStatus(post.id, 'posted');
+      if (published) {
+        if (campaign.postToInstagram === false) {
+          await updatePostStatus(post.id, 'posted');
+        }
+        if (platformErrors.length > 0) {
+          await setPostNotes(post.id, platformErrors.join('\n'));
+        }
+      } else if (platformErrors.length > 0) {
+        await updatePostStatus(post.id, 'failed', { notes: platformErrors.join('\n') });
       }
     } catch (e) {
-      console.error(`[Scheduler] Failed to publish post ${post.id}:`, e);
+      console.error(`[Scheduler] Unexpected error for post ${post.id}:`, e);
       try {
-        await updatePostStatus(post.id, 'failed', { notes: String(e) });
+        await updatePostStatus(post.id, 'failed', { notes: e instanceof Error ? e.message : String(e) });
       } catch { /* ignore secondary error */ }
     }
   }

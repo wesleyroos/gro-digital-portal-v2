@@ -1660,6 +1660,12 @@ export async function updatePostStatus(
   await db.update(marketingPosts).set(set).where(eq(marketingPosts.id, postId));
 }
 
+export async function setPostNotes(postId: number, notes: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(marketingPosts).set({ notes }).where(eq(marketingPosts.id, postId));
+}
+
 export async function updatePostContent(postId: number, data: { caption?: string; hashtags?: string; imagePrompt?: string; scheduledAt?: string | null; sortOrder?: number }) {
   const db = await getDb();
   if (!db) throw new Error('Database not available');

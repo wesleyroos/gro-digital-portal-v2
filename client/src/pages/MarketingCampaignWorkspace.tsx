@@ -1715,6 +1715,17 @@ export default function MarketingCampaignWorkspace() {
                               <p className="text-xs text-red-700 leading-snug">{(post as any).notes}</p>
                             </div>
                           )}
+                          {post.status === "failed" && (
+                            <div className="mt-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-2">
+                              <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide mb-1">Publish error</p>
+                              {(post as any).notes
+                                ? (post as any).notes.split('\n').map((line: string, i: number) => (
+                                    <p key={i} className="text-[11px] text-red-700 leading-snug font-mono break-all">{line}</p>
+                                  ))
+                                : <p className="text-[11px] text-red-600 italic">No error details recorded. Check server logs.</p>
+                              }
+                            </div>
+                          )}
                         </div>
                       )}
 
