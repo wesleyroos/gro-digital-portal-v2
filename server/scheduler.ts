@@ -1,7 +1,7 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllConnectedInstagramClients, updateInstagramAccessToken, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus } from './db';
 import { chargeAuthorization, randsToCents } from './paystack';
 import { ENV } from './_core/env';
-import { createMediaContainer, createVideoMediaContainer, publishMedia } from './instagram';
+import { createMediaContainer, createVideoMediaContainer, publishMedia, refreshLongLivedToken } from './instagram';
 import { postImageToPage, postVideoToPage } from './facebook';
 import { ensureFreshToken, initializeImageUpload, uploadImageBinary, createImagePost, createTextPost } from './linkedin';
 
@@ -138,9 +138,28 @@ async function runSchedulerTick() {
   }
 }
 
+async function runInstagramTokenRefreshTick() {
+  const clients = await getAllConnectedInstagramClients().catch(() => []);
+  for (const { clientSlug, instagramAccessToken } of clients) {
+    try {
+      const newToken = await refreshLongLivedToken(instagramAccessToken);
+      await updateInstagramAccessToken(clientSlug, newToken);
+      console.log(`[Scheduler] Refreshed Instagram token for ${clientSlug}`);
+    } catch (e) {
+      console.error(`[Scheduler] Instagram token refresh failed for ${clientSlug}:`, e);
+    }
+  }
+}
+
 export function startScheduler() {
   runSchedulerTick().catch(console.error);
   setInterval(() => runSchedulerTick().catch(console.error), 60_000);
+
+  // Refresh Instagram long-lived tokens daily (tokens last 60 days; refreshing weekly keeps them alive indefinitely)
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  runInstagramTokenRefreshTick().catch(console.error);
+  setInterval(() => runInstagramTokenRefreshTick().catch(console.error), ONE_DAY_MS);
+
   console.log('[Scheduler] Started');
 }
 

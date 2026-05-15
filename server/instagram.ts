@@ -118,6 +118,24 @@ export async function exchangeForLongLivedToken(shortToken: string): Promise<str
 }
 
 /**
+ * Refresh an existing long-lived token, resetting its 60-day expiry window.
+ * Safe to call at any time while the token is still valid.
+ */
+export async function refreshLongLivedToken(token: string): Promise<string> {
+  const url = `https://graph.instagram.com/refresh_access_token?${new URLSearchParams({
+    grant_type: 'ig_refresh_token',
+    access_token: token,
+  })}`;
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+  const data = await res.json() as { access_token?: string; error?: { message: string } };
+  if (!res.ok || !data.access_token) {
+    throw new Error(`refreshLongLivedToken failed: ${data.error?.message ?? JSON.stringify(data)}`);
+  }
+  return data.access_token;
+}
+
+/**
  * Fetch insights for a published post.
  * Automatically selects the right metric set based on media_type.
  * Note: the Instagram Login for Business API does not support `impressions`

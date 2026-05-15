@@ -1753,6 +1753,24 @@ export async function storeInstagramTokens(clientSlug: string, businessId: strin
     .onDuplicateKeyUpdate({ set: { instagramBusinessId: businessId, instagramAccessToken: accessToken, instagramUsername: username } });
 }
 
+export async function updateInstagramAccessToken(clientSlug: string, accessToken: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(clientProfiles)
+    .set({ instagramAccessToken: accessToken } as any)
+    .where(eq(clientProfiles.clientSlug, clientSlug));
+}
+
+export async function getAllConnectedInstagramClients() {
+  const db = await getDb();
+  if (!db) return [];
+  const results = await db
+    .select({ clientSlug: clientProfiles.clientSlug, instagramAccessToken: clientProfiles.instagramAccessToken })
+    .from(clientProfiles)
+    .where(isNotNull(clientProfiles.instagramAccessToken));
+  return results.filter(r => r.instagramAccessToken) as { clientSlug: string; instagramAccessToken: string }[];
+}
+
 export async function clearInstagramTokens(clientSlug: string) {
   const db = await getDb();
   if (!db) return;
