@@ -239,6 +239,8 @@ export default function MarketingCampaignWorkspace() {
   const [strategyExpanded, setStrategyExpanded] = useState(false);
   const [strategyEditing, setStrategyEditing] = useState(false);
   const [strategyDraft, setStrategyDraft] = useState('');
+  const [repostModalPostId, setRepostModalPostId] = useState<number | null>(null);
+  const [repostPlatforms, setRepostPlatforms] = useState({ instagram: false, facebook: false, linkedin: false });
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assetFileRef = useRef<HTMLInputElement>(null);
@@ -591,12 +593,14 @@ export default function MarketingCampaignWorkspace() {
     onError: (_e, { postId }) => { setGeneratingPostIds(s => { const n = new Set(s); n.delete(postId); return n; }); toast.error("Image regeneration failed"); },
   });
   const publishNowMutation = trpc.campaign.post.publishNow.useMutation({
-    onSuccess: ({ postedTo }) => {
+    onSuccess: ({ postedTo, errors }) => {
       const label = postedTo.length === 0 ? 'No platforms posted' : `Posted to ${postedTo.join(' & ')}!`;
       toast.success(label);
+      if (errors && errors.length > 0) toast.error(errors.join('\n'));
+      setRepostModalPostId(null);
       refetch();
     },
-    onError: (e) => toast.error(`Post failed: ${e.message}`),
+    onError: (e) => { toast.error(`Post failed: ${e.message}`); refetch(); },
   });
   const approveAllMutation = trpc.campaign.post.approveAll.useMutation({
     onSuccess: () => { toast.success("All draft posts approved"); refetch(); },
@@ -1798,34 +1802,25 @@ export default function MarketingCampaignWorkspace() {
                             Analytics
                           </Button>
                         )}
-                        {(post.status === "posted" || (post.status === "failed" && (post.instagramPostId || post.facebookPostId || (post as any).linkedinPostId))) && (
+                        {(post.status === "posted" || post.status === "failed") && (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="flex-1 h-7 text-xs gap-1"
-                            onClick={() => publishNowMutation.mutate({ postId: post.id })}
-                            disabled={publishNowMutation.isPending}
+                            className={`flex-1 h-7 text-xs gap-1 ${post.status === "failed" && !post.instagramPostId && !post.facebookPostId && !(post as any).linkedinPostId ? "border-red-300 text-red-600 hover:bg-red-50" : ""}`}
+                            onClick={() => {
+                              const hasIG = !!(post.instagramPostId);
+                              const hasFB = !!(post.facebookPostId);
+                              const hasLI = !!((post as any).linkedinPostId);
+                              setRepostPlatforms({
+                                instagram: !hasIG && campaign.postToInstagram !== false,
+                                facebook: !hasFB && !!campaign.postToFacebook,
+                                linkedin: !hasLI && !!(campaign as any).postToLinkedin,
+                              });
+                              setRepostModalPostId(post.id);
+                            }}
                           >
-                            {publishNowMutation.isPending
-                              ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              : <RefreshCw className="w-3 h-3" />
-                            }
-                            Re-post
-                          </Button>
-                        )}
-                        {post.status === "failed" && !post.instagramPostId && !post.facebookPostId && !(post as any).linkedinPostId && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 h-7 text-xs gap-1 border-red-300 text-red-600 hover:bg-red-50"
-                            onClick={() => publishNowMutation.mutate({ postId: post.id })}
-                            disabled={publishNowMutation.isPending}
-                          >
-                            {publishNowMutation.isPending
-                              ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              : <RefreshCw className="w-3 h-3" />
-                            }
-                            Retry
+                            <RefreshCw className="w-3 h-3" />
+                            {post.status === "failed" && !post.instagramPostId && !post.facebookPostId && !(post as any).linkedinPostId ? "Retry" : "Re-post"}
                           </Button>
                         )}
                         {post.status === "approved" && post.imageUrl && igStatus?.connected && (
@@ -3113,6 +3108,107 @@ export default function MarketingCampaignWorkspace() {
           />
         </div>
       )}
+
+      {/* ── Repost Modal ──────────────────────────────────────────────────── */}
+      {(() => {
+        const repostPost = posts.find(p => p.id === repostModalPostId);
+        if (!repostPost) return null;
+        const hasIG = !!repostPost.instagramPostId;
+        const hasFB = !!repostPost.facebookPostId;
+        const hasLI = !!((repostPost as any).linkedinPostId);
+        const igEnabled = campaign.postToInstagram !== false;
+        const fbEnabled = !!campaign.postToFacebook;
+        const liEnabled = !!(campaign as any).postToLinkedin;
+        const anySelected = repostPlatforms.instagram || repostPlatforms.facebook || repostPlatforms.linkedin;
+        return (
+          <Dialog open={!!repostModalPostId} onOpenChange={open => { if (!open) setRepostModalPostId(null); }}>
+            <DialogContent className="max-w-xs p-0 overflow-hidden gap-0">
+              <div className="px-5 pt-5 pb-4">
+                <h2 className="text-sm font-semibold mb-1">Re-post to platforms</h2>
+                <p className="text-xs text-muted-foreground mb-4">Select which platforms to post to. Already-posted platforms are shown below.</p>
+                <div className="space-y-2.5">
+                  {igEnabled && (
+                    <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${repostPlatforms.instagram ? "border-pink-300 bg-pink-50" : "border-border hover:bg-muted/50"}`}>
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={repostPlatforms.instagram}
+                        onChange={e => setRepostPlatforms(p => ({ ...p, instagram: e.target.checked }))}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-medium">Instagram</span>
+                          {hasIG
+                            ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ posted</span>
+                            : <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-600">✗ not posted</span>
+                          }
+                        </div>
+                        {hasIG && <p className="text-[10px] text-muted-foreground mt-0.5">Will re-post (creates duplicate)</p>}
+                      </div>
+                    </label>
+                  )}
+                  {fbEnabled && (
+                    <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${repostPlatforms.facebook ? "border-blue-300 bg-blue-50" : "border-border hover:bg-muted/50"}`}>
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={repostPlatforms.facebook}
+                        onChange={e => setRepostPlatforms(p => ({ ...p, facebook: e.target.checked }))}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-medium">Facebook</span>
+                          {hasFB
+                            ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ posted</span>
+                            : <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-600">✗ not posted</span>
+                          }
+                        </div>
+                        {hasFB && <p className="text-[10px] text-muted-foreground mt-0.5">Will re-post (creates duplicate)</p>}
+                      </div>
+                    </label>
+                  )}
+                  {liEnabled && (
+                    <label className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${repostPlatforms.linkedin ? "border-sky-300 bg-sky-50" : "border-border hover:bg-muted/50"}`}>
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={repostPlatforms.linkedin}
+                        onChange={e => setRepostPlatforms(p => ({ ...p, linkedin: e.target.checked }))}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-medium">LinkedIn</span>
+                          {hasLI
+                            ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ posted</span>
+                            : <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-600">✗ not posted</span>
+                          }
+                        </div>
+                        {hasLI && <p className="text-[10px] text-muted-foreground mt-0.5">Will re-post (creates duplicate)</p>}
+                      </div>
+                    </label>
+                  )}
+                </div>
+              </div>
+              <div className="px-5 pb-5 flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => setRepostModalPostId(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 h-8 text-xs"
+                  disabled={!anySelected || publishNowMutation.isPending}
+                  onClick={() => publishNowMutation.mutate({ postId: repostPost.id, platforms: repostPlatforms })}
+                >
+                  {publishNowMutation.isPending
+                    ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : "Post now"
+                  }
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* ── Analytics Modal ─────────────────────────────────────────────── */}
       <Dialog open={!!analyticsPostId} onOpenChange={open => { if (!open) setAnalyticsPostId(null); }}>

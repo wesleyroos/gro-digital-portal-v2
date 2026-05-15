@@ -71,9 +71,11 @@ export async function postImageToPage(
   imageUrl: string,
   message: string,
 ): Promise<string> {
-  const res = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
+  const res = await fetch(`${GRAPH_BASE}/${pageId}/photos?access_token=${encodeURIComponent(pageToken)}`, {
     method: 'POST',
-    body: new URLSearchParams({ url: imageUrl, message, published: 'true', access_token: pageToken }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: imageUrl, message, published: true }),
+    signal: AbortSignal.timeout(30_000),
   });
   const data = await res.json() as { id?: string; post_id?: string; error?: { message: string; code?: number } };
   if (!res.ok || (!data.id && !data.post_id)) {

@@ -63,6 +63,7 @@ import {
   getPostsByCampaign,
   getPostById,
   updatePostStatus,
+  setPostNotes,
   maybeSendBatchCompleteEmail,
   updatePostContent,
   approveAllPosts,
@@ -1487,7 +1488,14 @@ export const appRouter = router({
         }),
 
       publishNow: protectedProcedure
-        .input(z.object({ postId: z.number().int() }))
+        .input(z.object({
+          postId: z.number().int(),
+          platforms: z.object({
+            instagram: z.boolean().optional(),
+            facebook: z.boolean().optional(),
+            linkedin: z.boolean().optional(),
+          }).optional(),
+        }))
         .mutation(async ({ ctx, input }) => {
           const post = await getPostById(input.postId);
           if (!post) throw new TRPCError({ code: 'NOT_FOUND', message: 'Post not found' });
@@ -1498,71 +1506,90 @@ export const appRouter = router({
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
           assertCampaignAccess(ctx.user, campaign.clientSlug);
           const caption = [post.caption ?? '', post.hashtags ?? ''].filter(Boolean).join('\n\n');
+
+          const doIG = input.platforms ? !!input.platforms.instagram : campaign.postToInstagram !== false;
+          const doFB = input.platforms ? !!input.platforms.facebook : !!campaign.postToFacebook;
+          const doLI = input.platforms ? !!input.platforms.linkedin : !!(campaign as any).postToLinkedin;
+
           const postedTo: string[] = [];
+          const errors: string[] = [];
+          let anyPosted = false;
 
           // ── Instagram ──
-          if (campaign.postToInstagram !== false) {
-            const tokens = await getInstagramTokens(campaign.clientSlug);
-            if (!tokens) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Instagram not connected for this client' });
-            const creationId = isVideo
-              ? await createVideoMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption)
-              : await createMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption);
-            const instagramPostId = await publishMedia(tokens.businessId, tokens.accessToken, creationId);
-            await updatePostStatus(input.postId, 'posted', { instagramPostId });
-            postedTo.push('Instagram');
+          if (doIG) {
+            try {
+              const tokens = await getInstagramTokens(campaign.clientSlug);
+              if (!tokens) throw new Error('Instagram not connected for this client');
+              const creationId = isVideo
+                ? await createVideoMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption)
+                : await createMediaContainer(tokens.businessId, tokens.accessToken, mediaUrl, caption);
+              const instagramPostId = await publishMedia(tokens.businessId, tokens.accessToken, creationId);
+              await updatePostStatus(input.postId, 'posted', { instagramPostId });
+              postedTo.push('Instagram');
+              anyPosted = true;
+            } catch (e) {
+              errors.push(`Instagram: ${e instanceof Error ? e.message : String(e)}`);
+            }
           }
 
           // ── Facebook ──
-          if (campaign.postToFacebook) {
-            const fbTokens = await getFacebookTokens(campaign.clientSlug);
-            if (fbTokens) {
+          if (doFB) {
+            try {
+              const fbTokens = await getFacebookTokens(campaign.clientSlug);
+              if (!fbTokens) throw new Error('Facebook not connected for this client');
               const facebookPostId = isVideo
                 ? await postVideoToPage(fbTokens.pageId, fbTokens.pageAccessToken, mediaUrl, caption)
                 : await postImageToPage(fbTokens.pageId, fbTokens.pageAccessToken, mediaUrl, caption);
               await updatePostFacebookId(input.postId, facebookPostId);
-              if (campaign.postToInstagram === false) {
-                await updatePostStatus(input.postId, 'posted');
-              }
+              if (!doIG) await updatePostStatus(input.postId, 'posted');
               postedTo.push('Facebook');
+              anyPosted = true;
+            } catch (e) {
+              errors.push(`Facebook: ${e instanceof Error ? e.message : String(e)}`);
             }
           }
 
           // ── LinkedIn ──
-          if ((campaign as any).postToLinkedin) {
+          if (doLI) {
             try {
               const liToken = await ensureLinkedinToken(campaign.clientSlug);
               const liTokens = await getLinkedinTokens(campaign.clientSlug);
-              if (liTokens) {
-                const authorUrn = liTokens.postTarget === 'organization' && liTokens.orgId
-                  ? liTokens.orgId
-                  : liTokens.personUrn;
-                const liCaption = (post as any).linkedinCaption || caption;
-                let linkedinPostId: string;
-                if (!isVideo && mediaUrl) {
-                  const imgRes = await fetch(mediaUrl, { signal: AbortSignal.timeout(30_000) });
-                  if (imgRes.ok) {
-                    const buffer = Buffer.from(await imgRes.arrayBuffer());
-                    const { uploadUrl, imageUrn } = await initializeImageUpload(authorUrn, liToken);
-                    await uploadImageBinary(uploadUrl, buffer, liToken);
-                    linkedinPostId = await createLinkedinImagePost(authorUrn, liCaption, imageUrn, liToken);
-                  } else {
-                    linkedinPostId = await createLinkedinTextPost(authorUrn, liCaption, liToken);
-                  }
+              if (!liTokens) throw new Error('LinkedIn not connected for this client');
+              const authorUrn = liTokens.postTarget === 'organization' && liTokens.orgId
+                ? liTokens.orgId
+                : liTokens.personUrn;
+              const liCaption = (post as any).linkedinCaption || caption;
+              let linkedinPostId: string;
+              if (!isVideo && mediaUrl) {
+                const imgRes = await fetch(mediaUrl, { signal: AbortSignal.timeout(30_000) });
+                if (imgRes.ok) {
+                  const buffer = Buffer.from(await imgRes.arrayBuffer());
+                  const { uploadUrl, imageUrn } = await initializeImageUpload(authorUrn, liToken);
+                  await uploadImageBinary(uploadUrl, buffer, liToken);
+                  linkedinPostId = await createLinkedinImagePost(authorUrn, liCaption, imageUrn, liToken);
                 } else {
                   linkedinPostId = await createLinkedinTextPost(authorUrn, liCaption, liToken);
                 }
-                await updatePostLinkedinId(input.postId, linkedinPostId);
-                if (campaign.postToInstagram === false && !campaign.postToFacebook) {
-                  await updatePostStatus(input.postId, 'posted');
-                }
-                postedTo.push('LinkedIn');
+              } else {
+                linkedinPostId = await createLinkedinTextPost(authorUrn, liCaption, liToken);
               }
-            } catch (liErr) {
-              console.error('[publishNow] LinkedIn failed:', liErr);
+              await updatePostLinkedinId(input.postId, linkedinPostId);
+              if (!doIG && !doFB) await updatePostStatus(input.postId, 'posted');
+              postedTo.push('LinkedIn');
+              anyPosted = true;
+            } catch (e) {
+              errors.push(`LinkedIn: ${e instanceof Error ? e.message : String(e)}`);
             }
           }
 
-          return { postedTo };
+          if (anyPosted && errors.length > 0) {
+            await setPostNotes(input.postId, errors.join('\n'));
+          } else if (!anyPosted && errors.length > 0) {
+            await updatePostStatus(input.postId, 'failed', { notes: errors.join('\n') });
+            throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: errors.join('\n') });
+          }
+
+          return { postedTo, errors };
         }),
 
       // Public — approve a post via share token
