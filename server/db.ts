@@ -2618,10 +2618,21 @@ export async function markMandateInvoicePaidByReference(reference: string) {
   const db = await getDb();
   if (!db) return;
   const parts = reference.split("_");
+
+  const mandateId = parts[0] === "m" ? parseInt(parts[1]) : NaN;
   const invIdx = parts.indexOf("inv");
-  if (invIdx === -1) return;
+  if (invIdx === -1 || isNaN(mandateId)) return;
+
   const invoiceId = parseInt(parts[invIdx + 1]);
   if (!invoiceId || isNaN(invoiceId)) return;
+
+  const [mandate] = await db.select({ clientSlug: billingMandates.clientSlug }).from(billingMandates).where(eq(billingMandates.id, mandateId)).limit(1);
+  const [invoice] = await db.select({ clientSlug: invoices.clientSlug }).from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+  if (!mandate || !invoice || mandate.clientSlug !== invoice.clientSlug) {
+    console.warn(`[Webhook] Rejected markPaid: mandate ${mandateId} clientSlug mismatch for invoice ${invoiceId}`);
+    return;
+  }
+
   await db.update(invoices).set({ status: "paid" }).where(eq(invoices.id, invoiceId));
 }
 

@@ -4,7 +4,7 @@ import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 import { registerGoogleOAuthRoutes } from "../google-oauth";
-import { scrypt, timingSafeEqual } from "crypto";
+import { scrypt, timingSafeEqual, randomBytes } from "crypto";
 import { promisify } from "util";
 import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
@@ -15,7 +15,7 @@ import { approvalLink, triggerGitHubDispatch, verifyApprovalToken } from "../fee
 const scryptAsync = promisify(scrypt);
 
 export async function hashPassword(password: string): Promise<string> {
-  const salt = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  const salt = randomBytes(32).toString("hex");
   const hash = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${salt}:${hash.toString("hex")}`;
 }
@@ -352,9 +352,29 @@ function getQueryParam(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+
+function loginRateLimitMiddleware(req: Request, res: Response, next: () => void) {
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown";
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (entry && now < entry.resetAt) {
+    if (entry.count >= LOGIN_MAX_ATTEMPTS) {
+      res.status(429).json({ error: "Too many login attempts. Please try again later." });
+      return;
+    }
+    entry.count++;
+  } else {
+    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+  }
+  next();
+}
+
 export function registerOAuthRoutes(app: Express) {
   // Password login – works in all environments when ADMIN_PASSWORD is set
-  app.post("/api/auth/password-login", async (req: Request, res: Response) => {
+  app.post("/api/auth/password-login", loginRateLimitMiddleware, async (req: Request, res: Response) => {
     try {
       const adminPassword = process.env.ADMIN_PASSWORD;
       if (!adminPassword) {
@@ -363,7 +383,10 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
       const { password } = req.body as { password?: string };
-      if (!password || password !== adminPassword) {
+      const passwordBuf = Buffer.from(password ?? "");
+      const expectedBuf = Buffer.from(adminPassword);
+      const valid = passwordBuf.length === expectedBuf.length && timingSafeEqual(passwordBuf, expectedBuf);
+      if (!valid) {
         res.status(401).json({ error: "Invalid password" });
         return;
       }
@@ -383,7 +406,7 @@ export function registerOAuthRoutes(app: Express) {
   });
 
   // Client login — email + password for portal users
-  app.post("/api/auth/client-login", async (req: Request, res: Response) => {
+  app.post("/api/auth/client-login", loginRateLimitMiddleware, async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body as { email?: string; password?: string };
       if (!email || !password) {
@@ -1808,7 +1831,7 @@ function gdSubmitAccept(token) {
       const rawBody = (req as any).rawBody as Buffer | undefined;
       const signature = req.headers['x-paystack-signature'] as string ?? '';
 
-      if (rawBody && !verifyWebhookSignature(rawBody, signature)) {
+      if (!rawBody || !verifyWebhookSignature(rawBody, signature)) {
         res.status(400).json({ error: 'Invalid signature' });
         return;
       }
