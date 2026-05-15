@@ -1611,6 +1611,25 @@ export default function MarketingCampaignWorkspace() {
                           {new Date(post.scheduledAt).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       )}
+                      {(post.instagramPostId || post.facebookPostId || (post as any).linkedinPostId) && (
+                        <div className="flex flex-wrap gap-1">
+                          {post.instagramPostId && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-pink-100 text-pink-700">
+                              IG ✓
+                            </span>
+                          )}
+                          {post.facebookPostId && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                              FB ✓
+                            </span>
+                          )}
+                          {(post as any).linkedinPostId && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">
+                              LI ✓
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {post.theme && (
                         <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{post.theme}</p>
                       )}
@@ -1768,7 +1787,7 @@ export default function MarketingCampaignWorkspace() {
                             Regen Image
                           </Button>
                         )}
-                        {post.status === "posted" && post.instagramPostId && (
+                        {post.instagramPostId && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1779,7 +1798,7 @@ export default function MarketingCampaignWorkspace() {
                             Analytics
                           </Button>
                         )}
-                        {post.status === "posted" && (
+                        {(post.status === "posted" || (post.status === "failed" && (post.instagramPostId || post.facebookPostId || (post as any).linkedinPostId))) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1794,7 +1813,7 @@ export default function MarketingCampaignWorkspace() {
                             Re-post
                           </Button>
                         )}
-                        {post.status === "failed" && (
+                        {post.status === "failed" && !post.instagramPostId && !post.facebookPostId && !(post as any).linkedinPostId && (
                           <Button
                             size="sm"
                             variant="outline"
