@@ -599,3 +599,16 @@ export const feedbackApprovals = mysqlTable("feedbackApprovals", {
 
 export type FeedbackApproval = typeof feedbackApprovals.$inferSelect;
 export type InsertFeedbackApproval = typeof feedbackApprovals.$inferInsert;
+
+export const flyApps = mysqlTable("flyApps", {
+  appName: varchar("appName", { length: 128 }).primaryKey(),
+  orgSlug: varchar("orgSlug", { length: 128 }).notNull(),
+  clientSlug: varchar("clientSlug", { length: 128 }),
+  label: varchar("label", { length: 256 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FlyApp = typeof flyApps.$inferSelect;
+export type InsertFlyApp = typeof flyApps.$inferInsert;

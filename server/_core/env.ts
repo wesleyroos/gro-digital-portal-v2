@@ -51,4 +51,6 @@ export const ENV = {
   paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY ?? "",
   paystackSecretKeyTest: process.env.PAYSTACK_SECRET_KEY_TEST ?? "",
   paystackPublicKeyTest: process.env.PAYSTACK_PUBLIC_KEY_TEST ?? "",
+  flyApiToken: process.env.FLY_API_TOKEN ?? "",
+  flyOrgSlugs: process.env.FLY_ORG_SLUGS ?? "",
 };

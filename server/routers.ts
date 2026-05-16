@@ -147,6 +147,9 @@ import {
   getMandateLineItems,
   updateMandateStatus,
   replaceMandateLineItems,
+  listFlyAppMappings,
+  upsertFlyAppMapping,
+  deleteFlyAppMapping,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
 import { initializeTransaction, randsToCents, getPaystackKeys } from "./paystack";
@@ -3775,6 +3778,147 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
 
         return { synced: active.length, skipped: repos.length - active.length };
       }),
+  }),
+
+  infrastructure: router({
+    listApps: superAdminProcedure.query(async () => {
+      const { fetchAllAppsAcrossOrgs } = await import("./fly-client");
+      const { sumEstimates } = await import("./fly-pricing");
+      const { cacheGet, cacheSet } = await import("./fly-cache");
+
+      type CachedRow = {
+        appName: string; orgSlug: string; clientSlug: string | null; label: string | null;
+        status: string; regions: string[]; machineCount: number; runningCount: number;
+        vmSize: string | null; volumesGb: number; estimatedMtdCents: number; isEstimate: true;
+      };
+
+      const CACHE_KEY = "apps:all";
+      const cached = cacheGet<{ rows: CachedRow[]; fetchedAt: string }>(CACHE_KEY);
+      if (cached) return cached;
+
+      let details;
+      try {
+        details = await fetchAllAppsAcrossOrgs();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
+      }
+
+      const mappings = await listFlyAppMappings();
+      const mappingMap = new Map(mappings.map(m => [m.appName, m]));
+      const now = new Date();
+
+      const rows: CachedRow[] = details.map(({ orgSlug, app, machines, volumes }) => {
+        const mapping = mappingMap.get(app.name);
+        const regions = [...new Set(
+          (machines as Array<{ region?: string }>).map(m => m.region).filter((r): r is string => !!r)
+        )];
+        const vmSize = (() => {
+          const running = (machines as Array<{ state?: string; config?: { guest?: { cpu_kind?: string; cpus?: number } } }>)
+            .find(m => m.state === "started");
+          if (!running?.config?.guest) return null;
+          const g = running.config.guest;
+          return `${g.cpu_kind ?? "shared"}-cpu-${g.cpus ?? 1}x`;
+        })();
+        const volumesGb = volumes.reduce((sum, v) => sum + ((v as { size_gb?: number }).size_gb ?? 0), 0);
+        const { totalCents } = sumEstimates(machines, volumes, now);
+        return {
+          appName: app.name,
+          orgSlug,
+          clientSlug: mapping?.clientSlug ?? null,
+          label: mapping?.label ?? null,
+          status: app.status,
+          regions,
+          machineCount: machines.length,
+          runningCount: machines.filter((m: { state?: string }) => m.state === "started").length,
+          vmSize,
+          volumesGb,
+          estimatedMtdCents: totalCents,
+          isEstimate: true as const,
+        };
+      });
+
+      const result = { rows, fetchedAt: now.toISOString() };
+      cacheSet(CACHE_KEY, result);
+      return result;
+    }),
+
+    summary: superAdminProcedure.query(async () => {
+      const { getOrgCreditBalances } = await import("./fly-client");
+      const { ENV } = await import("./_core/env");
+      const orgSlugs = ENV.flyOrgSlugs.split(",").map(s => s.trim()).filter(Boolean);
+      let credits;
+      try {
+        credits = await getOrgCreditBalances(orgSlugs);
+      } catch {
+        credits = orgSlugs.map(s => ({ orgSlug: s, creditBalanceFormatted: null }));
+      }
+      return { credits };
+    }),
+
+    appDetail: superAdminProcedure
+      .input(z.object({ appName: z.string() }))
+      .query(async ({ input }) => {
+        const { fetchAllAppsAcrossOrgs } = await import("./fly-client");
+        const { estimateMachineMtdCost, estimateVolumeMtdCost } = await import("./fly-pricing");
+        const { cacheGet, cacheSet } = await import("./fly-cache");
+
+        const CACHE_KEY = `app:${input.appName}:detail`;
+        const cached = cacheGet(CACHE_KEY);
+        if (cached) return cached;
+
+        let all;
+        try {
+          all = await fetchAllAppsAcrossOrgs();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
+        }
+
+        const found = all.find(d => d.app.name === input.appName);
+        if (!found) throw new TRPCError({ code: "NOT_FOUND", message: `App ${input.appName} not found` });
+
+        const now = new Date();
+        const machineDetails = found.machines.map(m => ({
+          ...m,
+          estimate: estimateMachineMtdCost(m, now),
+        }));
+        const volumeDetails = found.volumes.map(v => ({
+          ...v,
+          estimateCents: estimateVolumeMtdCost(v, now),
+        }));
+
+        const result = { app: found.app, orgSlug: found.orgSlug, machines: machineDetails, volumes: volumeDetails };
+        cacheSet(CACHE_KEY, result);
+        return result;
+      }),
+
+    assignClient: superAdminProcedure
+      .input(z.object({
+        appName: z.string(),
+        orgSlug: z.string(),
+        clientSlug: z.string().nullable().optional(),
+        label: z.string().nullable().optional(),
+        notes: z.string().nullable().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { cacheBust } = await import("./fly-cache");
+        await upsertFlyAppMapping({
+          appName: input.appName,
+          orgSlug: input.orgSlug,
+          clientSlug: input.clientSlug ?? null,
+          label: input.label ?? null,
+          notes: input.notes ?? null,
+        });
+        cacheBust("apps:");
+        return { success: true };
+      }),
+
+    refresh: superAdminProcedure.mutation(async () => {
+      const { cacheBust } = await import("./fly-cache");
+      cacheBust();
+      return { success: true };
+    }),
   }),
 
   mandate: router({

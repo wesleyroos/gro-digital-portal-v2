@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem, flyApps, FlyApp, InsertFlyApp } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -2713,4 +2713,29 @@ export async function createMandateInvoiceForItems(
   );
 
   return { invoiceId, shareToken, totalAmount };
+}
+
+export async function listFlyAppMappings(): Promise<FlyApp[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(flyApps);
+}
+
+export async function upsertFlyAppMapping(data: InsertFlyApp): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(flyApps).values(data).onDuplicateKeyUpdate({
+    set: {
+      orgSlug: data.orgSlug,
+      clientSlug: data.clientSlug ?? null,
+      label: data.label ?? null,
+      notes: data.notes ?? null,
+    },
+  });
+}
+
+export async function deleteFlyAppMapping(appName: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(flyApps).where(eq(flyApps.appName, appName));
 }
