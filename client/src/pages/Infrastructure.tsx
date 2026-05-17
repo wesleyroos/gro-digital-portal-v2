@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +33,10 @@ function centsToUsd(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function centsToZar(cents: number, rate: number) {
+  return `R${((cents / 100) * rate).toFixed(2)}`;
+}
+
 function statusBadgeClass(status: string) {
   if (status === "running") return "bg-emerald-500/15 text-emerald-700 border-emerald-200";
   if (status === "suspended") return "bg-amber-500/15 text-amber-700 border-amber-200";
@@ -45,12 +49,13 @@ function statusDot(status: string) {
   return "bg-slate-400";
 }
 
-function EstimatePill({ cents }: { cents: number }) {
+function EstimatePill({ cents, rate }: { cents: number; rate?: number | null }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="inline-flex items-center gap-1 cursor-default">
+        <span className="inline-flex items-center gap-1 cursor-default flex-wrap">
           <span className="font-medium">{centsToUsd(cents)}</span>
+          {rate ? <span className="text-muted-foreground text-[11px]">≈ {centsToZar(cents, rate)}</span> : null}
           <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-300 text-amber-600">est.</Badge>
         </span>
       </TooltipTrigger>
@@ -171,6 +176,18 @@ export default function Infrastructure() {
   const [assignRow, setAssignRow] = useState<AppRow | null>(null);
   const [detailRow, setDetailRow] = useState<AppRow | null>(null);
 
+  const [zarRate, setZarRate] = useState<number | null>(null);
+  const [rateOverride, setRateOverride] = useState("");
+
+  useEffect(() => {
+    fetch("https://api.frankfurter.app/latest?from=USD&to=ZAR")
+      .then(r => r.json())
+      .then((d: { rates?: { ZAR?: number } }) => setZarRate(d?.rates?.ZAR ?? null))
+      .catch(() => {});
+  }, []);
+
+  const effectiveRate = rateOverride ? (parseFloat(rateOverride) || null) : zarRate;
+
   const appsQuery = trpc.infrastructure.listApps.useQuery(undefined, { refetchInterval: false });
   const summaryQuery = trpc.infrastructure.summary.useQuery(undefined, { refetchInterval: false });
   const clientsQuery = trpc.invoice.clients.useQuery();
@@ -194,8 +211,12 @@ export default function Infrastructure() {
     ? rows.filter(r => !r.clientSlug)
     : rows.filter(r => r.clientSlug === filter);
 
-  const totalMtdCents = rows.reduce((sum, r) => sum + r.estimatedMtdCents, 0);
-  const runningCount = rows.reduce((sum, r) => sum + r.runningCount, 0);
+  const totalMtdCents = filteredRows.reduce((sum, r) => sum + r.estimatedMtdCents, 0);
+  const runningCount = filteredRows.reduce((sum, r) => sum + r.runningCount, 0);
+
+  const filterLabel = filter === "all" ? null
+    : filter === "__unassigned__" ? "Unassigned"
+    : clientOptions.find(c => c.clientSlug === filter)?.clientName || filter;
 
   const clientOptions = (clientsQuery.data ?? []).map(c => ({
     clientSlug: c.clientSlug,
@@ -216,7 +237,22 @@ export default function Infrastructure() {
               : "Fly.io apps across all orgs"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="hidden sm:inline">1 USD =</span>
+            {zarRate
+              ? <span className="font-medium text-foreground">R{zarRate.toFixed(2)}</span>
+              : <span className="italic">loading rate…</span>}
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Override rate"
+              value={rateOverride}
+              onChange={e => setRateOverride(e.target.value)}
+              className="w-28 h-7 rounded-md border border-input bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
           <div className="inline-flex rounded-md border border-border bg-background p-0.5">
             <button
               onClick={() => updateView("cards")}
@@ -251,23 +287,35 @@ export default function Infrastructure() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total apps</p>
-            <p className="text-2xl font-bold mt-1">{rows.length}</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              {filterLabel ? `${filterLabel} apps` : "Total apps"}
+            </p>
+            <p className="text-2xl font-bold mt-1">{filteredRows.length}</p>
+            {filterLabel && rows.length !== filteredRows.length && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">{rows.length} total</p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Running machines</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              {filterLabel ? `${filterLabel} running` : "Running machines"}
+            </p>
             <p className="text-2xl font-bold mt-1 text-emerald-600">{runningCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Est. MTD spend</p>
-            <div className="mt-1 flex items-baseline gap-1">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              {filterLabel ? `${filterLabel} MTD` : "Est. MTD spend"}
+            </p>
+            <div className="mt-1 flex items-baseline gap-1 flex-wrap">
               <p className="text-2xl font-bold"><DollarSign className="inline h-5 w-5 text-muted-foreground" />{(totalMtdCents / 100).toFixed(2)}</p>
               <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-300 text-amber-600">est.</Badge>
             </div>
+            {effectiveRate && (
+              <p className="text-sm font-semibold text-muted-foreground mt-0.5">≈ {centsToZar(totalMtdCents, effectiveRate)}</p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -376,7 +424,7 @@ export default function Infrastructure() {
                 </div>
 
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
-                  <EstimatePill cents={row.estimatedMtdCents} />
+                  <EstimatePill cents={row.estimatedMtdCents} rate={effectiveRate} />
                   <button
                     className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
                     onClick={e => { e.stopPropagation(); setAssignRow(row); }}
@@ -417,7 +465,7 @@ export default function Infrastructure() {
                   {row.runningCount}/{row.machineCount} machines
                 </div>
                 <div className="shrink-0 w-24 text-right">
-                  <EstimatePill cents={row.estimatedMtdCents} />
+                  <EstimatePill cents={row.estimatedMtdCents} rate={effectiveRate} />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <a
@@ -454,13 +502,13 @@ export default function Infrastructure() {
 
       {/* App detail dialog */}
       {detailRow && (
-        <AppDetailDialog row={detailRow} onClose={() => setDetailRow(null)} />
+        <AppDetailDialog row={detailRow} rate={effectiveRate} onClose={() => setDetailRow(null)} />
       )}
     </div>
   );
 }
 
-function AppDetailDialog({ row, onClose }: { row: AppRow; onClose: () => void }) {
+function AppDetailDialog({ row, rate, onClose }: { row: AppRow; rate?: number | null; onClose: () => void }) {
   const detailQuery = trpc.infrastructure.appDetail.useQuery({ appName: row.appName });
 
   return (
@@ -512,7 +560,7 @@ function AppDetailDialog({ row, onClose }: { row: AppRow; onClose: () => void })
                         {m.config?.guest && (
                           <span>{m.config.guest.cpus ?? 1}×{m.config.guest.cpu_kind ?? "shared"}, {((m.config.guest.memory_mb ?? 0) / 1024).toFixed(0)}GB</span>
                         )}
-                        <EstimatePill cents={m.estimate?.totalCents ?? 0} />
+                        <EstimatePill cents={m.estimate?.totalCents ?? 0} rate={rate} />
                       </div>
                     </div>
                   ))}
@@ -530,7 +578,7 @@ function AppDetailDialog({ row, onClose }: { row: AppRow; onClose: () => void })
                       <span className="text-[11px] text-muted-foreground font-mono">{v.name ?? v.id?.slice(0, 8) ?? "—"}</span>
                       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                         <span>{v.size_gb ?? 0} GB</span>
-                        <EstimatePill cents={v.estimateCents ?? 0} />
+                        <EstimatePill cents={v.estimateCents ?? 0} rate={rate} />
                       </div>
                     </div>
                   ))}
