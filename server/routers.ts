@@ -3919,6 +3919,19 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       cacheBust();
       return { success: true };
     }),
+
+    exchangeRate: superAdminProcedure.query(async () => {
+      try {
+        const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=ZAR", {
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!res.ok) return { rate: null };
+        const data = await res.json() as { rates?: { ZAR?: number } };
+        return { rate: data?.rates?.ZAR ?? null };
+      } catch {
+        return { rate: null };
+      }
+    }),
   }),
 
   mandate: router({

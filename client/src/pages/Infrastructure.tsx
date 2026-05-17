@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -176,17 +176,11 @@ export default function Infrastructure() {
   const [assignRow, setAssignRow] = useState<AppRow | null>(null);
   const [detailRow, setDetailRow] = useState<AppRow | null>(null);
 
-  const [zarRate, setZarRate] = useState<number | null>(null);
   const [rateOverride, setRateOverride] = useState("");
 
-  useEffect(() => {
-    fetch("https://api.frankfurter.app/latest?from=USD&to=ZAR")
-      .then(r => r.json())
-      .then((d: { rates?: { ZAR?: number } }) => setZarRate(d?.rates?.ZAR ?? null))
-      .catch(() => {});
-  }, []);
-
-  const effectiveRate = rateOverride ? (parseFloat(rateOverride) || null) : zarRate;
+  const rateQuery = trpc.infrastructure.exchangeRate.useQuery(undefined, { refetchInterval: false, staleTime: 60 * 60 * 1000 });
+  const liveRate = rateQuery.data?.rate ?? null;
+  const effectiveRate = rateOverride ? (parseFloat(rateOverride) || null) : liveRate;
 
   const appsQuery = trpc.infrastructure.listApps.useQuery(undefined, { refetchInterval: false });
   const summaryQuery = trpc.infrastructure.summary.useQuery(undefined, { refetchInterval: false });
@@ -240,9 +234,9 @@ export default function Infrastructure() {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden sm:inline">1 USD =</span>
-            {zarRate
-              ? <span className="font-medium text-foreground">R{zarRate.toFixed(2)}</span>
-              : <span className="italic">loading rate…</span>}
+            {liveRate
+              ? <span className="font-medium text-foreground">R{liveRate.toFixed(2)}</span>
+              : <span className="italic">{rateQuery.isLoading ? "loading…" : "unavailable"}</span>}
             <input
               type="number"
               min="0"
