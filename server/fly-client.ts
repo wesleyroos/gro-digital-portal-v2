@@ -4,11 +4,26 @@ import { FlyMachineState, FlyVolume } from "./fly-pricing";
 const FLY_MACHINES_API = "https://api.machines.dev/v1";
 const FLY_GRAPHQL = "https://api.fly.io/graphql";
 
-function flyHeaders(): Record<string, string> {
+function parseOrgTokens(): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const pair of ENV.flyOrgTokens.split(",")) {
+    const idx = pair.indexOf(":");
+    if (idx > 0) map.set(pair.slice(0, idx).trim(), pair.slice(idx + 1).trim());
+  }
+  return map;
+}
+
+function flyHeaders(orgSlug?: string): Record<string, string> {
+  const token = orgSlug ? (parseOrgTokens().get(orgSlug) ?? "") : "";
   return {
-    "Authorization": `Bearer ${ENV.flyApiToken}`,
+    "Authorization": `Bearer ${token}`,
     "Content-Type": "application/json",
   };
+}
+
+function graphqlToken(): string {
+  const tokens = parseOrgTokens();
+  return tokens.values().next().value ?? "";
 }
 
 export type FlyApp = {
@@ -20,7 +35,7 @@ export type FlyApp = {
 
 async function listApps(orgSlug: string): Promise<FlyApp[]> {
   const url = `${FLY_MACHINES_API}/apps?org_slug=${encodeURIComponent(orgSlug)}`;
-  const res = await fetch(url, { headers: flyHeaders(), signal: AbortSignal.timeout(15_000) });
+  const res = await fetch(url, { headers: flyHeaders(orgSlug), signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`Fly listApps(${orgSlug}) failed: ${res.status} ${text}`);
@@ -29,10 +44,10 @@ async function listApps(orgSlug: string): Promise<FlyApp[]> {
   return data.apps ?? [];
 }
 
-async function listMachines(appName: string): Promise<FlyMachineState[]> {
+async function listMachines(appName: string, orgSlug: string): Promise<FlyMachineState[]> {
   const url = `${FLY_MACHINES_API}/apps/${encodeURIComponent(appName)}/machines`;
   try {
-    const res = await fetch(url, { headers: flyHeaders(), signal: AbortSignal.timeout(15_000) });
+    const res = await fetch(url, { headers: flyHeaders(orgSlug), signal: AbortSignal.timeout(15_000) });
     if (!res.ok) return [];
     return await res.json() as FlyMachineState[];
   } catch {
@@ -40,10 +55,10 @@ async function listMachines(appName: string): Promise<FlyMachineState[]> {
   }
 }
 
-async function listVolumes(appName: string): Promise<FlyVolume[]> {
+async function listVolumes(appName: string, orgSlug: string): Promise<FlyVolume[]> {
   const url = `${FLY_MACHINES_API}/apps/${encodeURIComponent(appName)}/volumes`;
   try {
-    const res = await fetch(url, { headers: flyHeaders(), signal: AbortSignal.timeout(15_000) });
+    const res = await fetch(url, { headers: flyHeaders(orgSlug), signal: AbortSignal.timeout(15_000) });
     if (!res.ok) return [];
     return await res.json() as FlyVolume[];
   } catch {
@@ -68,7 +83,7 @@ export async function getOrgCreditBalances(orgSlugs: string[]): Promise<OrgCredi
   try {
     const res = await fetch(FLY_GRAPHQL, {
       method: "POST",
-      headers: flyHeaders(),
+      headers: { "Authorization": `Bearer ${graphqlToken()}`, "Content-Type": "application/json" },
       body: JSON.stringify({ query }),
       signal: AbortSignal.timeout(15_000),
     });
@@ -122,8 +137,8 @@ export type FlyAppDetail = {
 };
 
 export async function fetchAllAppsAcrossOrgs(): Promise<FlyAppDetail[]> {
-  const token = ENV.flyApiToken;
-  if (!token) throw new Error("FLY_API_TOKEN is not set");
+  const orgTokens = parseOrgTokens();
+  if (orgTokens.size === 0) throw new Error("FLY_ORG_TOKENS is not set");
 
   const orgSlugs = ENV.flyOrgSlugs
     .split(",")
@@ -132,8 +147,11 @@ export async function fetchAllAppsAcrossOrgs(): Promise<FlyAppDetail[]> {
 
   if (orgSlugs.length === 0) throw new Error("FLY_ORG_SLUGS is not set");
 
+  const configuredSlugs = orgSlugs.filter(s => orgTokens.has(s));
+  if (configuredSlugs.length === 0) throw new Error("No matching tokens found for configured orgs");
+
   const appsByOrg = await Promise.all(
-    orgSlugs.map(async slug => ({ slug, apps: await listApps(slug) }))
+    configuredSlugs.map(async slug => ({ slug, apps: await listApps(slug) }))
   );
 
   type AppRef = { orgSlug: string; app: FlyApp };
@@ -143,8 +161,8 @@ export async function fetchAllAppsAcrossOrgs(): Promise<FlyAppDetail[]> {
 
   return runWithConcurrency(refs, 6, async ({ orgSlug, app }) => {
     const [machines, volumes] = await Promise.all([
-      listMachines(app.name),
-      listVolumes(app.name),
+      listMachines(app.name, orgSlug),
+      listVolumes(app.name, orgSlug),
     ]);
     return { orgSlug, app, machines, volumes };
   });
