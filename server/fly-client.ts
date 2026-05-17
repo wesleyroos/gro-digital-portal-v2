@@ -129,6 +129,99 @@ async function runWithConcurrency<T, R>(
   return results;
 }
 
+export type FlySnapshot = {
+  id: string;
+  size: number;
+  volume_size: number;
+  created_at: string;
+  status: string;
+  retention_days: number;
+};
+
+export type FlyVolumeDetail = {
+  id: string;
+  name: string;
+  size_gb: number;
+  auto_backup_enabled: boolean;
+  snapshot_retention: number;
+  snapshots: FlySnapshot[];
+};
+
+export type DbBackupSummary = {
+  appName: string;
+  orgSlug: string;
+  volumes: FlyVolumeDetail[];
+};
+
+async function listVolumeSnapshots(appName: string, volumeId: string, orgSlug: string): Promise<FlySnapshot[]> {
+  const url = `${FLY_MACHINES_API}/apps/${encodeURIComponent(appName)}/volumes/${encodeURIComponent(volumeId)}/snapshots`;
+  try {
+    const res = await fetch(url, { headers: flyHeaders(orgSlug), signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return [];
+    return await res.json() as FlySnapshot[];
+  } catch {
+    return [];
+  }
+}
+
+export async function createVolumeSnapshot(appName: string, volumeId: string, orgSlug: string): Promise<FlySnapshot> {
+  const url = `${FLY_MACHINES_API}/apps/${encodeURIComponent(appName)}/volumes/${encodeURIComponent(volumeId)}/snapshots`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: flyHeaders(orgSlug),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`createSnapshot(${appName}/${volumeId}): ${res.status} ${text}`);
+  }
+  return await res.json() as FlySnapshot;
+}
+
+export async function listDbBackups(): Promise<DbBackupSummary[]> {
+  const orgTokens = parseOrgTokens();
+  const orgSlugs = ENV.flyOrgSlugs.split(",").map(s => s.trim()).filter(Boolean);
+  const result: DbBackupSummary[] = [];
+
+  for (const orgSlug of orgSlugs) {
+    if (!orgTokens.has(orgSlug)) continue;
+    let apps: FlyApp[];
+    try { apps = await listApps(orgSlug); } catch { continue; }
+
+    const dbApps = apps.filter(a => {
+      const n = a.name.toLowerCase();
+      return n.includes("-db") || n.includes("db-") || n.includes("postgres");
+    });
+
+    for (const app of dbApps) {
+      type RichVolume = { id: string; name?: string; size_gb?: number; auto_backup_enabled?: boolean; snapshot_retention?: number };
+      const url = `${FLY_MACHINES_API}/apps/${encodeURIComponent(app.name)}/volumes`;
+      let rawVolumes: RichVolume[] = [];
+      try {
+        const res = await fetch(url, { headers: flyHeaders(orgSlug), signal: AbortSignal.timeout(15_000) });
+        if (res.ok) rawVolumes = await res.json() as RichVolume[];
+      } catch { continue; }
+
+      const volumes: FlyVolumeDetail[] = [];
+      for (const v of rawVolumes) {
+        const snapshots = await listVolumeSnapshots(app.name, v.id, orgSlug);
+        volumes.push({
+          id: v.id,
+          name: v.name ?? "data",
+          size_gb: v.size_gb ?? 1,
+          auto_backup_enabled: v.auto_backup_enabled ?? false,
+          snapshot_retention: v.snapshot_retention ?? 5,
+          snapshots: snapshots.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+        });
+      }
+
+      if (volumes.length > 0) result.push({ appName: app.name, orgSlug, volumes });
+    }
+  }
+
+  return result;
+}
+
 export type FlyAppDetail = {
   orgSlug: string;
   app: FlyApp;

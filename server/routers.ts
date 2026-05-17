@@ -3956,6 +3956,37 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       return { success: true };
     }),
 
+    listBackups: superAdminProcedure.query(async () => {
+      const { cacheGet, cacheSet } = await import("./fly-cache");
+      const CACHE_KEY = "backups:all";
+      const cached = cacheGet<unknown>(CACHE_KEY);
+      if (cached) return cached;
+      const { listDbBackups } = await import("./fly-client");
+      try {
+        const data = await listDbBackups();
+        cacheSet(CACHE_KEY, data);
+        return data;
+      } catch (e) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: String(e) });
+      }
+    }),
+
+    takeSnapshot: superAdminProcedure.input(z.object({
+      appName: z.string(),
+      volumeId: z.string(),
+      orgSlug: z.string(),
+    })).mutation(async ({ input }) => {
+      const { createVolumeSnapshot } = await import("./fly-client");
+      const { cacheBust } = await import("./fly-cache");
+      try {
+        const snap = await createVolumeSnapshot(input.appName, input.volumeId, input.orgSlug);
+        cacheBust("backups:");
+        return snap;
+      } catch (e) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: String(e) });
+      }
+    }),
+
     exchangeRate: superAdminProcedure.query(async () => {
       try {
         const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=ZAR", {

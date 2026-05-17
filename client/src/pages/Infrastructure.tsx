@@ -291,6 +291,8 @@ export default function Infrastructure() {
   if (user && user.role !== "superAdmin") return <NotFound />;
 
   const utils = trpc.useUtils();
+  const [tab, setTab] = useState<"apps" | "backups">("apps");
+
   const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
     const s = localStorage.getItem(VIEW_KEY);
     return s === "list" ? "list" : "cards";
@@ -320,7 +322,16 @@ export default function Infrastructure() {
   const appsQuery = trpc.infrastructure.listApps.useQuery(undefined, { refetchInterval: false });
   const summaryQuery = trpc.infrastructure.summary.useQuery(undefined, { refetchInterval: false });
   const manualAppsQuery = trpc.infrastructure.listManualApps.useQuery(undefined, { refetchInterval: false });
+  const backupsQuery = trpc.infrastructure.listBackups.useQuery(undefined, { refetchInterval: false, enabled: tab === "backups" });
   const clientsQuery = trpc.invoice.clients.useQuery();
+
+  const takeSnapshot = trpc.infrastructure.takeSnapshot.useMutation({
+    onSuccess: () => {
+      toast.success("Snapshot created");
+      utils.infrastructure.listBackups.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const deleteManual = trpc.infrastructure.deleteManualApp.useMutation({
     onSuccess: () => {
@@ -387,6 +398,27 @@ export default function Infrastructure() {
 
   return (
     <div className="space-y-6">
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-border">
+        {(["apps", "backups"] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm font-medium capitalize border-b-2 transition-colors ${
+              tab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t === "backups" ? "Backups" : "Apps"}
+          </button>
+        ))}
+      </div>
+
+      {/* Backups tab */}
+      {tab === "backups" && (
+        <BackupsView backupsQuery={backupsQuery} takeSnapshot={takeSnapshot} />
+      )}
+
+      {tab === "apps" && <>
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -759,6 +791,144 @@ export default function Infrastructure() {
       {detailRow && (
         <AppDetailDialog row={detailRow} rate={effectiveRate} onClose={() => setDetailRow(null)} />
       )}
+      </> }
+    </div>
+  );
+}
+
+type BackupsViewProps = {
+  backupsQuery: ReturnType<typeof trpc.infrastructure.listBackups.useQuery>;
+  takeSnapshot: ReturnType<typeof trpc.infrastructure.takeSnapshot.useMutation>;
+};
+
+function BackupsView({ backupsQuery, takeSnapshot }: BackupsViewProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function copyCommand(text: string, id: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  function formatBytes(bytes: number) {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function ageLabel(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const h = Math.floor(diff / 3_600_000);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  if (backupsQuery.isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2].map(i => <div key={i} className="h-40 rounded-lg bg-muted/40 animate-pulse" />)}
+      </div>
+    );
+  }
+
+  if (backupsQuery.isError) {
+    return (
+      <Card><CardContent className="p-8 text-center">
+        <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-3" />
+        <p className="font-medium">Failed to load backups</p>
+        <p className="text-sm text-muted-foreground mt-1">{backupsQuery.error.message}</p>
+      </CardContent></Card>
+    );
+  }
+
+  const dbs = backupsQuery.data ?? [];
+
+  if (dbs.length === 0) {
+    return (
+      <Card><CardContent className="p-10 text-center">
+        <Server className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+        <p className="font-medium">No database apps found</p>
+      </CardContent></Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Fly automatically snapshots each database volume daily. Retention is 5 days.
+        To restore, fork the volume from a snapshot — the CLI command is pre-filled below.
+      </p>
+
+      {dbs.map(db => (
+        <div key={db.appName}>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="font-semibold text-sm">{db.appName}</p>
+              <p className="text-[11px] text-muted-foreground">{db.orgSlug}</p>
+            </div>
+            {db.volumes.map(v => (
+              <Button
+                key={v.id}
+                variant="outline"
+                size="sm"
+                disabled={takeSnapshot.isPending}
+                onClick={() => takeSnapshot.mutate({ appName: db.appName, volumeId: v.id, orgSlug: db.orgSlug })}
+              >
+                {takeSnapshot.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Take snapshot now
+              </Button>
+            ))}
+          </div>
+
+          {db.volumes.map(vol => (
+            <Card key={vol.id}>
+              <div className="px-4 py-2 border-b border-border flex items-center gap-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Volume: {vol.name}</span>
+                <span className="text-[11px] text-muted-foreground">{vol.size_gb} GB</span>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-200 text-emerald-700">auto-backup on</Badge>
+                <span className="text-[11px] text-muted-foreground ml-auto">{vol.snapshots.length} snapshots · {vol.snapshot_retention}-day retention</span>
+              </div>
+              <div className="divide-y divide-border">
+                {vol.snapshots.length === 0 ? (
+                  <p className="px-4 py-4 text-sm text-muted-foreground">No snapshots yet</p>
+                ) : vol.snapshots.map(snap => {
+                  const restoreCmd = `fly volumes fork ${vol.id} --from-snapshot ${snap.id} --app ${db.appName}`;
+                  const isCopied = copiedId === snap.id;
+                  return (
+                    <div key={snap.id} className="flex items-center gap-4 px-4 py-3">
+                      <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{new Date(snap.created_at).toLocaleString()}</p>
+                        <p className="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">{snap.id}</p>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground shrink-0 text-right">
+                        <p>{formatBytes(snap.size)}</p>
+                        <p>{ageLabel(snap.created_at)}</p>
+                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => copyCommand(restoreCmd, snap.id)}
+                            className={`shrink-0 text-xs px-2 py-1 rounded border transition-colors ${
+                              isCopied
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground"
+                            }`}
+                          >
+                            {isCopied ? "Copied!" : "Copy restore cmd"}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-sm text-xs font-mono break-all">
+                          {restoreCmd}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
