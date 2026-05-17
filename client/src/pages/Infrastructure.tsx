@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Server, RefreshCw, Loader2, ExternalLink, DollarSign, Activity, AlertCircle } from "lucide-react";
+import { Server, RefreshCw, Loader2, ExternalLink, DollarSign, Activity, AlertCircle, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import NotFound from "./NotFound";
@@ -24,6 +24,18 @@ type AppRow = {
   volumesGb: number;
   estimatedMtdCents: number;
   isEstimate: true;
+  source: "fly";
+};
+
+type ManualRow = {
+  id: number;
+  name: string;
+  provider: string;
+  clientSlug: string | null;
+  label: string | null;
+  monthlyCostUsd: number;
+  notes: string | null;
+  source: "manual";
 };
 
 const VIEW_KEY = "infrastructure_view_mode";
@@ -64,6 +76,127 @@ function EstimatePill({ cents, rate }: { cents: number; rate?: number | null }) 
         <a href="https://fly.io/dashboard/billing" target="_blank" rel="noopener noreferrer" className="underline">fly.io/dashboard/billing</a>.
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function FixedPill({ usd, rate }: { usd: number; rate?: number | null }) {
+  return (
+    <span className="inline-flex items-center gap-1 flex-wrap">
+      <span className="font-medium">${usd.toFixed(2)}</span>
+      {rate ? <span className="text-muted-foreground text-[11px]">≈ R{(usd * rate).toFixed(2)}</span> : null}
+      <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600">fixed/mo</Badge>
+    </span>
+  );
+}
+
+type ManualAppDialogProps = {
+  initial?: ManualRow | null;
+  clientOptions: Array<{ clientSlug: string; clientName: string }>;
+  onClose: () => void;
+  onSaved: () => void;
+};
+
+function ManualAppDialog({ initial, clientOptions, onClose, onSaved }: ManualAppDialogProps) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [provider, setProvider] = useState(initial?.provider ?? "");
+  const [clientSlug, setClientSlug] = useState(initial?.clientSlug ?? "__none__");
+  const [monthlyCostUsd, setMonthlyCostUsd] = useState(String(initial?.monthlyCostUsd ?? ""));
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const utils = trpc.useUtils();
+
+  const save = trpc.infrastructure.saveManualApp.useMutation({
+    onSuccess: () => {
+      toast.success(initial ? "Updated" : "Added");
+      utils.infrastructure.listManualApps.invalidate();
+      onSaved();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-base">{initial ? "Edit app" : "Add manual app"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 pt-1">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Name</label>
+            <input
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+              placeholder="fundihealth"
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Provider</label>
+            <input
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+              placeholder="Replit / Vercel / Supabase…"
+              value={provider}
+              onChange={e => setProvider(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Monthly cost (USD)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+              placeholder="20.00"
+              value={monthlyCostUsd}
+              onChange={e => setMonthlyCostUsd(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Client</label>
+            <Select value={clientSlug} onValueChange={setClientSlug}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Unassigned</SelectItem>
+                {clientOptions.map(c => (
+                  <SelectItem key={c.clientSlug} value={c.clientSlug}>
+                    {c.clientName || c.clientSlug}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
+            <textarea
+              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring resize-none"
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+            <Button
+              size="sm"
+              disabled={save.isPending || !name.trim() || !provider.trim()}
+              onClick={() => save.mutate({
+                id: initial?.id,
+                name: name.trim(),
+                provider: provider.trim(),
+                clientSlug: clientSlug === "__none__" ? null : clientSlug,
+                label: null,
+                monthlyCostUsd: parseFloat(monthlyCostUsd) || 0,
+                notes: notes.trim() || null,
+              })}
+            >
+              {save.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Save
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -175,6 +308,8 @@ export default function Infrastructure() {
 
   const [assignRow, setAssignRow] = useState<AppRow | null>(null);
   const [detailRow, setDetailRow] = useState<AppRow | null>(null);
+  const [manualDialog, setManualDialog] = useState<ManualRow | null | "new">(null);
+  const [deletingManual, setDeletingManual] = useState<number | null>(null);
 
   const [rateOverride, setRateOverride] = useState("");
 
@@ -184,7 +319,17 @@ export default function Infrastructure() {
 
   const appsQuery = trpc.infrastructure.listApps.useQuery(undefined, { refetchInterval: false });
   const summaryQuery = trpc.infrastructure.summary.useQuery(undefined, { refetchInterval: false });
+  const manualAppsQuery = trpc.infrastructure.listManualApps.useQuery(undefined, { refetchInterval: false });
   const clientsQuery = trpc.invoice.clients.useQuery();
+
+  const deleteManual = trpc.infrastructure.deleteManualApp.useMutation({
+    onSuccess: () => {
+      toast.success("Deleted");
+      utils.infrastructure.listManualApps.invalidate();
+      setDeletingManual(null);
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const refresh = trpc.infrastructure.refresh.useMutation({
     onSuccess: () => {
@@ -195,17 +340,38 @@ export default function Infrastructure() {
     onError: (e) => toast.error(e.message),
   });
 
-  const rows: AppRow[] = appsQuery.data?.rows ?? [];
+  const rows: AppRow[] = (appsQuery.data?.rows ?? []).map(r => ({ ...r, source: "fly" as const }));
+  const manualRows: ManualRow[] = (manualAppsQuery.data ?? []).map(r => ({
+    id: r.id,
+    name: r.name,
+    provider: r.provider,
+    clientSlug: r.clientSlug,
+    label: r.label,
+    monthlyCostUsd: parseFloat(r.monthlyCostUsd ?? "0"),
+    notes: r.notes,
+    source: "manual" as const,
+  }));
   const fetchedAt = appsQuery.data?.fetchedAt ? new Date(appsQuery.data.fetchedAt) : null;
 
-  const clientSlugs = [...new Set(rows.map(r => r.clientSlug).filter((s): s is string => !!s))];
+  const allClientSlugs = [...new Set([
+    ...rows.map(r => r.clientSlug),
+    ...manualRows.map(r => r.clientSlug),
+  ].filter((s): s is string => !!s))];
+
   const filteredRows = filter === "all"
     ? rows
     : filter === "__unassigned__"
     ? rows.filter(r => !r.clientSlug)
     : rows.filter(r => r.clientSlug === filter);
 
+  const filteredManual = filter === "all"
+    ? manualRows
+    : filter === "__unassigned__"
+    ? manualRows.filter(r => !r.clientSlug)
+    : manualRows.filter(r => r.clientSlug === filter);
+
   const totalMtdCents = filteredRows.reduce((sum, r) => sum + r.estimatedMtdCents, 0);
+  const manualTotalUsd = filteredManual.reduce((sum, r) => sum + r.monthlyCostUsd, 0);
   const runningCount = filteredRows.reduce((sum, r) => sum + r.runningCount, 0);
 
   const clientOptions = (clientsQuery.data ?? []).map(c => ({
@@ -266,6 +432,14 @@ export default function Infrastructure() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setManualDialog("new")}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add app
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => refresh.mutate()}
             disabled={refresh.isPending || appsQuery.isFetching}
           >
@@ -284,9 +458,9 @@ export default function Infrastructure() {
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
               {filterLabel ? `${filterLabel} apps` : "Total apps"}
             </p>
-            <p className="text-2xl font-bold mt-1">{filteredRows.length}</p>
-            {filterLabel && rows.length !== filteredRows.length && (
-              <p className="text-[11px] text-muted-foreground mt-0.5">{rows.length} total</p>
+            <p className="text-2xl font-bold mt-1">{filteredRows.length + filteredManual.length}</p>
+            {filterLabel && (rows.length + manualRows.length) !== (filteredRows.length + filteredManual.length) && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">{rows.length + manualRows.length} total</p>
             )}
           </CardContent>
         </Card>
@@ -301,14 +475,24 @@ export default function Infrastructure() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-              {filterLabel ? `${filterLabel} MTD` : "Est. MTD spend"}
+              {filterLabel ? `${filterLabel} monthly` : "Est. monthly total"}
             </p>
             <div className="mt-1 flex items-baseline gap-1 flex-wrap">
-              <p className="text-2xl font-bold"><DollarSign className="inline h-5 w-5 text-muted-foreground" />{(totalMtdCents / 100).toFixed(2)}</p>
+              <p className="text-2xl font-bold">
+                <DollarSign className="inline h-5 w-5 text-muted-foreground" />
+                {((totalMtdCents / 100) + manualTotalUsd).toFixed(2)}
+              </p>
               <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-300 text-amber-600">est.</Badge>
             </div>
             {effectiveRate && (
-              <p className="text-sm font-semibold text-muted-foreground mt-0.5">≈ {centsToZar(totalMtdCents, effectiveRate)}</p>
+              <p className="text-sm font-semibold text-muted-foreground mt-0.5">
+                ≈ R{(((totalMtdCents / 100) + manualTotalUsd) * effectiveRate).toFixed(2)}
+              </p>
+            )}
+            {manualTotalUsd > 0 && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Fly est. + ${manualTotalUsd.toFixed(2)} fixed
+              </p>
             )}
           </CardContent>
         </Card>
@@ -331,11 +515,11 @@ export default function Infrastructure() {
       </div>
 
       {/* Filter chips */}
-      {rows.length > 0 && (
+      {(rows.length > 0 || manualRows.length > 0) && (
         <div className="flex flex-wrap gap-2">
           {[
             { key: "all", label: "All" },
-            ...clientSlugs.map(s => ({ key: s, label: clientOptions.find(c => c.clientSlug === s)?.clientName || s })),
+            ...allClientSlugs.map(s => ({ key: s, label: clientOptions.find(c => c.clientSlug === s)?.clientName || s })),
             { key: "__unassigned__", label: "Unassigned" },
           ].map(chip => (
             <button
@@ -350,7 +534,7 @@ export default function Infrastructure() {
               {chip.label}
               {chip.key !== "all" && chip.key !== "__unassigned__" && (
                 <span className="ml-1.5 opacity-60">
-                  {rows.filter(r => r.clientSlug === chip.key).length}
+                  {rows.filter(r => r.clientSlug === chip.key).length + manualRows.filter(r => r.clientSlug === chip.key).length}
                 </span>
               )}
             </button>
@@ -484,6 +668,49 @@ export default function Infrastructure() {
         </Card>
       )}
 
+      {/* Manual apps section */}
+      {filteredManual.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Other providers</p>
+          <Card>
+            <div className="divide-y divide-border">
+              {filteredManual.map(row => (
+                <div key={row.id} className="flex items-center gap-4 px-4 py-3">
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-blue-400" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm">{row.label || row.name}</p>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 text-blue-700">{row.provider}</Badge>
+                      {row.clientSlug && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{row.clientSlug}</Badge>
+                      )}
+                    </div>
+                    {row.notes && <p className="text-[11px] text-muted-foreground mt-0.5">{row.notes}</p>}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <FixedPill usd={row.monthlyCostUsd} rate={effectiveRate} />
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => setManualDialog(row)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeletingManual(row.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Assign dialog */}
       {assignRow && (
         <AssignDialog
@@ -492,6 +719,40 @@ export default function Infrastructure() {
           onClose={() => setAssignRow(null)}
           onSaved={() => setAssignRow(null)}
         />
+      )}
+
+      {/* Manual app add/edit dialog */}
+      {manualDialog !== null && (
+        <ManualAppDialog
+          initial={manualDialog === "new" ? null : manualDialog}
+          clientOptions={clientOptions}
+          onClose={() => setManualDialog(null)}
+          onSaved={() => setManualDialog(null)}
+        />
+      )}
+
+      {/* Delete confirmation */}
+      {deletingManual !== null && (
+        <Dialog open onOpenChange={open => !open && setDeletingManual(null)}>
+          <DialogContent className="max-w-xs">
+            <DialogHeader>
+              <DialogTitle className="text-base">Delete app?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">This will remove it from the infrastructure page.</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setDeletingManual(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={deleteManual.isPending}
+                onClick={() => deleteManual.mutate({ id: deletingManual })}
+              >
+                {deleteManual.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Delete
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* App detail dialog */}

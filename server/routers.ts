@@ -150,6 +150,9 @@ import {
   listFlyAppMappings,
   upsertFlyAppMapping,
   deleteFlyAppMapping,
+  listManualApps,
+  upsertManualApp,
+  deleteManualApp,
 } from "./db";
 import { hashPassword } from "./_core/oauth";
 import { initializeTransaction, randsToCents, getPaystackKeys } from "./paystack";
@@ -3917,6 +3920,39 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
     refresh: superAdminProcedure.mutation(async () => {
       const { cacheBust } = await import("./fly-cache");
       cacheBust();
+      return { success: true };
+    }),
+
+    listManualApps: superAdminProcedure.query(async () => {
+      return listManualApps();
+    }),
+
+    saveManualApp: superAdminProcedure.input(z.object({
+      id: z.number().optional(),
+      name: z.string().min(1),
+      provider: z.string().min(1),
+      clientSlug: z.string().nullable(),
+      label: z.string().nullable(),
+      monthlyCostUsd: z.number().min(0),
+      notes: z.string().nullable(),
+    })).mutation(async ({ input }) => {
+      try {
+        return await upsertManualApp({
+          id: input.id,
+          name: input.name,
+          provider: input.provider,
+          clientSlug: input.clientSlug,
+          label: input.label,
+          monthlyCostUsd: String(input.monthlyCostUsd),
+          notes: input.notes,
+        });
+      } catch (e) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: String(e) });
+      }
+    }),
+
+    deleteManualApp: superAdminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+      await deleteManualApp(input.id);
       return { success: true };
     }),
 

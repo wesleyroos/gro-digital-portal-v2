@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem, flyApps, FlyApp, InsertFlyApp } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem, flyApps, FlyApp, InsertFlyApp, manualApps, ManualApp, InsertManualApp } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -2738,4 +2738,36 @@ export async function deleteFlyAppMapping(appName: string): Promise<void> {
   const db = await getDb();
   if (!db) return;
   await db.delete(flyApps).where(eq(flyApps.appName, appName));
+}
+
+export async function listManualApps(): Promise<ManualApp[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(manualApps);
+}
+
+export async function upsertManualApp(data: InsertManualApp): Promise<ManualApp> {
+  const db = await getDb();
+  if (!db) throw new Error("No DB");
+  if (data.id) {
+    await db.update(manualApps).set({
+      name: data.name,
+      provider: data.provider,
+      clientSlug: data.clientSlug ?? null,
+      label: data.label ?? null,
+      monthlyCostUsd: data.monthlyCostUsd,
+      notes: data.notes ?? null,
+    }).where(eq(manualApps.id, data.id));
+    const [row] = await db.select().from(manualApps).where(eq(manualApps.id, data.id));
+    return row;
+  }
+  const [result] = await db.insert(manualApps).values(data);
+  const [row] = await db.select().from(manualApps).where(eq(manualApps.id, (result as { insertId: number }).insertId));
+  return row;
+}
+
+export async function deleteManualApp(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(manualApps).where(eq(manualApps.id, id));
 }

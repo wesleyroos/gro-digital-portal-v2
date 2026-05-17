@@ -612,3 +612,18 @@ export const flyApps = mysqlTable("flyApps", {
 
 export type FlyApp = typeof flyApps.$inferSelect;
 export type InsertFlyApp = typeof flyApps.$inferInsert;
+
+export const manualApps = mysqlTable("manualApps", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 128 }).notNull(),
+  provider: varchar("provider", { length: 64 }).notNull(),
+  clientSlug: varchar("clientSlug", { length: 128 }),
+  label: varchar("label", { length: 256 }),
+  monthlyCostUsd: decimal("monthlyCostUsd", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ManualApp = typeof manualApps.$inferSelect;
+export type InsertManualApp = typeof manualApps.$inferInsert;
