@@ -214,14 +214,14 @@ export default function Infrastructure() {
   const totalMtdCents = filteredRows.reduce((sum, r) => sum + r.estimatedMtdCents, 0);
   const runningCount = filteredRows.reduce((sum, r) => sum + r.runningCount, 0);
 
-  const filterLabel = filter === "all" ? null
-    : filter === "__unassigned__" ? "Unassigned"
-    : clientOptions.find(c => c.clientSlug === filter)?.clientName || filter;
-
   const clientOptions = (clientsQuery.data ?? []).map(c => ({
     clientSlug: c.clientSlug,
     clientName: c.clientName,
   }));
+
+  const filterLabel = filter === "all" ? null
+    : filter === "__unassigned__" ? "Unassigned"
+    : clientOptions.find(c => c.clientSlug === filter)?.clientName || filter;
 
   const credits = summaryQuery.data?.credits ?? [];
 
