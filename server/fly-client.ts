@@ -6,7 +6,7 @@ const FLY_GRAPHQL = "https://api.fly.io/graphql";
 
 function parseOrgTokens(): Map<string, string> {
   const map = new Map<string, string>();
-  for (const pair of ENV.flyOrgTokens.split(",")) {
+  for (const pair of ENV.flyOrgTokens.split("|")) {
     const idx = pair.indexOf(":");
     if (idx > 0) map.set(pair.slice(0, idx).trim(), pair.slice(idx + 1).trim());
   }
