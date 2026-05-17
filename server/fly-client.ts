@@ -180,46 +180,45 @@ export async function createVolumeSnapshot(appName: string, volumeId: string, or
 
 export async function listDbBackups(): Promise<DbBackupSummary[]> {
   const orgTokens = parseOrgTokens();
-  const orgSlugs = ENV.flyOrgSlugs.split(",").map(s => s.trim()).filter(Boolean);
-  const result: DbBackupSummary[] = [];
+  const orgSlugs = ENV.flyOrgSlugs.split(",").map(s => s.trim()).filter(Boolean).filter(s => orgTokens.has(s));
 
-  for (const orgSlug of orgSlugs) {
-    if (!orgTokens.has(orgSlug)) continue;
+  type RichVolume = { id: string; name?: string; size_gb?: number; auto_backup_enabled?: boolean; snapshot_retention?: number };
+
+  async function processOrg(orgSlug: string): Promise<DbBackupSummary[]> {
     let apps: FlyApp[];
-    try { apps = await listApps(orgSlug); } catch { continue; }
+    try { apps = await listApps(orgSlug); } catch { return []; }
 
     const dbApps = apps.filter(a => {
       const n = a.name.toLowerCase();
       return n.includes("-db") || n.includes("db-") || n.includes("postgres");
     });
 
-    for (const app of dbApps) {
-      type RichVolume = { id: string; name?: string; size_gb?: number; auto_backup_enabled?: boolean; snapshot_retention?: number };
+    return Promise.all(dbApps.map(async (app): Promise<DbBackupSummary | null> => {
       const url = `${FLY_MACHINES_API}/apps/${encodeURIComponent(app.name)}/volumes`;
       let rawVolumes: RichVolume[] = [];
       try {
         const res = await fetch(url, { headers: flyHeaders(orgSlug), signal: AbortSignal.timeout(15_000) });
         if (res.ok) rawVolumes = await res.json() as RichVolume[];
-      } catch { continue; }
+      } catch { return null; }
 
-      const volumes: FlyVolumeDetail[] = [];
-      for (const v of rawVolumes) {
+      const volumes = await Promise.all(rawVolumes.map(async (v): Promise<FlyVolumeDetail> => {
         const snapshots = await listVolumeSnapshots(app.name, v.id, orgSlug);
-        volumes.push({
+        return {
           id: v.id,
           name: v.name ?? "data",
           size_gb: v.size_gb ?? 1,
           auto_backup_enabled: v.auto_backup_enabled ?? false,
           snapshot_retention: v.snapshot_retention ?? 5,
           snapshots: snapshots.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-        });
-      }
+        };
+      }));
 
-      if (volumes.length > 0) result.push({ appName: app.name, orgSlug, volumes });
-    }
+      return volumes.length > 0 ? { appName: app.name, orgSlug, volumes } : null;
+    })).then(results => results.filter((r): r is DbBackupSummary => r !== null));
   }
 
-  return result;
+  const perOrg = await Promise.all(orgSlugs.map(processOrg));
+  return perOrg.flat();
 }
 
 export type FlyAppDetail = {
