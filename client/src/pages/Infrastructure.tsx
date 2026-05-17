@@ -60,7 +60,7 @@ function EstimatePill({ cents, rate }: { cents: number; rate?: number | null }) 
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs text-xs">
-        Estimated from published Fly.io rates × machine runtime this month. Authoritative totals at{" "}
+        Worst-case estimate: all machines billed at full rate for the entire month to date, regardless of sleep/suspend. Actual cost will be equal or lower. Authoritative totals at{" "}
         <a href="https://fly.io/dashboard/billing" target="_blank" rel="noopener noreferrer" className="underline">fly.io/dashboard/billing</a>.
       </TooltipContent>
     </Tooltip>

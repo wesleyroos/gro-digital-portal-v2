@@ -54,9 +54,6 @@ function resolveVmSize(machine: FlyMachineState): string {
 }
 
 export function estimateMachineMtdCost(machine: FlyMachineState, now: Date): MtdEstimate {
-  const isRunning = machine.state === "started";
-  if (!isRunning) return { vmCents: 0, volumeCents: 0, totalCents: 0, isEstimate: true };
-
   const size = resolveVmSize(machine);
   const ratePerHour = VM_RATES_PER_HOUR[size] ?? VM_RATES_PER_HOUR["shared-cpu-1x"];
   const hours = hoursElapsedThisMonth(now);
