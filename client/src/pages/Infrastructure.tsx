@@ -322,16 +322,7 @@ export default function Infrastructure() {
   const appsQuery = trpc.infrastructure.listApps.useQuery(undefined, { refetchInterval: false });
   const summaryQuery = trpc.infrastructure.summary.useQuery(undefined, { refetchInterval: false });
   const manualAppsQuery = trpc.infrastructure.listManualApps.useQuery(undefined, { refetchInterval: false });
-  const backupsQuery = trpc.infrastructure.listBackups.useQuery(undefined, { refetchInterval: false, enabled: tab === "backups" });
   const clientsQuery = trpc.invoice.clients.useQuery();
-
-  const takeSnapshot = trpc.infrastructure.takeSnapshot.useMutation({
-    onSuccess: () => {
-      toast.success("Snapshot created");
-      utils.infrastructure.listBackups.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
 
   const deleteManual = trpc.infrastructure.deleteManualApp.useMutation({
     onSuccess: () => {
@@ -414,9 +405,7 @@ export default function Infrastructure() {
       </div>
 
       {/* Backups tab */}
-      {tab === "backups" && (
-        <BackupsView backupsQuery={backupsQuery} takeSnapshot={takeSnapshot} />
-      )}
+      {tab === "backups" && <BackupsView />}
 
       {tab === "apps" && <>
       {/* Header */}
@@ -796,12 +785,16 @@ export default function Infrastructure() {
   );
 }
 
-type BackupsViewProps = {
-  backupsQuery: ReturnType<typeof trpc.infrastructure.listBackups.useQuery>;
-  takeSnapshot: ReturnType<typeof trpc.infrastructure.takeSnapshot.useMutation>;
-};
-
-function BackupsView({ backupsQuery, takeSnapshot }: BackupsViewProps) {
+function BackupsView() {
+  const utils = trpc.useUtils();
+  const backupsQuery = trpc.infrastructure.listBackups.useQuery(undefined, { refetchInterval: false });
+  const takeSnapshot = trpc.infrastructure.takeSnapshot.useMutation({
+    onSuccess: () => {
+      toast.success("Snapshot created");
+      utils.infrastructure.listBackups.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   function copyCommand(text: string, id: string) {
