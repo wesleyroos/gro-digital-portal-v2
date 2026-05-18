@@ -18,6 +18,7 @@ type LineItem = {
   vat: string;
   unitPrice: number;
   quantity: number;
+  discountPercent: number;
 };
 
 type FormData = {
@@ -83,7 +84,7 @@ export default function CreateInvoice() {
       paymentReference: "",
       paymentUrl: "",
       notes: "",
-      items: [{ description: "", frequency: "Once Off", vat: "No VAT", unitPrice: 0, quantity: 1 }],
+      items: [{ description: "", frequency: "Once Off", vat: "No VAT", unitPrice: 0, quantity: 1, discountPercent: 0 }],
     },
   });
 
@@ -102,7 +103,9 @@ export default function CreateInvoice() {
   const invoiceType = useWatch({ control, name: "invoiceType" });
 
   const subtotal = watchedItems.reduce((sum, item) => {
-    return sum + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1);
+    const base = (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1);
+    const disc = Number(item.discountPercent) || 0;
+    return sum + base * (1 - disc / 100);
   }, 0);
   const discountAmount = subtotal * (Number(discountPercent) / 100);
   const totalAmount = subtotal - discountAmount;
@@ -167,14 +170,19 @@ export default function CreateInvoice() {
       clientAddress: data.clientAddress || null,
       invoiceDate: data.invoiceDate,
       dueDate: data.dueDate || null,
-      items: watchedItems.map((item) => ({
-        description: item.description,
-        frequency: item.frequency || "Once Off",
-        vat: item.vat || "No VAT",
-        unitPrice: Number(item.unitPrice) || 0,
-        quantity: Number(item.quantity) || 1,
-        lineTotal: (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),
-      })),
+      items: watchedItems.map((item) => {
+        const base = (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1);
+        const disc = Number(item.discountPercent) || 0;
+        return {
+          description: item.description,
+          frequency: item.frequency || "Once Off",
+          vat: item.vat || "No VAT",
+          unitPrice: Number(item.unitPrice) || 0,
+          quantity: Number(item.quantity) || 1,
+          discountPercent: disc,
+          lineTotal: base * (1 - disc / 100),
+        };
+      }),
     });
   }
 
@@ -355,11 +363,12 @@ export default function CreateInvoice() {
 
               <div className="space-y-3">
                 {/* Header row */}
-                <div className="grid grid-cols-[1fr_110px_100px_80px_90px_36px] gap-2 px-1">
+                <div className="grid grid-cols-[1fr_110px_100px_60px_70px_90px_36px] gap-2 px-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Description</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Frequency</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Unit Price</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">Qty</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">Disc %</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Total</span>
                   <span />
                 </div>
@@ -367,9 +376,10 @@ export default function CreateInvoice() {
                 {fields.map((field, index) => {
                   const price = Number(watchedItems[index]?.unitPrice) || 0;
                   const qty = Number(watchedItems[index]?.quantity) || 1;
-                  const lineTotal = price * qty;
+                  const disc = Number(watchedItems[index]?.discountPercent) || 0;
+                  const lineTotal = price * qty * (1 - disc / 100);
                   return (
-                    <div key={field.id} className="grid grid-cols-[1fr_110px_100px_80px_90px_36px] gap-2 items-center">
+                    <div key={field.id} className="grid grid-cols-[1fr_110px_100px_60px_70px_90px_36px] gap-2 items-center">
                       <Input
                         placeholder="Description"
                         className="h-9 text-sm"
@@ -403,6 +413,11 @@ export default function CreateInvoice() {
                         className="h-9 text-sm text-center"
                         {...register(`items.${index}.quantity`, { valueAsNumber: true })}
                       />
+                      <Input
+                        type="number" min="0" max="100" step="0.01" placeholder="0"
+                        className="h-9 text-sm text-center"
+                        {...register(`items.${index}.discountPercent`, { valueAsNumber: true })}
+                      />
                       <div className="h-9 flex items-center justify-end px-2 text-sm font-mono font-medium text-foreground bg-muted/40 rounded-md">
                         {formatCurrency(lineTotal)}
                       </div>
@@ -426,7 +441,7 @@ export default function CreateInvoice() {
                 variant="outline"
                 size="sm"
                 className="gap-1.5 text-xs"
-                onClick={() => append({ description: "", frequency: "Once Off", vat: "No VAT", unitPrice: 0, quantity: 1 })}
+                onClick={() => append({ description: "", frequency: "Once Off", vat: "No VAT", unitPrice: 0, quantity: 1, discountPercent: 0 })}
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add Line Item

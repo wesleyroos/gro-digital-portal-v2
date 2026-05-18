@@ -77,6 +77,7 @@ export const invoiceItems = mysqlTable("invoiceItems", {
   vat: varchar("vat", { length: 32 }).default("No VAT"),
   unitPrice: decimal("unitPrice", { precision: 12, scale: 2 }).notNull(),
   quantity: int("quantity").default(1),
+  discountPercent: decimal("discountPercent", { precision: 5, scale: 2 }).default("0"),
   lineTotal: decimal("lineTotal", { precision: 12, scale: 2 }).notNull(),
   sortOrder: int("sortOrder").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

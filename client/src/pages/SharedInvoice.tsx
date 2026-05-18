@@ -286,7 +286,7 @@ export default function SharedInvoice() {
                       <td className="px-5 py-3.5 text-sm text-foreground">{item.description}</td>
                       <td className="px-4 py-3.5 text-sm text-center text-muted-foreground hidden sm:table-cell">{item.frequency}</td>
                       <td className="px-4 py-3.5 text-sm text-center text-muted-foreground hidden sm:table-cell">{item.vat}</td>
-                      <td className="px-5 py-3.5 text-sm text-right font-mono font-medium text-foreground">{formatCurrency(item.unitPrice)}</td>
+                      <td className="px-5 py-3.5 text-sm text-right font-mono font-medium text-foreground">{formatCurrency(item.lineTotal)}</td>
                     </tr>
                   ))}
                 </tbody>

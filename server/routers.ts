@@ -468,6 +468,7 @@ export const appRouter = router({
           vat: z.string().default('No VAT'),
           unitPrice: z.number().min(0),
           quantity: z.number().int().min(1).default(1),
+          discountPercent: z.number().min(0).max(100).default(0),
           lineTotal: z.number().min(0),
         })),
       }))
@@ -532,6 +533,7 @@ export const appRouter = router({
           vat: z.string(),
           unitPrice: z.number().min(0),
           quantity: z.number().int().min(1),
+          discountPercent: z.number().min(0).max(100).default(0),
           lineTotal: z.number().min(0),
         })),
       }))
