@@ -35,6 +35,7 @@ import {
   sendInvoiceEmail,
   sendWelcomeEmail,
   updateInvoice,
+  setInvoiceScheduledSendDate,
   getLeads,
   createLead,
   updateLead,
@@ -568,6 +569,16 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         await updateInvoicePaymentUrl(input.invoiceId, input.paymentUrl, input.paymentToken ?? null);
+        return { success: true };
+      }),
+
+    setScheduledSendDate: adminProcedure
+      .input(z.object({
+        invoiceNumber: z.string(),
+        scheduledSendDate: z.string().nullable(),
+      }))
+      .mutation(async ({ input }) => {
+        await setInvoiceScheduledSendDate(input.invoiceNumber, input.scheduledSendDate);
         return { success: true };
       }),
   }),

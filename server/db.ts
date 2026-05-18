@@ -1186,6 +1186,27 @@ export async function markOverdueInvoices() {
     .where(sql`${invoices.status} = 'sent' AND ${invoices.dueDate} IS NOT NULL AND ${invoices.dueDate} < NOW()`);
 }
 
+export async function getInvoicesDueForScheduledSend() {
+  const db = await getDb();
+  if (!db) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  return db.select().from(invoices).where(
+    and(isNotNull(invoices.scheduledSendDate), lte(invoices.scheduledSendDate, today))
+  );
+}
+
+export async function setInvoiceScheduledSendDate(invoiceNumber: string, scheduledSendDate: string | null) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(invoices).set({ scheduledSendDate }).where(eq(invoices.invoiceNumber, invoiceNumber));
+}
+
+export async function clearInvoiceScheduledSendDate(invoiceId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(invoices).set({ scheduledSendDate: null }).where(eq(invoices.id, invoiceId));
+}
+
 // ── Leads ───────────────────────────────────────────────────────────────────
 
 export async function getLeads() {

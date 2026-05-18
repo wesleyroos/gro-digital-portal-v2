@@ -59,6 +59,7 @@ export const invoices = mysqlTable("invoices", {
   mandateId: int("mandateId"),
   invoiceDate: timestamp("invoiceDate").notNull(),
   dueDate: timestamp("dueDate"),
+  scheduledSendDate: date("scheduledSendDate"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

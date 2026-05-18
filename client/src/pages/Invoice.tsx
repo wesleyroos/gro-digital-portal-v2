@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
-import { ChevronLeft, Repeat, CalendarDays, ChevronDown } from "lucide-react";
+import { ChevronLeft, Repeat, CalendarDays, ChevronDown, CalendarClock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -151,6 +151,17 @@ export default function Invoice() {
   const [editingPayFast, setEditingPayFast] = useState(false);
   const [payFastDraft, setPayFastDraft] = useState("");
   const [payFastTokenDraft, setPayFastTokenDraft] = useState("");
+  const [schedulingDialog, setSchedulingDialog] = useState(false);
+  const [scheduledDateDraft, setScheduledDateDraft] = useState("");
+
+  const setScheduledSendDate = trpc.invoice.setScheduledSendDate.useMutation({
+    onSuccess: () => {
+      utils.invoice.getByNumber.invalidate({ invoiceNumber });
+      setSchedulingDialog(false);
+      toast.success(scheduledDateDraft ? `Invoice scheduled for ${scheduledDateDraft}` : "Schedule cleared");
+    },
+    onError: (e) => toast.error(e.message || "Failed to schedule"),
+  });
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
 
@@ -280,6 +291,20 @@ export default function Invoice() {
                       >
                         <Send className="w-3.5 h-3.5 mr-2" />
                         Send to Client
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setScheduledDateDraft((data.invoice as any).scheduledSendDate?.slice(0, 10) || "");
+                          setSchedulingDialog(true);
+                        }}
+                      >
+                        <CalendarClock className="w-3.5 h-3.5 mr-2" />
+                        Schedule Send
+                        {(data.invoice as any).scheduledSendDate && (
+                          <span className="ml-auto text-[10px] text-primary font-medium">
+                            {new Date((data.invoice as any).scheduledSendDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                          </span>
+                        )}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => copyShareLink(data?.invoice.shareToken)}>
                         <Link2 className="w-3.5 h-3.5 mr-2" />
@@ -768,6 +793,51 @@ export default function Invoice() {
               <Send className="w-3.5 h-3.5" />
               Send
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Send dialog */}
+      <Dialog open={schedulingDialog} onOpenChange={setSchedulingDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Schedule Send</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The invoice will be emailed to <span className="font-medium text-foreground">{data?.invoice.clientEmail || "client"}</span> on the chosen date.
+          </p>
+          <div className="space-y-1.5 mt-1">
+            <label className="text-xs font-medium text-foreground">Send date</label>
+            <input
+              type="date"
+              value={scheduledDateDraft}
+              onChange={(e) => setScheduledDateDraft(e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="flex justify-between gap-2 mt-2">
+            {(data?.invoice as any)?.scheduledSendDate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground text-xs"
+                onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: null })}
+                disabled={setScheduledSendDate.isPending}
+              >
+                Clear schedule
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" size="sm" onClick={() => setSchedulingDialog(false)}>Cancel</Button>
+              <Button
+                size="sm"
+                onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: scheduledDateDraft || null })}
+                disabled={setScheduledSendDate.isPending || !scheduledDateDraft}
+              >
+                <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
+                Schedule
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

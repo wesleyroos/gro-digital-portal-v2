@@ -12,7 +12,7 @@ import { registerCampaignJarvisRoutes } from "../campaign-jarvis";
 import { registerInstagramOAuthRoutes } from "../instagram-oauth";
 import { registerFacebookOAuthRoutes } from "../facebook-oauth";
 import { registerLinkedinOAuthRoutes } from "../linkedin-oauth";
-import { startScheduler, runRecurringInvoiceTick, runMandateBillingTick } from "../scheduler";
+import { startScheduler, runRecurringInvoiceTick, runMandateBillingTick, runScheduledInvoiceSendTick } from "../scheduler";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -104,3 +104,7 @@ setInterval(() => runRecurringInvoiceTick().catch(console.error), 60 * 60 * 1000
 // Mandate billing — runs on startup then every hour
 runMandateBillingTick().catch(console.error);
 setInterval(() => runMandateBillingTick().catch(console.error), 60 * 60 * 1000);
+
+// Scheduled invoice sends — runs on startup then every hour
+runScheduledInvoiceSendTick().catch(console.error);
+setInterval(() => runScheduledInvoiceSendTick().catch(console.error), 60 * 60 * 1000);

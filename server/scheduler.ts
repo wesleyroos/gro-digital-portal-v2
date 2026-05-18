@@ -1,4 +1,4 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllConnectedInstagramClients, updateInstagramAccessToken, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllConnectedInstagramClients, updateInstagramAccessToken, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus, getInvoicesDueForScheduledSend, clearInvoiceScheduledSendDate, updateInvoiceStatus } from './db';
 import { chargeAuthorization, randsToCents } from './paystack';
 import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia, refreshLongLivedToken } from './instagram';
@@ -294,6 +294,37 @@ export async function buildAndSendRecurringInvoice(
   }
 
   return shareToken;
+}
+
+export async function runScheduledInvoiceSendTick() {
+  let due: Awaited<ReturnType<typeof getInvoicesDueForScheduledSend>>;
+  try {
+    due = await getInvoicesDueForScheduledSend();
+  } catch (e) {
+    console.error('[ScheduledSend] Failed to fetch due invoices:', e);
+    return;
+  }
+
+  if (due.length === 0) return;
+
+  const baseUrl = ENV.appUrl || process.env.PORTAL_URL || '';
+
+  for (const invoice of due) {
+    try {
+      const recipientEmail = invoice.clientEmail;
+      if (!recipientEmail) {
+        console.warn(`[ScheduledSend] Invoice ${invoice.invoiceNumber} has no client email, skipping`);
+        await clearInvoiceScheduledSendDate(invoice.id);
+        continue;
+      }
+      await sendInvoiceEmail(invoice.id, recipientEmail, baseUrl);
+      await updateInvoiceStatus(invoice.id, 'sent');
+      await clearInvoiceScheduledSendDate(invoice.id);
+      console.log(`[ScheduledSend] Sent invoice ${invoice.invoiceNumber} to ${recipientEmail}`);
+    } catch (e) {
+      console.error(`[ScheduledSend] Failed for invoice ${invoice.invoiceNumber}:`, e);
+    }
+  }
 }
 
 export async function runRecurringInvoiceTick() {
