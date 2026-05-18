@@ -1,4 +1,4 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllConnectedInstagramClients, updateInstagramAccessToken, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus, getInvoicesDueForScheduledSend, clearInvoiceScheduledSendDate, updateInvoiceStatus } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllConnectedInstagramClients, updateInstagramAccessToken, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus, getInvoicesDueForScheduledSend, clearInvoiceScheduledSendDate, updateInvoiceStatus, getInvoiceItems, cloneInvoiceAsDraft } from './db';
 import { chargeAuthorization, randsToCents } from './paystack';
 import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia, refreshLongLivedToken } from './instagram';
@@ -317,10 +317,24 @@ export async function runScheduledInvoiceSendTick() {
         await clearInvoiceScheduledSendDate(invoice.id);
         continue;
       }
+
       await sendInvoiceEmail(invoice.id, recipientEmail, baseUrl);
       await updateInvoiceStatus(invoice.id, 'sent');
       await clearInvoiceScheduledSendDate(invoice.id);
       console.log(`[ScheduledSend] Sent invoice ${invoice.invoiceNumber} to ${recipientEmail}`);
+
+      if (invoice.repeatMonthly) {
+        // Advance date by one month (same day)
+        const current = new Date(invoice.scheduledSendDate!);
+        const next = new Date(current);
+        next.setMonth(next.getMonth() + 1);
+        const nextDateStr = next.toISOString().slice(0, 10);
+
+        const newNumber = await getNextInvoiceNumber(invoice.clientSlug);
+        const items = await getInvoiceItems(invoice.id);
+        await cloneInvoiceAsDraft(invoice, items, newNumber, nextDateStr);
+        console.log(`[ScheduledSend] Cloned ${invoice.invoiceNumber} → ${newNumber} scheduled ${nextDateStr}`);
+      }
     } catch (e) {
       console.error(`[ScheduledSend] Failed for invoice ${invoice.invoiceNumber}:`, e);
     }

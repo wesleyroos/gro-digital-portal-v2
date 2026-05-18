@@ -35,7 +35,7 @@ import {
   sendInvoiceEmail,
   sendWelcomeEmail,
   updateInvoice,
-  setInvoiceScheduledSendDate,
+  setInvoiceSchedule,
   getLeads,
   createLead,
   updateLead,
@@ -463,6 +463,8 @@ export const appRouter = router({
         clientAddress: z.string().nullish(),
         invoiceDate: z.string(),
         dueDate: z.string().nullish(),
+        scheduledSendDate: z.string().nullish(),
+        repeatMonthly: z.boolean().default(false),
         items: z.array(z.object({
           description: z.string().min(1),
           frequency: z.string().default('Once Off'),
@@ -474,12 +476,14 @@ export const appRouter = router({
         })),
       }))
       .mutation(async ({ ctx, input }) => {
-        const { items, invoiceDate, dueDate, ...invoiceData } = input;
+        const { items, invoiceDate, dueDate, scheduledSendDate, repeatMonthly, ...invoiceData } = input;
         const result = await createInvoice(
           {
             ...invoiceData,
             invoiceDate: new Date(invoiceDate),
             dueDate: dueDate ? new Date(dueDate) : null,
+            scheduledSendDate: scheduledSendDate || null,
+            repeatMonthly: repeatMonthly ? 1 : 0,
           },
           items,
         );
@@ -528,6 +532,8 @@ export const appRouter = router({
         clientAddress: z.string().nullish(),
         invoiceDate: z.string(),
         dueDate: z.string().nullish(),
+        scheduledSendDate: z.string().nullish(),
+        repeatMonthly: z.boolean().default(false),
         items: z.array(z.object({
           description: z.string().min(1),
           frequency: z.string(),
@@ -539,10 +545,10 @@ export const appRouter = router({
         })),
       }))
       .mutation(async ({ input }) => {
-        const { invoiceNumber, items, invoiceDate, dueDate, ...rest } = input;
+        const { invoiceNumber, items, invoiceDate, dueDate, scheduledSendDate, repeatMonthly, ...rest } = input;
         await updateInvoice(
           invoiceNumber,
-          { ...rest, invoiceDate: new Date(invoiceDate), dueDate: dueDate ? new Date(dueDate) : null },
+          { ...rest, invoiceDate: new Date(invoiceDate), dueDate: dueDate ? new Date(dueDate) : null, scheduledSendDate: scheduledSendDate || null, repeatMonthly: repeatMonthly ? 1 : 0 },
           items,
         );
         return { success: true };
@@ -576,9 +582,10 @@ export const appRouter = router({
       .input(z.object({
         invoiceNumber: z.string(),
         scheduledSendDate: z.string().nullable(),
+        repeatMonthly: z.boolean().default(false),
       }))
       .mutation(async ({ input }) => {
-        await setInvoiceScheduledSendDate(input.invoiceNumber, input.scheduledSendDate);
+        await setInvoiceSchedule(input.invoiceNumber, input.scheduledSendDate, input.repeatMonthly);
         return { success: true };
       }),
   }),

@@ -60,6 +60,7 @@ export const invoices = mysqlTable("invoices", {
   invoiceDate: timestamp("invoiceDate").notNull(),
   dueDate: timestamp("dueDate"),
   scheduledSendDate: date("scheduledSendDate"),
+  repeatMonthly: tinyint("repeatMonthly").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

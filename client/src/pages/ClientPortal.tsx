@@ -1433,8 +1433,8 @@ export default function ClientPortal() {
             {/* Monthly auto-invoice + Scheduled invoices */}
             <div className="grid grid-cols-2 gap-4 items-start">
 
-            {/* Monthly auto-invoice config */}
-            <Card className="shadow-sm">
+            {/* Monthly auto-invoice config — deprecated in favour of Scheduled Sends with repeat */}
+            {false && (<Card className="shadow-sm">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -1601,7 +1601,7 @@ export default function ClientPortal() {
                   </div>
                 )}
               </CardContent>
-            </Card>
+            </Card>)}
 
             {/* Scheduled invoices */}
             <Card className="shadow-sm">
@@ -1620,9 +1620,16 @@ export default function ClientPortal() {
                       {scheduled.map(inv => (
                         <div key={inv.id} className="flex items-center justify-between gap-2 text-xs">
                           <div className="min-w-0">
-                            <a href={`/client/${slug}/invoice/${inv.invoiceNumber}`} className="font-mono font-medium text-primary hover:underline">
-                              {inv.invoiceNumber}
-                            </a>
+                            <div className="flex items-center gap-1.5">
+                              <a href={`/client/${slug}/invoice/${inv.invoiceNumber}`} className="font-mono font-medium text-primary hover:underline">
+                                {inv.invoiceNumber}
+                              </a>
+                              {(inv as any).repeatMonthly ? (
+                                <span className="text-[9px] font-semibold uppercase tracking-wider bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Monthly</span>
+                              ) : (
+                                <span className="text-[9px] font-semibold uppercase tracking-wider bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Once</span>
+                              )}
+                            </div>
                             <p className="text-muted-foreground truncate">{inv.clientEmail || "—"}</p>
                           </div>
                           <div className="text-right shrink-0">

@@ -153,6 +153,7 @@ export default function Invoice() {
   const [payFastTokenDraft, setPayFastTokenDraft] = useState("");
   const [schedulingDialog, setSchedulingDialog] = useState(false);
   const [scheduledDateDraft, setScheduledDateDraft] = useState("");
+  const [repeatMonthlyDraft, setRepeatMonthlyDraft] = useState(false);
 
   const setScheduledSendDate = trpc.invoice.setScheduledSendDate.useMutation({
     onSuccess: () => {
@@ -297,6 +298,7 @@ export default function Invoice() {
                       <DropdownMenuItem
                         onClick={() => {
                           setScheduledDateDraft((data.invoice as any).scheduledSendDate?.slice(0, 10) || "");
+                          setRepeatMonthlyDraft(!!(data.invoice as any).repeatMonthly);
                           setSchedulingDialog(true);
                         }}
                       >
@@ -310,7 +312,7 @@ export default function Invoice() {
                       </DropdownMenuItem>
                       {(data.invoice as any).scheduledSendDate && (
                         <DropdownMenuItem
-                          onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: null })}
+                          onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: null, repeatMonthly: false })}
                           className="text-muted-foreground"
                         >
                           <CalendarX className="w-3.5 h-3.5 mr-2" />
@@ -883,13 +885,22 @@ export default function Invoice() {
               className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded"
+              checked={repeatMonthlyDraft}
+              onChange={(e) => setRepeatMonthlyDraft(e.target.checked)}
+            />
+            <span className="text-xs text-muted-foreground">Repeat monthly</span>
+          </label>
           <div className="flex justify-between gap-2 mt-2">
             {(data?.invoice as any)?.scheduledSendDate && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-muted-foreground text-xs"
-                onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: null })}
+                onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: null, repeatMonthly: false })}
                 disabled={setScheduledSendDate.isPending}
               >
                 Clear schedule
@@ -899,7 +910,7 @@ export default function Invoice() {
               <Button variant="outline" size="sm" onClick={() => setSchedulingDialog(false)}>Cancel</Button>
               <Button
                 size="sm"
-                onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: scheduledDateDraft || null })}
+                onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: scheduledDateDraft || null, repeatMonthly: repeatMonthlyDraft })}
                 disabled={setScheduledSendDate.isPending || !scheduledDateDraft}
               >
                 <CalendarClock className="w-3.5 h-3.5 mr-1.5" />

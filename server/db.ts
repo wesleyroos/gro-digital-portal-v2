@@ -1195,16 +1195,74 @@ export async function getInvoicesDueForScheduledSend() {
   );
 }
 
-export async function setInvoiceScheduledSendDate(invoiceNumber: string, scheduledSendDate: string | null) {
+export async function setInvoiceSchedule(invoiceNumber: string, scheduledSendDate: string | null, repeatMonthly: boolean) {
   const db = await getDb();
   if (!db) return;
-  await db.update(invoices).set({ scheduledSendDate }).where(eq(invoices.invoiceNumber, invoiceNumber));
+  await db.update(invoices).set({ scheduledSendDate, repeatMonthly: repeatMonthly ? 1 : 0 }).where(eq(invoices.invoiceNumber, invoiceNumber));
 }
 
 export async function clearInvoiceScheduledSendDate(invoiceId: number) {
   const db = await getDb();
   if (!db) return;
-  await db.update(invoices).set({ scheduledSendDate: null }).where(eq(invoices.id, invoiceId));
+  await db.update(invoices).set({ scheduledSendDate: null, repeatMonthly: 0 }).where(eq(invoices.id, invoiceId));
+}
+
+export async function cloneInvoiceAsDraft(
+  invoice: typeof invoices.$inferSelect,
+  items: (typeof invoiceItems.$inferSelect)[],
+  newInvoiceNumber: string,
+  nextScheduledSendDate: string,
+) {
+  const db = await getDb();
+  if (!db) return;
+  const shareToken = (await import('nanoid')).nanoid();
+  const result = await db.insert(invoices).values({
+    invoiceNumber: newInvoiceNumber,
+    clientSlug: invoice.clientSlug,
+    clientName: invoice.clientName,
+    clientContact: invoice.clientContact,
+    clientPhone: invoice.clientPhone,
+    clientEmail: invoice.clientEmail,
+    projectName: invoice.projectName,
+    projectSummary: invoice.projectSummary,
+    invoiceType: invoice.invoiceType,
+    status: 'draft',
+    subtotal: invoice.subtotal,
+    discountPercent: invoice.discountPercent,
+    discountAmount: invoice.discountAmount,
+    totalAmount: invoice.totalAmount,
+    amountDue: invoice.totalAmount,
+    paymentTerms: invoice.paymentTerms,
+    paymentReference: invoice.paymentReference,
+    bankName: invoice.bankName,
+    accountHolder: invoice.accountHolder,
+    accountNumber: invoice.accountNumber,
+    accountType: invoice.accountType,
+    branchCode: invoice.branchCode,
+    notes: invoice.notes,
+    clientAddress: invoice.clientAddress,
+    invoiceDate: new Date(),
+    dueDate: null,
+    scheduledSendDate: nextScheduledSendDate,
+    repeatMonthly: 1,
+    shareToken,
+  }).$returningId();
+  const newInvoiceId = result[0].id;
+  if (items.length > 0) {
+    await db.insert(invoiceItems).values(
+      items.map((item, i) => ({
+        invoiceId: newInvoiceId,
+        description: item.description,
+        frequency: item.frequency,
+        vat: item.vat,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        discountPercent: item.discountPercent,
+        lineTotal: item.lineTotal,
+        sortOrder: i + 1,
+      }))
+    );
+  }
 }
 
 // ── Leads ───────────────────────────────────────────────────────────────────

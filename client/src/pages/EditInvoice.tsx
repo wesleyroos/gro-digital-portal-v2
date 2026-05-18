@@ -38,6 +38,8 @@ type FormData = {
   paymentReference: string;
   paymentUrl: string;
   notes: string;
+  scheduledSendDate: string;
+  repeatMonthly: boolean;
   items: LineItem[];
 };
 
@@ -83,6 +85,8 @@ export default function EditInvoice() {
       paymentReference: "",
       paymentUrl: "",
       notes: "",
+      scheduledSendDate: "",
+      repeatMonthly: false,
       items: [{ description: "", frequency: "Once Off", vat: "No VAT", unitPrice: 0, quantity: 1, discountPercent: 0 }],
     },
   });
@@ -113,6 +117,8 @@ export default function EditInvoice() {
       paymentReference: invoice.paymentReference || "",
       paymentUrl: invoice.paymentUrl || "",
       notes: invoice.notes || "",
+      scheduledSendDate: (invoice as any).scheduledSendDate?.slice(0, 10) || "",
+      repeatMonthly: !!(invoice as any).repeatMonthly,
       items: items.map(i => ({
         description: i.description,
         frequency: i.frequency || "Once Off",
@@ -170,6 +176,8 @@ export default function EditInvoice() {
       clientAddress: formData.clientAddress || null,
       invoiceDate: formData.invoiceDate,
       dueDate: formData.dueDate || null,
+      scheduledSendDate: formData.scheduledSendDate || null,
+      repeatMonthly: formData.repeatMonthly,
       items: watchedItems.map((item) => {
         const base = (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1);
         const disc = Number(item.discountPercent) || 0;
@@ -431,6 +439,25 @@ export default function EditInvoice() {
               <div className="space-y-1.5">
                 <Label className="text-xs">Notes</Label>
                 <Textarea className="text-sm resize-none" rows={2} {...register("notes")} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Schedule */}
+          <Card className="shadow-sm">
+            <CardContent className="p-6 space-y-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-primary">Schedule</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Send on date (optional)</Label>
+                  <Input type="date" className="h-9 text-sm" {...register("scheduledSendDate")} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="repeatMonthly" className="rounded" {...register("repeatMonthly")} />
+                <Label htmlFor="repeatMonthly" className="text-xs font-normal cursor-pointer">
+                  Repeat monthly — after sending, a new draft is created for the following month
+                </Label>
               </div>
             </CardContent>
           </Card>
