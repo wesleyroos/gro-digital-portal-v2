@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
-import { ChevronLeft, Repeat, CalendarDays, ChevronDown, CalendarClock } from "lucide-react";
+import { ChevronLeft, Repeat, CalendarDays, ChevronDown, CalendarClock, CalendarX, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -162,6 +162,8 @@ export default function Invoice() {
     },
     onError: (e) => toast.error(e.message || "Failed to schedule"),
   });
+  const [testSendDialog, setTestSendDialog] = useState(false);
+  const [testSendSelected, setTestSendSelected] = useState<string[]>([]);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
 
@@ -305,6 +307,25 @@ export default function Invoice() {
                             {new Date((data.invoice as any).scheduledSendDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                           </span>
                         )}
+                      </DropdownMenuItem>
+                      {(data.invoice as any).scheduledSendDate && (
+                        <DropdownMenuItem
+                          onClick={() => setScheduledSendDate.mutate({ invoiceNumber, scheduledSendDate: null })}
+                          className="text-muted-foreground"
+                        >
+                          <CalendarX className="w-3.5 h-3.5 mr-2" />
+                          Unschedule
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const emails = (data.invoice.clientEmail || "").split(",").map(e => e.trim()).filter(Boolean);
+                          setTestSendSelected(emails);
+                          setTestSendDialog(true);
+                        }}
+                      >
+                        <Zap className="w-3.5 h-3.5 mr-2" />
+                        Test Send Now
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => copyShareLink(data?.invoice.shareToken)}>
                         <Link2 className="w-3.5 h-3.5 mr-2" />
@@ -792,6 +813,53 @@ export default function Invoice() {
             >
               <Send className="w-3.5 h-3.5" />
               Send
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Send Now dialog */}
+      <Dialog open={testSendDialog} onOpenChange={setTestSendDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Test Send Now</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Select which addresses to send to:</p>
+          <div className="space-y-2">
+            {testSendSelected.length === 0 && (
+              <p className="text-sm text-destructive">No email addresses on this invoice.</p>
+            )}
+            {(data?.invoice.clientEmail || "").split(",").map(e => e.trim()).filter(Boolean).map(email => (
+              <label key={email} className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={testSendSelected.includes(email)}
+                  onChange={(e) =>
+                    setTestSendSelected(prev =>
+                      e.target.checked ? [...prev, email] : prev.filter(x => x !== email)
+                    )
+                  }
+                  className="rounded"
+                />
+                <span className="text-sm">{email}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" size="sm" onClick={() => setTestSendDialog(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              disabled={testSendSelected.length === 0 || sendEmail.isPending}
+              onClick={() => {
+                if (!data?.invoice.id) return;
+                sendEmail.mutate(
+                  { invoiceId: data.invoice.id, recipientEmail: testSendSelected.join(",") },
+                  { onSuccess: () => { setTestSendDialog(false); toast.success("Test email sent"); }, onError: (e) => toast.error(e.message || "Failed") }
+                );
+              }}
+            >
+              <Zap className="w-3.5 h-3.5 mr-1.5" />
+              Send Now
             </Button>
           </div>
         </DialogContent>
