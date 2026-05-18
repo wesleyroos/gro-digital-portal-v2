@@ -355,8 +355,9 @@ export default function CreateInvoice() {
 
               <div className="space-y-3">
                 {/* Header row */}
-                <div className="grid grid-cols-[1fr_100px_80px_90px_36px] gap-2 px-1">
+                <div className="grid grid-cols-[1fr_110px_100px_80px_90px_36px] gap-2 px-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Description</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Frequency</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Unit Price</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">Qty</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Total</span>
@@ -368,12 +369,25 @@ export default function CreateInvoice() {
                   const qty = Number(watchedItems[index]?.quantity) || 1;
                   const lineTotal = price * qty;
                   return (
-                    <div key={field.id} className="grid grid-cols-[1fr_100px_80px_90px_36px] gap-2 items-center">
+                    <div key={field.id} className="grid grid-cols-[1fr_110px_100px_80px_90px_36px] gap-2 items-center">
                       <Input
                         placeholder="Description"
                         className="h-9 text-sm"
                         {...register(`items.${index}.description`, { required: true })}
                       />
+                      <Select
+                        value={watchedItems[index]?.frequency || "Once Off"}
+                        onValueChange={(v) => setValue(`items.${index}.frequency`, v)}
+                      >
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Once Off">Once Off</SelectItem>
+                          <SelectItem value="Monthly">Monthly</SelectItem>
+                          <SelectItem value="Annual">Annual</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Input
                         type="number"
                         step="0.01"
