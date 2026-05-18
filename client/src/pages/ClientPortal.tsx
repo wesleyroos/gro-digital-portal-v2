@@ -24,7 +24,7 @@ function generatePassword(): string {
 }
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
-import { Plus, Shuffle, Copy, Send, MoreHorizontal, Pencil, Printer, CreditCard, Loader2 } from "lucide-react";
+import { Plus, Shuffle, Copy, Send, MoreHorizontal, Pencil, Printer, CreditCard, Loader2, CalendarClock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1430,6 +1430,9 @@ export default function ClientPortal() {
               </DialogContent>
             </Dialog>
 
+            {/* Monthly auto-invoice + Scheduled invoices */}
+            <div className="grid grid-cols-2 gap-4 items-start">
+
             {/* Monthly auto-invoice config */}
             <Card className="shadow-sm">
               <CardContent className="p-5">
@@ -1599,6 +1602,44 @@ export default function ClientPortal() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Scheduled invoices */}
+            <Card className="shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <CalendarClock className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-sm font-semibold">Scheduled Sends</p>
+                </div>
+                {(() => {
+                  const scheduled = invoices?.filter(i => (i as any).scheduledSendDate) || [];
+                  if (scheduled.length === 0) {
+                    return <p className="text-xs text-muted-foreground">No invoices scheduled to send.</p>;
+                  }
+                  return (
+                    <div className="space-y-2">
+                      {scheduled.map(inv => (
+                        <div key={inv.id} className="flex items-center justify-between gap-2 text-xs">
+                          <div className="min-w-0">
+                            <a href={`/client/${slug}/invoice/${inv.invoiceNumber}`} className="font-mono font-medium text-primary hover:underline">
+                              {inv.invoiceNumber}
+                            </a>
+                            <p className="text-muted-foreground truncate">{inv.clientEmail || "—"}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-medium text-foreground">
+                              {new Date((inv as any).scheduledSendDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                            </p>
+                            <p className="text-muted-foreground font-mono">R{parseFloat(String(inv.totalAmount)).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+
+            </div>{/* end grid */}
 
             {invoices?.length === 0 && (
               <div className="text-center py-12">
