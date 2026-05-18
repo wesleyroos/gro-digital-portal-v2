@@ -297,7 +297,7 @@ export default function Invoice() {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
-                          setScheduledDateDraft((data.invoice as any).scheduledSendDate?.slice(0, 10) || "");
+                          setScheduledDateDraft((data.invoice as any).scheduledSendDate ? new Date((data.invoice as any).scheduledSendDate).toISOString().slice(0, 10) : "" || "");
                           setRepeatMonthlyDraft(!!(data.invoice as any).repeatMonthly);
                           setSchedulingDialog(true);
                         }}

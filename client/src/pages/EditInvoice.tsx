@@ -117,7 +117,7 @@ export default function EditInvoice() {
       paymentReference: invoice.paymentReference || "",
       paymentUrl: invoice.paymentUrl || "",
       notes: invoice.notes || "",
-      scheduledSendDate: (invoice as any).scheduledSendDate?.slice(0, 10) || "",
+      scheduledSendDate: (invoice as any).scheduledSendDate ? new Date((invoice as any).scheduledSendDate).toISOString().slice(0, 10) : "",
       repeatMonthly: !!(invoice as any).repeatMonthly,
       items: items.map(i => ({
         description: i.description,
