@@ -88,14 +88,16 @@ function formatCurrency(value: string | number | null | undefined): string {
   return `R${num.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, scheduledSendDate }: { status: string; scheduledSendDate?: string | null }) {
   const config: Record<string, { label: string; className: string }> = {
     draft: { label: "Draft", className: "bg-gray-100 text-gray-700 border-gray-200" },
     sent: { label: "Awaiting Payment", className: "bg-amber-50 text-amber-700 border-amber-200" },
     paid: { label: "Paid", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
     overdue: { label: "Overdue", className: "bg-red-50 text-red-700 border-red-200" },
+    scheduled: { label: "Scheduled", className: "bg-blue-50 text-blue-700 border-blue-200" },
   };
-  const c = config[status] || config.sent;
+  const isScheduled = scheduledSendDate && status !== "paid" && new Date(scheduledSendDate) > new Date();
+  const c = config[isScheduled ? "scheduled" : status] || config.sent;
   return (
     <Badge variant="outline" className={`${c.className} text-[10px] font-medium px-2 py-0.5`}>
       {c.label}
@@ -491,7 +493,7 @@ export default function ClientPortal() {
                         <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-lg font-bold font-mono text-primary">{formatCurrency(inv.totalAmount)}</span>
-                          <StatusBadge status={inv.status} />
+                          <StatusBadge status={inv.status} scheduledSendDate={(inv as any).scheduledSendDate} />
                         </div>
                         {parseFloat(String(inv.amountDue)) !== parseFloat(String(inv.totalAmount)) && (
                           <p className="text-xs text-muted-foreground mt-1.5 font-mono">Due: {formatCurrency(inv.amountDue)}</p>
@@ -522,7 +524,7 @@ export default function ClientPortal() {
                         <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-lg font-bold font-mono text-blue-700">{formatCurrency(inv.totalAmount)}<span className="text-xs font-normal text-muted-foreground">/mo</span></span>
-                          <StatusBadge status={inv.status} />
+                          <StatusBadge status={inv.status} scheduledSendDate={(inv as any).scheduledSendDate} />
                         </div>
                       </CardContent>
                     </Card>
@@ -550,7 +552,7 @@ export default function ClientPortal() {
                         <p className="text-xs text-muted-foreground mb-3">{inv.projectName}</p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-lg font-bold font-mono text-purple-700">{formatCurrency(inv.totalAmount)}<span className="text-xs font-normal text-muted-foreground">/yr</span></span>
-                          <StatusBadge status={inv.status} />
+                          <StatusBadge status={inv.status} scheduledSendDate={(inv as any).scheduledSendDate} />
                         </div>
                       </CardContent>
                     </Card>
