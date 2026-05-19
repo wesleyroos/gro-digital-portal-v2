@@ -558,7 +558,10 @@ export const appRouter = router({
     sendEmail: adminProcedure
       .input(z.object({
         invoiceId: z.number(),
-        recipientEmail: z.string().email(),
+        recipientEmail: z.string().refine(
+          (val) => val.split(',').map(s => s.trim()).filter(Boolean).every(e => z.string().email().safeParse(e).success),
+          { message: "Invalid email address" }
+        ),
       }))
       .mutation(async ({ input, ctx }) => {
         const baseUrl = `${ctx.req.protocol}://${ctx.req.get('host')}`;
