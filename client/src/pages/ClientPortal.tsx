@@ -1413,12 +1413,12 @@ export default function ClientPortal() {
                           lineItems: mandateLineItems.map(i => ({ description: i.description, amount: i.amount, interval: i.interval, nextBillingDate: i.nextBillingDate || new Date().toISOString().slice(0, 10) })),
                         });
                       } else {
-                        const clientEmail = profile?.email ?? "";
-                        if (!clientEmail) { toast.error("Client has no email on file"); return; }
+                        const emailForMandate = profile?.email || clientEmailFromInvoices || "";
+                        if (!emailForMandate) { toast.error("Client has no email on file"); return; }
                         createMandate.mutate({
                           clientSlug: slug,
                           clientName: profile?.name ?? slug,
-                          clientEmail,
+                          clientEmail: emailForMandate,
                           startDate: mandateStartDate,
                           chargeOnSetup: mandateChargeOnSetup,
                           lineItems: mandateLineItems.map(i => ({ description: i.description, amount: i.amount, interval: i.interval, nextBillingDate: i.nextBillingDate || undefined })),
