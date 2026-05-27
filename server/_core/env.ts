@@ -25,6 +25,7 @@ export const ENV = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  falApiKey: process.env.FAL_API_KEY ?? "",
   r2AccessKeyId: process.env.R2_ACCESS_KEY_ID ?? "",
   r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? "",
   r2Endpoint: process.env.R2_ENDPOINT ?? "",

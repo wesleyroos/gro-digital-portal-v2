@@ -1,7 +1,7 @@
 import { storagePut } from 'server/storage';
 import { ENV } from './env';
 
-export type ImageModel = 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
+export type ImageModel = 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1' | 'flux-2-pro' | 'ideogram-v3';
 
 export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9';
 
@@ -27,6 +27,20 @@ const GEMINI_RATIO_HINTS: Record<AspectRatio, string> = {
   '16:9': 'landscape 16:9 aspect ratio',
 };
 
+const FLUX_IMAGE_SIZES: Record<AspectRatio, string | { width: number; height: number }> = {
+  '1:1':  'square_hd',
+  '4:5':  { width: 820, height: 1024 },
+  '9:16': 'portrait_16_9',
+  '16:9': 'landscape_16_9',
+};
+
+const IDEOGRAM_ASPECT_RATIOS: Record<AspectRatio, string> = {
+  '1:1':  '1:1',
+  '4:5':  '4:5',
+  '9:16': '9:16',
+  '16:9': '16:9',
+};
+
 export type GenerateImageOptions = {
   prompt: string;
   model?: ImageModel;
@@ -47,6 +61,12 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
   }
   if (model === 'gpt-image-1') {
     return generateWithGptImage1(options.prompt, ratio, options.referenceImages);
+  }
+  if (model === 'flux-2-pro') {
+    return generateWithFlux2Pro(options.prompt, ratio);
+  }
+  if (model === 'ideogram-v3') {
+    return generateWithIdeogram(options.prompt, ratio);
   }
   return generateWithDallE(options.prompt, ratio, options.referenceImages);
 }
@@ -254,6 +274,78 @@ async function generateWithGptImage1(prompt: string, aspectRatio: AspectRatio, r
 
   const buffer = Buffer.from(b64, 'base64');
   const { url } = await storagePut(`generated/${Date.now()}.png`, buffer, 'image/png');
+  return { url };
+}
+
+async function generateWithFlux2Pro(prompt: string, aspectRatio: AspectRatio): Promise<GenerateImageResponse> {
+  if (!ENV.falApiKey) throw new Error('FAL_API_KEY is not configured');
+
+  const response = await fetch('https://fal.run/fal-ai/flux-pro/v1.1', {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${ENV.falApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      prompt,
+      image_size: FLUX_IMAGE_SIZES[aspectRatio],
+      num_images: 1,
+      safety_tolerance: '2',
+    }),
+    signal: AbortSignal.timeout(120_000),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`FLUX 2 Pro generation failed (${response.status}): ${detail}`);
+  }
+
+  const result = await response.json() as { images: Array<{ url: string; content_type?: string }> };
+  const imageUrl = result.images[0]?.url;
+  if (!imageUrl) throw new Error('fal.ai returned no image');
+
+  const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
+  if (!imgRes.ok) throw new Error('Could not fetch generated image from fal.ai');
+  const mimeType = imgRes.headers.get('content-type') ?? 'image/jpeg';
+  const ext = mimeType.split('/')[1] ?? 'jpg';
+  const buffer = Buffer.from(await imgRes.arrayBuffer());
+  const { url } = await storagePut(`generated/${Date.now()}.${ext}`, buffer, mimeType);
+  return { url };
+}
+
+async function generateWithIdeogram(prompt: string, aspectRatio: AspectRatio): Promise<GenerateImageResponse> {
+  if (!ENV.falApiKey) throw new Error('FAL_API_KEY is not configured');
+
+  const response = await fetch('https://fal.run/fal-ai/ideogram/v3', {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${ENV.falApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      prompt,
+      aspect_ratio: IDEOGRAM_ASPECT_RATIOS[aspectRatio],
+      rendering_speed: 'QUALITY',
+      magic_prompt_option: 'AUTO',
+    }),
+    signal: AbortSignal.timeout(120_000),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Ideogram v3 generation failed (${response.status}): ${detail}`);
+  }
+
+  const result = await response.json() as { images: Array<{ url: string; content_type?: string }> };
+  const imageUrl = result.images[0]?.url;
+  if (!imageUrl) throw new Error('fal.ai returned no image');
+
+  const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
+  if (!imgRes.ok) throw new Error('Could not fetch generated image from fal.ai');
+  const mimeType = imgRes.headers.get('content-type') ?? 'image/jpeg';
+  const ext = mimeType.split('/')[1] ?? 'jpg';
+  const buffer = Buffer.from(await imgRes.arrayBuffer());
+  const { url } = await storagePut(`generated/${Date.now()}.${ext}`, buffer, mimeType);
   return { url };
 }
 

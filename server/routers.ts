@@ -1078,7 +1078,7 @@ export const appRouter = router({
     setImageModel: protectedProcedure
       .input(z.object({
         id: z.number().int(),
-        imageModel: z.enum(['dall-e-3', 'nano-banana-2', 'gpt-image-1']),
+        imageModel: z.enum(['dall-e-3', 'nano-banana-2', 'gpt-image-1', 'flux-2-pro', 'ideogram-v3']),
       }))
       .mutation(async ({ ctx, input }) => {
         const campaign = await getCampaignById(input.id);
@@ -1237,7 +1237,7 @@ export const appRouter = router({
           ]);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
           assertCampaignAccess(ctx.user, campaign.clientSlug);
-          const model = (campaign.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
+          const model = (campaign.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1' | 'flux-2-pro' | 'ideogram-v3';
           const style = campaign.imageStyle ?? '';
           const aspectRatio = (campaign.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
           const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));
@@ -1257,7 +1257,7 @@ export const appRouter = router({
           ]);
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND', message: 'Campaign not found' });
           assertCampaignAccess(ctx.user, campaign.clientSlug);
-          const model = (campaign.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1';
+          const model = (campaign.imageModel ?? 'dall-e-3') as 'dall-e-3' | 'nano-banana-2' | 'gpt-image-1' | 'flux-2-pro' | 'ideogram-v3';
           const style = campaign.imageStyle ?? '';
           const aspectRatio = (campaign.imageAspectRatio ?? '1:1') as '1:1' | '4:5' | '9:16' | '16:9';
           const referenceImages = assets.filter(a => a.aiDescription).map(a => ({ url: a.url, description: a.aiDescription! }));
