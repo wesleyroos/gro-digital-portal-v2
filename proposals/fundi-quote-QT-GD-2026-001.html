@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gro Digital — Quote — QT-GD-2026-001</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    @page { size: A4; margin: 18mm 18mm 16mm; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 11px;
+      color: #111;
+      background: #fff;
+      line-height: 1.55;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 0 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .doc-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #111;
+    }
+
+    .logo-lockup { display: inline-flex; align-items: center; gap: 0; font-family: 'Inter', sans-serif; }
+    .logo-box { border: 1.5px solid #111; padding: 3px 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; line-height: 1; color: #111; }
+    .logo-word { font-size: 12px; font-weight: 400; letter-spacing: 0.02em; color: #111; padding-left: 4px; }
+    .doc-title { font-size: 20px; font-weight: 700; color: #111; letter-spacing: -0.02em; line-height: 1; }
+
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 28px; }
+    .meta-cell { padding: 12px 0; border-bottom: 1px solid #e8e8e8; }
+    .meta-cell:nth-child(odd) { padding-right: 32px; }
+    .meta-cell:nth-child(even) { padding-left: 24px; border-left: 1px solid #e8e8e8; }
+    .meta-label { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 4px; }
+    .meta-value { font-size: 11.5px; color: #111; line-height: 1.6; }
+    .meta-value strong { font-weight: 600; }
+
+    .section-head { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #111; padding-bottom: 7px; border-bottom: 1.5px solid #111; margin-bottom: 0; }
+    .section-gap { margin-top: 28px; }
+
+    table.items { width: 100%; border-collapse: collapse; }
+    table.items th { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #666; padding: 9px 0 8px; text-align: left; border-bottom: 1px solid #ddd; }
+    table.items th.center { text-align: center; }
+    table.items th.right  { text-align: right; }
+    table.items td { padding: 10px 0; font-size: 11px; color: #111; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    table.items td.desc { padding-right: 20px; }
+    table.items td.desc .sub { display: block; font-size: 9.5px; color: #777; margin-top: 3px; line-height: 1.6; }
+    table.items td.freq  { text-align: center; color: #555; white-space: nowrap; }
+    table.items td.vat   { text-align: center; color: #555; }
+    table.items td.price { text-align: right; font-weight: 500; white-space: nowrap; }
+    table.items td.gifted { text-align: right; color: #059669; font-weight: 600; white-space: nowrap; }
+
+    table.items tr.total td { padding: 11px 0; border-top: 1.5px solid #111; border-bottom: 2px solid #111; font-size: 12.5px; font-weight: 700; color: #111; }
+
+    .scope-note { font-size: 10px; color: #555; background: #fafafa; border-left: 2px solid #ddd; padding: 9px 13px; margin-top: 10px; line-height: 1.65; }
+    .scope-note strong { color: #111; font-weight: 600; }
+
+    .gifted-note { font-size: 10px; color: #059669; background: #f0fdf4; border-left: 2px solid #86efac; padding: 9px 13px; margin-top: 10px; line-height: 1.65; }
+    .gifted-note strong { font-weight: 600; }
+
+    .payment-strip { display: flex; gap: 0; margin-top: 10px; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
+    .payment-cell { flex: 1; padding: 10px 16px; border-right: 1px solid #e0e0e0; }
+    .payment-cell:last-child { border-right: none; }
+    .payment-cell .plabel { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 3px; }
+    .payment-cell .pval   { font-size: 11px; font-weight: 600; color: #111; }
+    .payment-cell .psub   { font-size: 9.5px; color: #777; margin-top: 2px; }
+
+    .terms-intro { font-size: 10.5px; color: #444; margin-bottom: 10px; line-height: 1.6; }
+
+    ol.terms { list-style: none; padding: 0; counter-reset: term-counter; }
+    ol.terms li { counter-increment: term-counter; font-size: 10.5px; color: #333; padding: 8px 0 8px 28px; border-bottom: 1px solid #f2f2f2; line-height: 1.65; position: relative; }
+    ol.terms li:last-child { border-bottom: none; }
+    ol.terms li::before { content: counter(term-counter) "."; position: absolute; left: 0; top: 8px; font-size: 10.5px; font-weight: 700; color: #111; width: 22px; }
+    ol.terms li strong { font-weight: 700; color: #111; }
+
+    .sig-block { page-break-inside: avoid; }
+    .sig-warrant { font-size: 11px; color: #222; line-height: 1.8; margin-bottom: 28px; }
+    .sig-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 24px; }
+    .sig-field .sig-line { border-bottom: 1px solid #111; height: 34px; margin-bottom: 5px; }
+    .sig-field .sig-label { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #999; }
+    .sig-date { font-size: 11px; color: #222; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .blank-sm { display: inline-block; width: 48px; border-bottom: 1px solid #111; height: 16px; vertical-align: bottom; }
+    .blank-md { display: inline-block; width: 120px; border-bottom: 1px solid #111; height: 16px; vertical-align: bottom; }
+
+    .doc-footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+    .doc-footer .footer-text { font-size: 9px; color: #bbb; line-height: 1.7; }
+    .doc-footer .footer-logo { font-size: 10px; color: #bbb; font-weight: 500; letter-spacing: 0.04em; }
+    .doc-footer .footer-logo span { display: inline-flex; align-items: center; gap: 3px; }
+    .doc-footer .footer-logo .fb { border: 1px solid #ccc; padding: 1px 4px; font-size: 9px; font-weight: 700; color: #bbb; }
+
+    @media print {
+      body { padding: 0; max-width: 100%; }
+      .section-gap { margin-top: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="logo-lockup">
+      <div class="logo-box">GRO</div>
+      <div class="logo-word">digital</div>
+    </div>
+    <div class="doc-title">Quote</div>
+  </div>
+
+  <!-- Meta -->
+  <div class="meta-grid">
+    <div class="meta-cell">
+      <div class="meta-label">Client</div>
+      <div class="meta-value">
+        <strong>Fundi Capital (Pty) Ltd</strong><br />
+        Benedict Johnson
+      </div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Valid Until</div>
+      <div class="meta-value">30 June 2026</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Service Provider</div>
+      <div class="meta-value">
+        Gro Digital (Pty) Ltd<br />
+        Darter Studios, Darter Road<br />
+        Longkloof, Gardens, Cape Town, 8001
+      </div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Reference</div>
+      <div class="meta-value">QT-GD-2026-001</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Quote Date</div>
+      <div class="meta-value">8 May 2026</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Primary Contact</div>
+      <div class="meta-value">
+        Benedict Johnson<br />
+        Executive Head: EBS &amp; New Initiatives
+      </div>
+    </div>
+  </div>
+
+  <div class="scope-note" style="margin-bottom: 28px;">
+    <strong>Context:</strong> This quote covers work completed by Gro Digital on behalf of Fundi Capital above and beyond the existing R40,000/month advisory retainer. It is presented for internal approval, after which a formal tax invoice will be issued. All work listed under Section 2 has been completed and delivered in full.
+  </div>
+
+  <!-- Section 1: Complimentary -->
+  <div class="section-head">Complimentary Work — Gifted</div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th class="desc">Description</th>
+        <th class="center">Type</th>
+        <th class="center">VAT</th>
+        <th class="right">Amount (R)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="desc">
+          BSP Product Audit
+          <span class="sub">Comprehensive audit of the Bursary Support Programme product. Review of fund administration processes, disbursement workflows, B2B corporate client experience, student support programme, and operational efficiency. Multiple stakeholder sessions. Findings report produced.</span>
+        </td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="gifted">Gifted</td>
+      </tr>
+      <tr>
+        <td class="desc">
+          FundiShop Product Audit
+          <span class="sub">Multi-month deep-dive audit of the FundiShop platform. Extensive stakeholder sessions across multiple Fundi departments. End-to-end mapping of the device loan funnel, call centre handoff analysis, UX and conversion assessment, bottleneck identification. Full findings presented to Fundi Exco.</span>
+        </td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="gifted">Gifted</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="total">
+        <td class="desc" colspan="3"><strong>Total — Complimentary</strong></td>
+        <td class="price" style="color: #059669;"><strong>R0</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="gifted-note">
+    The above work was completed during Wesley Roos's personal employment period at Fundi Capital, prior to the establishment of the Gro Digital consulting arrangement. These items are included for transparency only. Gro Digital is not charging for employment-era work. Combined market value of gifted work: <strong>R120,000</strong>.
+  </div>
+
+  <!-- Section 2: Billable -->
+  <div class="section-gap">
+    <div class="section-head">Billable Work — Development Deliverables</div>
+  </div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th class="desc">Description</th>
+        <th class="center">Type</th>
+        <th class="center">VAT</th>
+        <th class="right">Amount (R)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="desc">
+          bursaries.co.za — Complete Rebuild
+          <span class="sub">Full rebuild of bursaries.co.za. New React/Next.js architecture replacing a slow, manually maintained WordPress site. Self-updating via Firecrawl integration — 190+ bursaries across 9 provinces now refresh automatically, eliminating weeks of manual work annually. SEO-optimised, fast-loading, deployed to Fly.io.</span>
+        </td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="price">12&thinsp;000,00</td>
+      </tr>
+      <tr>
+        <td class="desc">
+          FundiShop — Platform Rebuild
+          <span class="sub">Full rebuild of the FundiShop platform following the product audit. Commenced with in-depth analysis of the existing legacy codebase to understand prior architectural decisions. New architecture, significantly improved UX, clean implementation, and deployment.</span>
+        </td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="price">25&thinsp;000,00</td>
+      </tr>
+      <tr>
+        <td class="desc">
+          MyFundi — Platform Build (Initial Phase)
+          <span class="sub">Full-time build of the MyFundi platform, commenced 7 May 2026. A real-time dashboard giving Fundi leadership and Exco a single view across all business units, products, and key metrics. Built using agentic AI development tooling. Included multiple late nights and overtime sessions. Demoed to Benedict Johnson and approved for Exco presentation. This quote covers the initial build phase only — ongoing development continues under the monthly retainer.</span>
+        </td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="price">50&thinsp;000,00</td>
+      </tr>
+      <tr>
+        <td class="desc">
+          FundiJobs — Initial Build
+          <span class="sub">Initial development of FundiJobs — a job listings and matching platform for the Fundi student ecosystem. Approximately 3 days of active development to date. Remaining development will continue under the monthly retainer arrangement.</span>
+        </td>
+        <td class="freq">Once-off</td>
+        <td class="vat">No VAT</td>
+        <td class="price">10&thinsp;000,00</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="total">
+        <td class="desc" colspan="3"><strong>Total</strong></td>
+        <td class="price"><strong>97&thinsp;000,00</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="scope-note">
+    <strong>Note on MyFundi:</strong> A traditional development agency would have taken 12–18 months and charged R3–5 million to deliver a platform of this scope. Gro Digital built the initial platform in under one month. This quote reflects honest, fair pricing for the work completed — not what the market would have charged.
+  </div>
+
+  <!-- Payment terms -->
+  <div class="payment-strip" style="margin-top: 14px;">
+    <div class="payment-cell">
+      <div class="plabel">Total due</div>
+      <div class="pval">R97,000.00</div>
+    </div>
+    <div class="payment-cell">
+      <div class="plabel">Payment terms</div>
+      <div class="pval">30 days from invoice date</div>
+      <div class="psub">Payment by EFT</div>
+    </div>
+    <div class="payment-cell">
+      <div class="plabel">SARS — Source code 3616</div>
+      <div class="pval">PAYE withheld at 25%</div>
+      <div class="psub">Withheld: R24,250 &nbsp;·&nbsp; Net payable: R72,750</div>
+    </div>
+  </div>
+
+  <!-- Terms -->
+  <div class="section-gap">
+    <div class="section-head">Terms and Conditions</div>
+  </div>
+
+  <p class="terms-intro" style="margin-top: 10px;">
+    By signing this quote, the authorised representative of Fundi Capital (Pty) Ltd confirms acceptance of the deliverables described above and authorises Gro Digital to issue a formal tax invoice for the amount of R97,000.00.
+  </p>
+
+  <ol class="terms">
+    <li>
+      <strong>Retrospective billing.</strong> The work described in Section 2 has been completed and delivered in full prior to the date of this document. The Client acknowledges receipt and acceptance of all deliverables listed. This quote is presented for internal approval; a formal tax invoice will be issued upon written approval.
+    </li>
+    <li>
+      <strong>Payment.</strong> Payment of R97,000.00 is due by EFT within 30 days of invoice date. This invoice is rendered under SARS source code 3616 (Independent Contractor). Fundi Capital is required to withhold PAYE at 25% (R24,250.00) and remit the net amount of R72,750.00 to Gro Digital; the withheld portion must be paid to SARS on behalf of the contractor.
+    </li>
+    <li>
+      <strong>Complimentary work.</strong> The items listed under Section 1 — the BSP Product Audit and FundiShop Product Audit — are provided at no charge. These items are included for transparency only and carry no payment obligation.
+    </li>
+    <li>
+      <strong>Ongoing work.</strong> The FundiJobs build and MyFundi platform are ongoing. This quote covers work completed to date. Continued development will be covered under a separate monthly retainer arrangement to be formalised between the parties.
+    </li>
+    <li>
+      <strong>Intellectual property.</strong> All intellectual property developed by Gro Digital specifically for the Client under this engagement transfers to Fundi Capital upon receipt of full payment. Gro Digital retains the right to reference the engagement in general terms in its portfolio, unless the Client requests otherwise in writing.
+    </li>
+    <li>
+      <strong>Confidentiality.</strong> Both parties agree to treat as confidential all commercially sensitive information shared during the course of this engagement. This obligation survives the termination of this agreement.
+    </li>
+    <li>
+      <strong>Limitation of liability.</strong> Gro Digital's total liability to the Client for any claim arising under or in connection with this agreement is limited to the total value of fees paid by the Client to Gro Digital in the three months immediately preceding the event giving rise to the claim. Gro Digital is not liable for indirect, consequential, or loss-of-profit damages.
+    </li>
+    <li>
+      <strong>Governing law.</strong> This agreement is governed by and construed in accordance with the laws of the Republic of South Africa. Any disputes arising from this agreement will be subject to the jurisdiction of the South African courts.
+    </li>
+  </ol>
+
+  <!-- Signature -->
+  <div class="section-gap sig-block">
+    <div class="section-head">Acceptance</div>
+  </div>
+
+  <p class="sig-warrant" style="margin-top: 10px;">
+    By signing below, the authorised representative of Fundi Capital (Pty) Ltd confirms acceptance of the deliverables described in this quote and authorises the issuance of a formal tax invoice for the amount of <strong>R97,000.00</strong> (ninety-seven thousand rand).
+  </p>
+
+  <div class="sig-fields">
+    <div class="sig-field">
+      <div class="sig-line"></div>
+      <div class="sig-label">Authorised Signatory — Fundi Capital (Pty) Ltd</div>
+    </div>
+    <div class="sig-field">
+      <div class="sig-line"></div>
+      <div class="sig-label">Name &amp; Title</div>
+    </div>
+  </div>
+
+  <p class="sig-date">
+    Signed at <span class="blank-md"></span> on the <span class="blank-sm"></span> day of <span class="blank-md"></span> 2026.
+  </p>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <div class="footer-text">
+      Gro Digital (Pty) Ltd &nbsp;·&nbsp; Reg. 2020/064443/07<br />
+      Darter Studios, Darter Road, Longkloof, Gardens, Cape Town, 8001<br />
+      wesley@grodigital.co.za &nbsp;·&nbsp; +27 72 484 9014
+    </div>
+    <div class="footer-logo">
+      <span><span class="fb">GRO</span> digital</span>
+    </div>
+  </div>
+
+</body>
+</html>
