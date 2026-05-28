@@ -26,6 +26,7 @@ import Quotes from "./pages/Quotes";
 import SharedQuote from "./pages/SharedQuote";
 import ClientAnalytics from "./pages/ClientAnalytics";
 import Login from "./pages/Login";
+import RateCard from "./pages/RateCard";
 import Marketing from "./pages/Marketing";
 import MarketingCampaignWorkspace from "./pages/MarketingCampaignWorkspace";
 import CampaignPreview from "./pages/CampaignPreview";
@@ -50,6 +51,9 @@ function Router() {
     <Switch>
       {/* Auth */}
       <Route path={"/login"} component={Login} />
+
+      {/* Public routes — no auth */}
+      <Route path={"/rates"} component={RateCard} />
 
       {/* Public client-facing routes — no sidebar */}
       <Route path={"/client/:slug/invoice/:invoiceNumber"} component={Invoice} />
