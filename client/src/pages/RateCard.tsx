@@ -644,6 +644,71 @@ export default function RateCard() {
           </div>
         </section>
 
+        {/* ── AD HOC RATES ──────────────────────────────────── */}
+        <section style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <div className="gd-wrap" style={{ maxWidth: 980, margin: "0 auto", padding: "72px 48px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: FAINT }}>Ad hoc rates</span>
+              <div style={{ flex: 1, height: 1, background: BORDER }} />
+            </div>
+            <div style={{ marginBottom: 36 }}>
+              <h2 style={{ fontSize: "clamp(20px, 2.5vw, 26px)", fontWeight: 800, letterSpacing: "-0.03em", color: TEXT, margin: "0 0 10px" }}>
+                Not on a retainer?
+              </h2>
+              <p style={{ fontSize: 14, color: MUTED, lineHeight: 1.7, maxWidth: 480, margin: 0 }}>
+                For once-off projects, short engagements, or work outside a retainer scope, we bill at the following standard rates.
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+              {/* Column headers */}
+              <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 110px 115px", gap: "0 24px", paddingBottom: 10, borderBottom: `1px solid ${BORDER}`, marginBottom: 0 }}>
+                <div />
+                <div style={{ textAlign: "right", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: FAINT }}>Per Hour</div>
+                <div style={{ textAlign: "right", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: FAINT }}>Per Day</div>
+              </div>
+
+              {/* Rate rows */}
+              {[...services, { index: "06", name: "Hosting & Infrastructure", desc: "Per platform managed", hourly: null, daily: null, monthly: "6,000" }].map((s: any) => (
+                <div key={s.index} style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 110px 115px", gap: "0 24px", padding: "16px 0", borderBottom: `1px solid ${BORDER}`, alignItems: "center" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                      <span style={{ fontSize: 10, color: FAINT, minWidth: 20 }}>{s.index}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: TEXT, letterSpacing: "-0.01em" }}>{s.name}</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    {s.hourly ? (
+                      <>
+                        <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.03em", color: TEXT }}>R{s.hourly}</span>
+                        <span style={{ fontSize: 10, color: FAINT }}>/hr</span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.03em", color: TEXT }}>R{s.monthly}</span>
+                    )}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    {s.daily ? (
+                      <>
+                        <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.03em", color: BLUE }}>R{s.daily}</span>
+                        <span style={{ fontSize: 10, color: FAINT }}>/day</span>
+                      </>
+                    ) : s.monthly ? (
+                      <span style={{ fontSize: 11, color: FAINT }}>/month</span>
+                    ) : (
+                      <span style={{ fontSize: 15, color: FAINT }}>—</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ fontSize: 12, color: FAINT, marginTop: 14 }}>
+              A day rate assumes 8 hours. Retainer clients receive 25–30% off these rates.
+            </p>
+          </div>
+        </section>
+
         {/* ── CTA ───────────────────────────────────────────── */}
         <section>
           <div className="gd-wrap" style={{ maxWidth: 980, margin: "0 auto", padding: "56px 48px" }}>
