@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gro Digital — Monthly Retainer Proposal — Fundi Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    @page { size: A4; margin: 18mm 18mm 16mm; }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 11px;
+      color: #111;
+      background: #fff;
+      line-height: 1.55;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 0 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .doc-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #111;
+    }
+
+    .logo-lockup { display: inline-flex; align-items: center; gap: 0; font-family: 'Inter', sans-serif; }
+    .logo-box { border: 1.5px solid #111; padding: 3px 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; line-height: 1; color: #111; }
+    .logo-word { font-size: 12px; font-weight: 400; letter-spacing: 0.02em; color: #111; padding-left: 4px; }
+    .doc-title { font-size: 20px; font-weight: 700; color: #111; letter-spacing: -0.02em; line-height: 1; }
+
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 32px; }
+    .meta-cell { padding: 12px 0; border-bottom: 1px solid #e8e8e8; }
+    .meta-cell:nth-child(odd) { padding-right: 32px; }
+    .meta-cell:nth-child(even) { padding-left: 24px; border-left: 1px solid #e8e8e8; }
+    .meta-label { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 4px; }
+    .meta-value { font-size: 11.5px; color: #111; line-height: 1.6; }
+    .meta-value strong { font-weight: 600; }
+
+    .section-head { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #111; padding-bottom: 7px; border-bottom: 1.5px solid #111; margin-bottom: 0; }
+    .section-gap { margin-top: 28px; }
+
+    table.items { width: 100%; border-collapse: collapse; }
+    table.items th { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #666; padding: 9px 0 8px; text-align: left; border-bottom: 1px solid #ddd; }
+    table.items th.right { text-align: right; }
+    table.items th.center { text-align: center; }
+    table.items td { padding: 10px 0; font-size: 11px; color: #111; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    table.items td.desc { padding-right: 16px; }
+    table.items td.desc .sub { display: block; font-size: 9.5px; color: #777; margin-top: 3px; line-height: 1.6; }
+    table.items td.center { text-align: center; color: #555; }
+    table.items td.price { text-align: right; font-weight: 500; white-space: nowrap; }
+    table.items td.tag { text-align: center; white-space: nowrap; }
+
+    .badge { display: inline-block; font-size: 9px; font-weight: 600; padding: 2px 8px; border-radius: 3px; letter-spacing: 0.03em; }
+    .badge-dev { background: #EFF6FF; color: #1D4ED8; }
+    .badge-maint { background: #F0FDF4; color: #166534; }
+    .badge-both { background: #FFF7ED; color: #C2410C; }
+    .badge-partner { background: #FAF5FF; color: #7E22CE; }
+    .badge-excl { background: #F9FAFB; color: #9CA3AF; }
+
+    table.items tr.total td { padding: 11px 0; border-top: 1.5px solid #111; border-bottom: 2px solid #111; font-size: 12.5px; font-weight: 700; color: #111; }
+
+    .scope-note { font-size: 10px; color: #555; background: #fafafa; border-left: 2px solid #ddd; padding: 9px 13px; margin-top: 10px; line-height: 1.65; }
+    .scope-note strong { color: #111; font-weight: 600; }
+
+    .excl-note { font-size: 10px; color: #555; background: #fafafa; border-left: 2px solid #ddd; padding: 9px 13px; margin-top: 0; line-height: 1.65; }
+    .excl-note strong { color: #111; font-weight: 600; }
+    .excl-note + .excl-note { margin-top: 6px; }
+
+    .payment-strip { display: flex; gap: 0; margin-top: 10px; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
+    .payment-cell { flex: 1; padding: 10px 16px; border-right: 1px solid #e0e0e0; }
+    .payment-cell:last-child { border-right: none; }
+    .payment-cell .plabel { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-bottom: 3px; }
+    .payment-cell .pval { font-size: 11px; font-weight: 600; color: #111; }
+    .payment-cell .psub { font-size: 9.5px; color: #777; margin-top: 2px; }
+
+    .terms-intro { font-size: 10.5px; color: #444; margin-bottom: 10px; line-height: 1.6; }
+
+    ol.terms { list-style: none; padding: 0; counter-reset: term-counter; }
+    ol.terms li { counter-increment: term-counter; font-size: 10.5px; color: #333; padding: 8px 0 8px 28px; border-bottom: 1px solid #f2f2f2; line-height: 1.65; position: relative; }
+    ol.terms li:last-child { border-bottom: none; }
+    ol.terms li::before { content: counter(term-counter) "."; position: absolute; left: 0; top: 8px; font-size: 10.5px; font-weight: 700; color: #111; width: 22px; }
+    ol.terms li strong { font-weight: 700; color: #111; }
+
+    .doc-footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+    .doc-footer .footer-text { font-size: 9px; color: #bbb; line-height: 1.7; }
+    .doc-footer .footer-logo { font-size: 10px; color: #bbb; font-weight: 500; letter-spacing: 0.04em; }
+    .doc-footer .footer-logo span { display: inline-flex; align-items: center; gap: 3px; }
+    .doc-footer .footer-logo .fb { border: 1px solid #ccc; padding: 1px 4px; font-size: 9px; font-weight: 700; color: #bbb; }
+
+    @media print {
+      body { padding: 0; max-width: 100%; }
+      .section-gap { margin-top: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="logo-lockup">
+      <div class="logo-box">GRO</div>
+      <div class="logo-word">digital</div>
+    </div>
+    <div class="doc-title">Monthly Retainer Proposal</div>
+  </div>
+
+  <!-- Meta -->
+  <div class="meta-grid">
+    <div class="meta-cell">
+      <div class="meta-label">Client</div>
+      <div class="meta-value">
+        <strong>Fundi Capital (Pty) Ltd</strong><br />
+        Benedict Johnson
+      </div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Proposal Date</div>
+      <div class="meta-value">29 May 2026</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Service Provider</div>
+      <div class="meta-value">
+        Gro Digital (Pty) Ltd<br />
+        Darter Studios, Darter Road<br />
+        Longkloof, Gardens, Cape Town, 8001
+      </div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Reference</div>
+      <div class="meta-value">Fundi Capital — Monthly Retainer 2026</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Proposed Start Date</div>
+      <div class="meta-value">1 June 2026</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Primary Contact</div>
+      <div class="meta-value">
+        Benedict Johnson<br />
+        Executive Head: EBS &amp; New Initiatives
+      </div>
+    </div>
+  </div>
+
+  <!-- Product scope -->
+  <div class="section-head">Product Development &amp; Maintenance</div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th class="desc">Product</th>
+        <th class="center" style="width: 110px;">Development</th>
+        <th class="center" style="width: 110px;">Maintenance</th>
+        <th class="center" style="width: 110px;">Hosting</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr>
+        <td class="desc">
+          MyFundi
+          <span class="sub">Real-time leadership and Exco dashboard across all Fundi business units and products. Active development — new modules, integrations, and features are continuously prioritised and shipped.</span>
+        </td>
+        <td class="center"><span class="badge badge-dev">Included</span></td>
+        <td class="center"><span class="badge badge-maint">Included</span></td>
+        <td class="center"><span class="badge badge-excl">Billed separately</span></td>
+      </tr>
+
+      <tr>
+        <td class="desc">
+          FundiJobs
+          <span class="sub">Job listings and matching platform for the Fundi student ecosystem. Currently in active development — initial build covered under separate retrospective quote.</span>
+        </td>
+        <td class="center"><span class="badge badge-dev">Included</span></td>
+        <td class="center"><span class="badge badge-maint">Included</span></td>
+        <td class="center"><span class="badge badge-excl">Billed separately</span></td>
+      </tr>
+
+      <tr>
+        <td class="desc">
+          bursaries.co.za
+          <span class="sub">Custom-built bursary listing platform with 190+ bursaries across 9 provinces. Self-updating via Firecrawl integration. Site is live — maintenance covers uptime, annual refresh verification, and SEO.</span>
+        </td>
+        <td class="center"><span class="badge badge-dev">Included</span></td>
+        <td class="center"><span class="badge badge-maint">Included</span></td>
+        <td class="center"><span class="badge badge-excl">Billed separately</span></td>
+      </tr>
+
+      <tr>
+        <td class="desc">
+          FundiHealth
+          <span class="sub">Fundi's health information platform, built and hosted within the Gro Digital ecosystem. Previously maintained as part of the employment arrangement — formalised here under the retainer. Covers ongoing development, uptime monitoring, and maintenance.</span>
+        </td>
+        <td class="center"><span class="badge badge-dev">Included</span></td>
+        <td class="center"><span class="badge badge-maint">Included</span></td>
+        <td class="center"><span class="badge badge-excl">Billed separately</span></td>
+      </tr>
+
+      <tr>
+        <td class="desc">
+          FundiShop <span style="font-size: 9px; color: #999;">(frontend only)</span>
+          <span class="sub">Consumer-facing FundiShop platform — frontend development, UX improvements, and maintenance. Backend and API changes are managed separately through Fundi IT. Gro Digital owns the frontend layer only.</span>
+        </td>
+        <td class="center"><span class="badge badge-dev">Included</span></td>
+        <td class="center"><span class="badge badge-maint">Included</span></td>
+        <td class="center"><span class="badge badge-excl">Billed separately</span></td>
+      </tr>
+
+      <tr>
+        <td class="desc">
+          FundiConnect
+          <span class="sub">Fundi's content and media platform (~2 million annual visits). Hosted within the Gro Digital ecosystem. Covers ongoing development, uptime monitoring, performance, and content infrastructure.</span>
+        </td>
+        <td class="center"><span class="badge badge-dev">Included</span></td>
+        <td class="center"><span class="badge badge-maint">Included</span></td>
+        <td class="center"><span class="badge badge-excl">Billed separately</span></td>
+      </tr>
+
+      <tr>
+        <td class="desc">
+          FundiMatch / FundiRecruit
+          <span class="sub">Student matching and enrolment pipeline platform, developed in partnership with Yenza. Gro Digital manages the Yenza relationship, oversees the API integration into MyFundi, and coordinates ongoing development priorities and testing.</span>
+        </td>
+        <td class="center"><span class="badge badge-dev">Included</span></td>
+        <td class="center"><span class="badge badge-maint">Included</span></td>
+        <td class="center"><span class="badge badge-excl">Billed separately</span></td>
+      </tr>
+
+    </tbody>
+    <tfoot>
+      <tr class="total">
+        <td class="desc" colspan="4"><strong>Monthly Retainer Fee</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="scope-note">
+    <strong>Maintenance includes:</strong> Server management, uptime monitoring, deployment pipeline management, domain administration, SEO health monitoring, and minor content or configuration updates across all platforms listed above.<br /><br />
+    <strong>Hosting:</strong> Not included in the retainer fee. Hosting costs are billed separately based on actual infrastructure usage, web traffic, and resource consumption per platform.<br /><br />
+    <strong>Development scope:</strong> Ongoing and reasonable product development is included for all platforms. Where a request represents a significant new scope — such as a full platform rebuild, a major new product feature, or a new integration requiring substantial dedicated effort — this will be discussed with the Client and quoted separately before commencement.
+  </div>
+
+  <!-- Not included -->
+  <div class="section-gap">
+    <div class="section-head">Not Included in This Retainer</div>
+  </div>
+
+  <div class="excl-note" style="margin-top: 10px;">
+    <strong>Go-to-Market Strategy &amp; Execution</strong> — Taking new Fundi products to market is available as a separate engagement under the Gro Digital <strong>Growth package (R300,000/month)</strong>. This covers outreach, meeting generation, launch planning, and startup-style GTM execution for products including Studii, FundiJobs, and FundiRecruit. This retainer covers build and maintenance only.
+  </div>
+
+  <div class="excl-note">
+    <strong>MyFundi WhatsApp Integration (full build-out)</strong> — A basic WhatsApp concept has been scoped and included within the initial MyFundi build. The full implementation — covering advanced business logic, automated workflows, and BSP (Business Solution Provider) relationship management with Clickatell — constitutes a significant separate engagement. This will be scoped and quoted independently once the initial concept has been validated.
+  </div>
+
+  <!-- Pricing -->
+  <div class="section-gap">
+    <div class="section-head">Monthly Fee</div>
+  </div>
+
+  <table class="items" style="margin-top: 0;">
+    <thead>
+      <tr>
+        <th class="desc">Description</th>
+        <th class="right">Amount (R)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="desc">
+          Monthly retainer — product development &amp; maintenance across all platforms listed above
+          <span class="sub">Invoiced on or before the last business day of each month. Covers all eight products and service categories as defined in this proposal.</span>
+        </td>
+        <td class="price">200&thinsp;000,00</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="total">
+        <td class="desc"><strong>Monthly Total (excl. VAT)</strong></td>
+        <td class="price"><strong>200&thinsp;000,00</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="payment-strip" style="margin-top: 14px;">
+    <div class="payment-cell">
+      <div class="plabel">Monthly fee</div>
+      <div class="pval">R200,000.00</div>
+      <div class="psub">Excl. VAT</div>
+    </div>
+    <div class="payment-cell">
+      <div class="plabel">Payment terms</div>
+      <div class="pval">7 days from invoice date</div>
+      <div class="psub">Payment by EFT</div>
+    </div>
+    <div class="payment-cell">
+      <div class="plabel">Annual value</div>
+      <div class="pval">R2,400,000.00</div>
+      <div class="psub">Based on 12-month initial term</div>
+    </div>
+  </div>
+
+  <div class="scope-note" style="margin-top: 14px;">
+    <strong>Multi-year rate protection.</strong> Clients who commit to a 2 or 3-year retainer term will have annual fee increases capped at the prevailing South African CPI (inflation) rate. Clients who opt to recontract annually are not subject to this cap — increases at renewal will reflect market rates and scope at that time. Locking in a longer term is the most effective way to protect against rate increases.
+  </div>
+
+  <!-- Terms -->
+  <div class="section-gap">
+    <div class="section-head">Terms and Conditions</div>
+  </div>
+
+  <p class="terms-intro" style="margin-top: 10px;">
+    This proposal sets out the terms governing the monthly retainer engagement between Gro Digital (Pty) Ltd and Fundi Capital (Pty) Ltd.
+  </p>
+
+  <ol class="terms">
+    <li>
+      <strong>Invoicing.</strong> Gro Digital will issue a tax invoice on or before the last business day of each month. Payment is due within 7 days of the invoice date by EFT. Overdue payments beyond 14 days may result in work being paused until the outstanding balance is settled.
+    </li>
+    <li>
+      <strong>Scope and additional work.</strong> Services will be delivered as defined in this proposal. Any requests for work that fall materially outside the defined scope will be discussed with the Client and quoted separately before commencement. Gro Digital will not proceed with out-of-scope work without prior written authorisation.
+    </li>
+    <li>
+      <strong>Initial term and renewal.</strong> The initial term of this retainer is 12 months from the commencement date, renewable by mutual written agreement. Either party may request a scope or fee review with 30 days' written notice. Clients who commit to a 2 or 3-year term will have annual fee increases capped at the prevailing South African CPI rate. Clients on annual terms are not subject to this cap — fees at renewal will reflect market rates and scope at that time.
+    </li>
+    <li>
+      <strong>Notice period.</strong> Either party may terminate this agreement with 30 days' written notice. During the notice period, Gro Digital will continue to deliver services and the Client will continue to pay the monthly fee.
+    </li>
+    <li>
+      <strong>Scaling.</strong> The scope and monthly fee may be scaled up or down by mutual written agreement with 30 days' notice. Additional capacity beyond the defined scope is available at Gro Digital's standard day rates.
+    </li>
+    <li>
+      <strong>Third-party relationships.</strong> Where Gro Digital manages third-party relationships on behalf of the Client — including the Yenza development partnership for FundiMatch/FundiRecruit — Gro Digital will act as the primary point of coordination. Any third-party costs (including Yenza development fees) are not included in this retainer and will be billed separately at cost.
+    </li>
+    <li>
+      <strong>Intellectual property.</strong> All intellectual property developed by Gro Digital for the Client under this retainer transfers to Fundi Capital upon receipt of full payment for the relevant month. Gro Digital retains the right to reference the engagement in general terms in its portfolio and marketing materials, unless the Client requests otherwise in writing.
+    </li>
+    <li>
+      <strong>Confidentiality.</strong> Both parties agree to treat as confidential all commercially sensitive information shared during the course of this engagement — including business strategies, pricing, customer data, and technical architecture. This obligation survives the termination of this agreement.
+    </li>
+    <li>
+      <strong>Limitation of liability.</strong> Gro Digital's total liability to the Client for any claim arising under or in connection with this agreement is limited to the total value of fees paid by the Client to Gro Digital in the three months immediately preceding the event giving rise to the claim. Gro Digital is not liable for indirect, consequential, or loss-of-profit damages.
+    </li>
+    <li>
+      <strong>Governing law.</strong> This agreement is governed by and construed in accordance with the laws of the Republic of South Africa. Any disputes arising from this agreement will be subject to the jurisdiction of the South African courts.
+    </li>
+  </ol>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <div class="footer-text">
+      Gro Digital (Pty) Ltd &nbsp;·&nbsp; Reg. 2020/064443/07<br />
+      Darter Studios, Darter Road, Longkloof, Gardens, Cape Town, 8001<br />
+      wesley@grodigital.co.za &nbsp;·&nbsp; +27 72 484 9014
+    </div>
+    <div class="footer-logo">
+      <span><span class="fb">GRO</span> digital</span>
+    </div>
+  </div>
+
+</body>
+</html>
