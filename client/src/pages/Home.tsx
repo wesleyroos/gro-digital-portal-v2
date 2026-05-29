@@ -139,7 +139,7 @@ export default function Home() {
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-3 sm:mb-4">
                 <Wrench className="w-3.5 h-3.5 text-emerald-600" />
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Project Fees</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Invoiced Revenue</p>
               </div>
               <p className="text-xl sm:text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.projectsCollected + metrics.projectsOutstanding)}</p>
               <p className="text-xs text-muted-foreground mt-1.5">Apr {metrics.fyStartYear} – Mar {metrics.fyStartYear + 1}</p>
@@ -213,12 +213,12 @@ export default function Home() {
                 </Card>
               )}
 
-              {/* Project Revenue */}
+              {/* Invoiced Revenue */}
               <Card className="shadow-sm">
                 <CardContent className="p-0">
                   <div className="px-6 py-4 border-b border-border flex items-center gap-2">
                     <Wrench className="w-3.5 h-3.5 text-emerald-600" />
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Project Revenue</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Invoiced Revenue</h3>
                   </div>
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-6">
