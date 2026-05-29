@@ -531,6 +531,13 @@ export async function getMetrics() {
   const arr = mrr * 12 + annualRecurring;
   const projectsCollected = parseFloat(projectsCollectedRow.total) || 0;
   const prevYearCollected = parseFloat(prevCollectedRow[0].total) || 0;
+
+  // Months elapsed in current FY (at least 1 to avoid div/0)
+  const monthsElapsed = Math.max(
+    (now.getFullYear() - fyStartYear) * 12 + now.getMonth() - 3 + 1,
+    1,
+  );
+  const avgMonthlyTotal = mrr + annualRecurring / 12 + projectsCollected / monthsElapsed;
   const projectsOutstanding = outstandingInvoices.reduce((s, i) => s + (parseFloat(String(i.amountDue)) || 0), 0);
 
   // Merge per-client recurring from subscriptions
@@ -558,6 +565,7 @@ export async function getMetrics() {
     arr,
     recurringClients: Array.from(clientMap.values()).sort((a, b) => (b.mrr + b.annual / 12) - (a.mrr + a.annual / 12)),
     // Projects
+    avgMonthlyTotal,
     fyStartYear,
     prevFyStartYear,
     projectsCollected,

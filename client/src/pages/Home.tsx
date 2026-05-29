@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  AlertCircle, CheckCircle2, Repeat, CalendarDays, Wrench,
+  AlertCircle, CheckCircle2, Repeat, CalendarDays, Wrench, TrendingUp,
   Building2, Target, Plus, ArrowUpRight, Pencil, Check, X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -106,7 +106,7 @@ export default function Home() {
 
       {/* ── Top stat row ── */}
       {metrics && user?.role === "superAdmin" && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <Card className="shadow-sm border-blue-200/80 bg-gradient-to-br from-blue-50 to-white">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-3 sm:mb-4">
@@ -155,6 +155,16 @@ export default function Home() {
               </div>
               <p className={`text-xl sm:text-3xl font-bold font-mono tracking-tight ${metrics.projectsOutstanding > 0 ? 'text-amber-600' : 'text-foreground'}`}>{fmt(metrics.projectsOutstanding)}</p>
               <p className="text-xs text-muted-foreground mt-1.5">{metrics.projectsOutstanding > 0 ? 'awaiting payment' : 'all invoices paid'}</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg / Month</p>
+              </div>
+              <p className="text-xl sm:text-3xl font-bold font-mono text-foreground tracking-tight">{fmt(metrics.avgMonthlyTotal)}</p>
+              <p className="text-xs text-muted-foreground mt-1.5">recurring + invoiced</p>
             </CardContent>
           </Card>
         </div>
