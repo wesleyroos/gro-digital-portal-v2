@@ -160,62 +160,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Two-column body ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
-
-        {/* ── Left column ── */}
-        <div className="space-y-4">
-          {metrics && (
-            <>
-              {/* Recurring by client */}
-              {metrics.recurringClients.length > 0 && (
-                <Card className="shadow-sm">
-                  <CardContent className="p-0">
-                    <div className="px-6 py-4 border-b border-border flex items-center gap-2">
-                      <Repeat className="w-3.5 h-3.5 text-blue-500" />
-                      <h3 className="text-xs font-semibold uppercase tracking-widest text-blue-600">Recurring by Client</h3>
-                    </div>
-                    <div className="divide-y divide-border">
-                      {metrics.recurringClients.map((client) => {
-                        const mrrEquiv = client.mrr + client.annual / 12;
-                        const totalMrrEquiv = metrics.mrr + metrics.annualRecurring / 12;
-                        const share = totalMrrEquiv > 0 ? (mrrEquiv / totalMrrEquiv) * 100 : 0;
-                        return (
-                          <div key={client.clientSlug} className="px-6 py-3.5 hover:bg-muted/30 transition-colors group">
-                            <div className="flex items-center justify-between mb-2">
-                              <Link href={`/client/${client.clientSlug}`}>
-                                <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors cursor-pointer">
-                                  {client.clientName}
-                                </span>
-                              </Link>
-                              <div className="flex items-center gap-4 text-xs tabular-nums">
-                                {client.mrr > 0 && (
-                                  <span className="font-mono text-foreground font-medium">
-                                    {fmt(client.mrr)}<span className="text-muted-foreground font-normal">/mo</span>
-                                  </span>
-                                )}
-                                {client.annual > 0 && (
-                                  <span className="font-mono text-muted-foreground">
-                                    {fmt(client.annual)}<span>/yr</span>
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="h-1 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-blue-400 rounded-full transition-all duration-700"
-                                style={{ width: `${share}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Invoiced Revenue */}
+      {/* ── Invoiced Revenue (full width) ── */}
+              {metrics && (
               <Card className="shadow-sm">
                 <CardContent className="p-0">
                   <div className="px-6 py-4 border-b border-border flex items-center justify-between">
@@ -375,6 +321,62 @@ export default function Home() {
                   </div>
                 </CardContent>
               </Card>
+              )}
+
+      {/* ── Two-column body ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
+
+        {/* ── Left column ── */}
+        <div className="space-y-4">
+          {metrics && (
+            <>
+              {/* Recurring by client */}
+              {metrics.recurringClients.length > 0 && (
+                <Card className="shadow-sm">
+                  <CardContent className="p-0">
+                    <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+                      <Repeat className="w-3.5 h-3.5 text-blue-500" />
+                      <h3 className="text-xs font-semibold uppercase tracking-widest text-blue-600">Recurring by Client</h3>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {metrics.recurringClients.map((client) => {
+                        const mrrEquiv = client.mrr + client.annual / 12;
+                        const totalMrrEquiv = metrics.mrr + metrics.annualRecurring / 12;
+                        const share = totalMrrEquiv > 0 ? (mrrEquiv / totalMrrEquiv) * 100 : 0;
+                        return (
+                          <div key={client.clientSlug} className="px-6 py-3.5 hover:bg-muted/30 transition-colors group">
+                            <div className="flex items-center justify-between mb-2">
+                              <Link href={`/client/${client.clientSlug}`}>
+                                <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors cursor-pointer">
+                                  {client.clientName}
+                                </span>
+                              </Link>
+                              <div className="flex items-center gap-4 text-xs tabular-nums">
+                                {client.mrr > 0 && (
+                                  <span className="font-mono text-foreground font-medium">
+                                    {fmt(client.mrr)}<span className="text-muted-foreground font-normal">/mo</span>
+                                  </span>
+                                )}
+                                {client.annual > 0 && (
+                                  <span className="font-mono text-muted-foreground">
+                                    {fmt(client.annual)}<span>/yr</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="h-1 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-400 rounded-full transition-all duration-700"
+                                style={{ width: `${share}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Clients */}
               <Link href="/clients">
