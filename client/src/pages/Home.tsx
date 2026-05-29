@@ -312,6 +312,27 @@ export default function Home() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Clients */}
+              <Link href="/clients">
+                <Card className="shadow-sm hover:shadow-md transition-all cursor-pointer group overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="bg-primary/5 border-b border-primary/10 px-5 py-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-semibold uppercase tracking-wider text-primary">Clients</span>
+                      </div>
+                      <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
+                    <div className="px-5 py-4">
+                      <p className="text-3xl font-bold font-mono tracking-tight text-foreground">
+                        {clients == null ? "–" : clients.length}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">active clients</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
             </>
           )}
         </div>
@@ -433,27 +454,6 @@ export default function Home() {
                       )}
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Clients */}
-          <Link href="/clients">
-            <Card className="shadow-sm hover:shadow-md transition-all cursor-pointer group overflow-hidden">
-              <CardContent className="p-0">
-                <div className="bg-primary/5 border-b border-primary/10 px-5 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-primary" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-primary">Clients</span>
-                  </div>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                </div>
-                <div className="px-5 py-4">
-                  <p className="text-3xl font-bold font-mono tracking-tight text-foreground">
-                    {clients == null ? "–" : clients.length}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">active clients</p>
                 </div>
               </CardContent>
             </Card>
