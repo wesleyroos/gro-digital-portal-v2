@@ -74,6 +74,8 @@ export default function Home() {
 
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [editTaskText, setEditTaskText] = useState("");
+  const [showCurrentYear, setShowCurrentYear] = useState(true);
+  const [showPrevYear, setShowPrevYear] = useState(true);
 
   const utils = trpc.useUtils();
   const setTaskDone = trpc.task.setDone.useMutation({ onSuccess: () => utils.task.list.invalidate() });
@@ -216,9 +218,27 @@ export default function Home() {
               {/* Invoiced Revenue */}
               <Card className="shadow-sm">
                 <CardContent className="p-0">
-                  <div className="px-6 py-4 border-b border-border flex items-center gap-2">
-                    <Wrench className="w-3.5 h-3.5 text-emerald-600" />
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Invoiced Revenue</h3>
+                  <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="w-3.5 h-3.5 text-emerald-600" />
+                      <h3 className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Invoiced Revenue</h3>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setShowCurrentYear(v => !v)}
+                        className={`flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${showCurrentYear ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-transparent border-border text-muted-foreground'}`}
+                      >
+                        <span className="w-2 h-2 rounded-sm bg-emerald-400 inline-block shrink-0" />
+                        FY{String(metrics.fyStartYear).slice(2)}/{String(metrics.fyStartYear + 1).slice(2)}
+                      </button>
+                      <button
+                        onClick={() => setShowPrevYear(v => !v)}
+                        className={`flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${showPrevYear ? 'bg-gray-50 border-gray-200 text-gray-600' : 'bg-transparent border-border text-muted-foreground'}`}
+                      >
+                        <span className="w-2 h-2 rounded-sm bg-gray-300 inline-block shrink-0" />
+                        FY{String(metrics.prevFyStartYear).slice(2)}/{String(metrics.prevFyStartYear + 1).slice(2)}
+                      </button>
+                    </div>
                   </div>
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-6">
@@ -229,6 +249,9 @@ export default function Home() {
                         </div>
                         <p className="text-2xl font-bold font-mono tracking-tight">{fmt(metrics.projectsCollected)}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">Apr {metrics.fyStartYear} – Mar {metrics.fyStartYear + 1}</p>
+                        {showPrevYear && (
+                          <p className="text-xs text-muted-foreground/70 mt-1 font-mono">{fmt(metrics.prevYearCollected)} prior year</p>
+                        )}
                       </div>
                       {metrics.projectsOutstanding > 0 && (
                         <div className="text-right">
@@ -244,37 +267,77 @@ export default function Home() {
 
                     {/* Bar chart */}
                     {(() => {
-                      const maxTotal = Math.max(...metrics.monthlyProjectRevenue.map(m => m.total), 1);
+                      const currData = metrics.monthlyProjectRevenue;
+                      const prevData = metrics.monthlyProjectRevenuePrevYear;
+                      const maxTotal = Math.max(
+                        ...(showCurrentYear ? currData.map(m => m.total) : []),
+                        ...(showPrevYear ? prevData.map(m => m.total) : []),
+                        1,
+                      );
                       return (
                         <div className="flex items-end gap-1" style={{ height: '80px' }}>
-                          {metrics.monthlyProjectRevenue.map((month) => {
-                            const heightPct = month.total > 0 ? Math.max((month.total / maxTotal) * 100, 5) : 0;
+                          {currData.map((month, i) => {
+                            const prev = prevData[i];
+                            const currH = showCurrentYear && month.total > 0 ? Math.max((month.total / maxTotal) * 100, 5) : 0;
+                            const prevH = showPrevYear && prev.total > 0 ? Math.max((prev.total / maxTotal) * 100, 5) : 0;
+                            const hasAny = currH > 0 || prevH > 0;
                             return (
                               <div key={month.yearMonth} className="group/bar relative flex-1 flex flex-col items-center gap-1.5" style={{ height: '80px' }}>
-                                {month.total > 0 && (
-                                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-popover border border-border shadow-lg rounded-lg p-2.5 opacity-0 group-hover/bar:opacity-100 transition-opacity pointer-events-none z-10 min-w-[140px]">
-                                    {month.invoices.map((inv) => (
-                                      <div key={inv.invoiceNumber} className="flex items-center justify-between gap-4 mb-1 last:mb-0">
-                                        <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">{inv.clientName}</span>
-                                        <span className="text-[10px] font-mono font-semibold text-foreground whitespace-nowrap">{fmt(inv.amount)}</span>
-                                      </div>
-                                    ))}
-                                    {month.invoices.length > 1 && (
-                                      <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-border">
-                                        <span className="text-[10px] font-semibold">Total</span>
-                                        <span className="text-[10px] font-mono font-semibold">{fmt(month.total)}</span>
-                                      </div>
+                                {hasAny && (
+                                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-popover border border-border shadow-lg rounded-lg p-2.5 opacity-0 group-hover/bar:opacity-100 transition-opacity pointer-events-none z-10 min-w-[150px]">
+                                    {showCurrentYear && month.total > 0 && (
+                                      <>
+                                        {(showPrevYear && prev.total > 0) && (
+                                          <p className="text-[9px] font-semibold text-emerald-600 mb-1">FY{String(metrics.fyStartYear).slice(2)}/{String(metrics.fyStartYear + 1).slice(2)}</p>
+                                        )}
+                                        {month.invoices.map((inv) => (
+                                          <div key={inv.invoiceNumber} className="flex items-center justify-between gap-4 mb-1 last:mb-0">
+                                            <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">{inv.clientName}</span>
+                                            <span className="text-[10px] font-mono font-semibold text-foreground whitespace-nowrap">{fmt(inv.amount)}</span>
+                                          </div>
+                                        ))}
+                                        {month.invoices.length > 1 && (
+                                          <div className="flex items-center justify-between gap-4 mt-1 pt-1 border-t border-border">
+                                            <span className="text-[10px] font-semibold">Total</span>
+                                            <span className="text-[10px] font-mono font-semibold">{fmt(month.total)}</span>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                    {showPrevYear && prev.total > 0 && (
+                                      <>
+                                        {(showCurrentYear && month.total > 0) && <div className="my-1.5 border-t border-border" />}
+                                        {(showCurrentYear && month.total > 0) && (
+                                          <p className="text-[9px] font-semibold text-gray-400 mb-1">FY{String(metrics.prevFyStartYear).slice(2)}/{String(metrics.prevFyStartYear + 1).slice(2)}</p>
+                                        )}
+                                        {prev.invoices.map((inv) => (
+                                          <div key={inv.invoiceNumber} className="flex items-center justify-between gap-4 mb-1 last:mb-0">
+                                            <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">{inv.clientName}</span>
+                                            <span className="text-[10px] font-mono font-semibold text-muted-foreground whitespace-nowrap">{fmt(inv.amount)}</span>
+                                          </div>
+                                        ))}
+                                        {prev.invoices.length > 1 && (
+                                          <div className="flex items-center justify-between gap-4 mt-1 pt-1 border-t border-border">
+                                            <span className="text-[10px] font-semibold text-muted-foreground">Total</span>
+                                            <span className="text-[10px] font-mono font-semibold text-muted-foreground">{fmt(prev.total)}</span>
+                                          </div>
+                                        )}
+                                      </>
                                     )}
                                   </div>
                                 )}
-                                <div className="w-full flex items-end" style={{ height: '60px' }}>
-                                  {month.total > 0 ? (
+                                <div className="relative w-full" style={{ height: '60px' }}>
+                                  {prevH > 0 && (
+                                    <div className="absolute bottom-0 w-full bg-gray-200 rounded-t" style={{ height: `${prevH}%` }} />
+                                  )}
+                                  {currH > 0 && (
                                     <div
-                                      className={`w-full rounded-t transition-colors cursor-default ${month.isCurrent ? 'bg-emerald-500' : 'bg-emerald-200 group-hover/bar:bg-emerald-400'}`}
-                                      style={{ height: `${heightPct}%` }}
+                                      className={`absolute bottom-0 w-full rounded-t transition-colors ${month.isCurrent ? 'bg-emerald-500' : 'bg-emerald-300 group-hover/bar:bg-emerald-400'}`}
+                                      style={{ height: `${currH}%` }}
                                     />
-                                  ) : (
-                                    <div className={`w-full border-t ${month.isFuture ? 'border-muted/20' : 'border-muted'}`} />
+                                  )}
+                                  {!hasAny && (
+                                    <div className={`absolute bottom-0 w-full border-t ${month.isFuture ? 'border-muted/20' : 'border-muted'}`} />
                                   )}
                                 </div>
                                 <span className={`text-[9px] leading-none ${month.isFuture ? 'text-muted-foreground/30' : month.isCurrent ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>

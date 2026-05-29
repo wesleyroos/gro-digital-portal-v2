@@ -448,8 +448,12 @@ export async function getMetrics() {
     .where(sql`${invoices.status} IN ('sent', 'overdue')`);
 
   // Monthly project revenue breakdown (April → March, any invoice type, paid)
-  const monthlyRevenueRaw = await db
-    .select({
+  const prevFyStartYear = fyStartYear - 1;
+  const prevFyStart = new Date(prevFyStartYear, 3, 1);
+  const prevFyEnd   = new Date(prevFyStartYear + 1, 2, 31, 23, 59, 59);
+
+  const [monthlyRevenueRaw, prevMonthlyRevenueRaw, prevCollectedRow] = await Promise.all([
+    db.select({
       yearMonth: sql<string>`DATE_FORMAT(${invoices.invoiceDate}, '%Y-%m')`,
       invoiceNumber: invoices.invoiceNumber,
       clientName: invoices.clientName,
@@ -457,19 +461,40 @@ export async function getMetrics() {
     })
     .from(invoices)
     .where(sql`${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${fyStart} AND ${invoices.invoiceDate} <= ${fyEnd}`)
-    .orderBy(invoices.invoiceDate);
+    .orderBy(invoices.invoiceDate),
 
-  const monthlyRevenueMap = new Map<string, { total: number; invoices: { invoiceNumber: string; clientName: string; amount: number }[] }>();
-  for (const r of monthlyRevenueRaw) {
-    const amount = parseFloat(String(r.totalAmount)) || 0;
-    const existing = monthlyRevenueMap.get(r.yearMonth);
-    if (existing) {
-      existing.total += amount;
-      existing.invoices.push({ invoiceNumber: r.invoiceNumber!, clientName: r.clientName, amount });
-    } else {
-      monthlyRevenueMap.set(r.yearMonth, { total: amount, invoices: [{ invoiceNumber: r.invoiceNumber!, clientName: r.clientName, amount }] });
+    db.select({
+      yearMonth: sql<string>`DATE_FORMAT(${invoices.invoiceDate}, '%Y-%m')`,
+      invoiceNumber: invoices.invoiceNumber,
+      clientName: invoices.clientName,
+      totalAmount: invoices.totalAmount,
+    })
+    .from(invoices)
+    .where(sql`${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${prevFyStart} AND ${invoices.invoiceDate} <= ${prevFyEnd}`)
+    .orderBy(invoices.invoiceDate),
+
+    db.select({ total: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)` })
+    .from(invoices)
+    .where(sql`${invoices.status} = 'paid' AND ${invoices.invoiceDate} >= ${prevFyStart} AND ${invoices.invoiceDate} <= ${prevFyEnd}`),
+  ]);
+
+  function buildMonthlyMap(rows: typeof monthlyRevenueRaw) {
+    const map = new Map<string, { total: number; invoices: { invoiceNumber: string; clientName: string; amount: number }[] }>();
+    for (const r of rows) {
+      const amount = parseFloat(String(r.totalAmount)) || 0;
+      const existing = map.get(r.yearMonth);
+      if (existing) {
+        existing.total += amount;
+        existing.invoices.push({ invoiceNumber: r.invoiceNumber!, clientName: r.clientName, amount });
+      } else {
+        map.set(r.yearMonth, { total: amount, invoices: [{ invoiceNumber: r.invoiceNumber!, clientName: r.clientName, amount }] });
+      }
     }
+    return map;
   }
+
+  const monthlyRevenueMap = buildMonthlyMap(monthlyRevenueRaw);
+  const prevMonthlyRevenueMap = buildMonthlyMap(prevMonthlyRevenueRaw);
 
   const nowYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const monthLabels = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
@@ -488,10 +513,24 @@ export async function getMetrics() {
     };
   });
 
+  const monthlyProjectRevenuePrevYear = Array.from({ length: 12 }, (_, i) => {
+    const jsMonth = (3 + i) % 12;
+    const year = jsMonth >= 3 ? prevFyStartYear : prevFyStartYear + 1;
+    const yearMonth = `${year}-${String(jsMonth + 1).padStart(2, '0')}`;
+    const data = prevMonthlyRevenueMap.get(yearMonth);
+    return {
+      label: monthLabels[i],
+      yearMonth,
+      total: data?.total || 0,
+      invoices: data?.invoices || [],
+    };
+  });
+
   const mrr = parseFloat(mrrRow.total) || 0;
   const annualRecurring = parseFloat(annualRow.total) || 0;
   const arr = mrr * 12 + annualRecurring;
   const projectsCollected = parseFloat(projectsCollectedRow.total) || 0;
+  const prevYearCollected = parseFloat(prevCollectedRow[0].total) || 0;
   const projectsOutstanding = outstandingInvoices.reduce((s, i) => s + (parseFloat(String(i.amountDue)) || 0), 0);
 
   // Merge per-client recurring from subscriptions
@@ -520,9 +559,12 @@ export async function getMetrics() {
     recurringClients: Array.from(clientMap.values()).sort((a, b) => (b.mrr + b.annual / 12) - (a.mrr + a.annual / 12)),
     // Projects
     fyStartYear,
+    prevFyStartYear,
     projectsCollected,
+    prevYearCollected,
     projectsOutstanding,
     monthlyProjectRevenue,
+    monthlyProjectRevenuePrevYear,
     outstandingInvoices: outstandingInvoices.map(i => ({
       ...i,
       amountDue: parseFloat(String(i.amountDue)) || 0,
