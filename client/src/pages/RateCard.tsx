@@ -128,7 +128,7 @@ const rowGroups = [
     { name: "Go-to-market strategy", desc: "Positioning, channel selection, messaging and launch planning" },
     { name: "Outreach & meeting generation", desc: "We get in the room — direct outreach to drive product adoption" },
     { name: "Launch planning & execution", desc: "End-to-end ownership of product launches from brief to live" },
-    { name: "WhatsApp integration", desc: "Full WhatsApp build-out covering business logic, automated workflows, and BSP (Clickatell) relationship management — scoped and quoted separately once the initial concept is validated" },
+    { name: "WhatsApp integration", desc: "Full WhatsApp build-out covering business logic, automated workflows, and BSP relationship management — scoped and quoted separately once the initial concept is validated" },
   ]},
   { label: "Scale", rows: [
     { name: "Parallel product tracks", desc: "Multiple builds or innovation streams running simultaneously" },
