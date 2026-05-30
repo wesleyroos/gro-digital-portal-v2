@@ -109,9 +109,11 @@
       .meta-cell:nth-child(even) { border-left: none; padding-left: 0; }
       .meta-label { font-size: 11px; }
       .meta-value { font-size: 13px; }
-      table.items th, table.items td { font-size: 12px; }
-      table.items td.desc .sub { font-size: 11px; }
-      table.items th.center, table.items td.center { display: none; }
+      table.items { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      table.items th, table.items td { font-size: 11px; padding: 8px 6px; }
+      table.items th.center, table.items td.center { width: 70px; min-width: 70px; }
+      table.items td.desc .sub { font-size: 10px; }
+      .badge { font-size: 8px; padding: 2px 5px; }
       .payment-strip { flex-direction: column; }
       .payment-cell { border-right: none; border-bottom: 1px solid #e0e0e0; }
       .payment-cell:last-child { border-bottom: none; }

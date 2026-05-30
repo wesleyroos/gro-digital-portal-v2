@@ -1689,10 +1689,11 @@ function gdSubmitAccept(token) {
   .meta-cell:nth-child(even) { border-left: none !important; padding-left: 0 !important; }
   .meta-label { font-size: 11px !important; }
   .meta-value { font-size: 13px !important; }
-  table.items th, table.items td { font-size: 12px !important; }
-  table.items th.center, table.items td.center,
-  table.items td.freq, table.items td.vat { display: none !important; }
-  table.items td.desc .sub { font-size: 11px !important; }
+  table.items { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.items th, table.items td { font-size: 11px !important; padding: 8px 6px !important; }
+  table.items th.center, table.items td.center { width: 70px !important; min-width: 70px !important; }
+  table.items td.desc .sub { font-size: 10px !important; }
+  .badge { font-size: 8px !important; padding: 2px 5px !important; }
   .payment-strip { flex-direction: column !important; }
   .payment-cell { border-right: none !important; border-bottom: 1px solid #e0e0e0 !important; }
   .payment-cell:last-child { border-bottom: none !important; }
