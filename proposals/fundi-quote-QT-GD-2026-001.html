@@ -103,6 +103,30 @@
       body { padding: 0; max-width: 100%; }
       .section-gap { margin-top: 20px; }
     }
+
+    @media (max-width: 600px) {
+      body { padding: 24px 20px 48px; font-size: 13px; }
+      .doc-title { font-size: 16px; }
+      .meta-grid { grid-template-columns: 1fr; }
+      .meta-cell:nth-child(even) { border-left: none; padding-left: 0; }
+      .meta-label { font-size: 11px; }
+      .meta-value { font-size: 13px; }
+      table.items th, table.items td { font-size: 12px; }
+      table.items td.desc .sub { font-size: 11px; }
+      table.items th.center, table.items td.center,
+      table.items td.freq, table.items td.vat { display: none; }
+      .payment-strip { flex-direction: column; }
+      .payment-cell { border-right: none; border-bottom: 1px solid #e0e0e0; }
+      .payment-cell:last-child { border-bottom: none; }
+      .payment-cell .plabel { font-size: 11px; }
+      .payment-cell .pval { font-size: 13px; }
+      .scope-note, .gifted-note { font-size: 12px; }
+      .terms-intro { font-size: 13px; }
+      ol.terms li { font-size: 12px; }
+      .sig-fields { grid-template-columns: 1fr; gap: 24px; }
+      .doc-footer { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .doc-footer .footer-text { font-size: 11px; }
+    }
   </style>
 </head>
 <body>
@@ -201,13 +225,13 @@
         </td>
         <td class="freq">Once-off</td>
         <td class="vat">No VAT</td>
-        <td class="price">10&thinsp;000,00</td>
+        <td class="price">12&thinsp;000,00</td>
       </tr>
     </tbody>
     <tfoot>
       <tr class="total">
         <td class="desc" colspan="3"><strong>Total</strong></td>
-        <td class="price"><strong>97&thinsp;000,00</strong></td>
+        <td class="price"><strong>99&thinsp;000,00</strong></td>
       </tr>
     </tfoot>
   </table>
@@ -216,7 +240,7 @@
   <div class="payment-strip" style="margin-top: 14px;">
     <div class="payment-cell">
       <div class="plabel">Total due</div>
-      <div class="pval">R97,000.00</div>
+      <div class="pval">R99,000.00</div>
     </div>
     <div class="payment-cell">
       <div class="plabel">Payment terms</div>
@@ -231,7 +255,7 @@
   </div>
 
   <p class="terms-intro" style="margin-top: 10px;">
-    By signing this quote, the authorised representative of Fundi Capital (Pty) Ltd confirms acceptance of the deliverables described above and authorises Gro Digital to issue a formal tax invoice for the amount of R97,000.00.
+    By signing this quote, the authorised representative of Fundi Capital (Pty) Ltd confirms acceptance of the deliverables described above and authorises Gro Digital to issue a formal tax invoice for the amount of R99,000.00.
   </p>
 
   <ol class="terms">
@@ -239,7 +263,7 @@
       <strong>Retrospective billing.</strong> The work described in Section 2 has been completed and delivered in full prior to the date of this document. The Client acknowledges receipt and acceptance of all deliverables listed. This quote is presented for internal approval; a formal tax invoice will be issued upon written approval.
     </li>
     <li>
-      <strong>Payment.</strong> Payment of R97,000.00 is due by EFT within 30 days of invoice date.
+      <strong>Payment.</strong> Payment of R99,000.00 is due by EFT within 30 days of invoice date.
     </li>
     <li>
       <strong>Ongoing work.</strong> All platforms are ongoing. This quote covers work completed to date. Continued development will be covered under a separate monthly retainer arrangement to be formalised between the parties.

@@ -10,23 +10,25 @@ import { CheckCircle2, AlertCircle } from "lucide-react";
 const MOBILE_STYLES = `<style>
 @media (max-width: 600px) {
   body { padding: 24px 20px 48px !important; font-size: 13px !important; }
+  .doc-title { font-size: 16px !important; }
   .meta-grid { grid-template-columns: 1fr !important; }
   .meta-cell:nth-child(even) { border-left: none !important; padding-left: 0 !important; }
   .meta-label { font-size: 11px !important; }
   .meta-value { font-size: 13px !important; }
   table.items th, table.items td { font-size: 12px !important; }
   table.items td.desc .sub { font-size: 11px !important; }
-  table.items td.freq { display: none !important; }
-  table.items td.vat  { display: none !important; }
-  table.items th.center { display: none !important; }
+  table.items th.center, table.items td.center,
+  table.items td.freq, table.items td.vat { display: none !important; }
   .payment-strip { flex-direction: column !important; }
   .payment-cell { border-right: none !important; border-bottom: 1px solid #e0e0e0 !important; }
   .payment-cell:last-child { border-bottom: none !important; }
   .payment-cell .plabel { font-size: 11px !important; }
-  .payment-cell .pval   { font-size: 13px !important; }
+  .payment-cell .pval { font-size: 13px !important; }
+  .scope-note, .excl-note { font-size: 12px !important; }
   .terms-intro { font-size: 13px !important; }
-  ol.terms li  { font-size: 12px !important; }
-  .doc-footer  { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+  ol.terms li { font-size: 12px !important; }
+  .sig-fields { grid-template-columns: 1fr !important; gap: 24px !important; }
+  .doc-footer { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
   .doc-footer .footer-text { font-size: 11px !important; }
 }
 </style>`;

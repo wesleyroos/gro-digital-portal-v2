@@ -202,15 +202,23 @@ const css = `
   @media (max-width: 700px) {
     .gd-wrap { padding-left: 20px !important; padding-right: 20px !important; }
     .gd-hero-title { font-size: 44px !important; }
+    .gd-hero-flex { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
     .gd-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .gd-services-grid { grid-template-columns: 1fr !important; }
+    .gd-services-grid > div { border-right: none !important; }
     .gd-row-grid { display: block !important; }
     .gd-row-rates { display: flex; gap: 24px; padding-top: 12px; }
     .gd-process-grid { grid-template-columns: 1fr !important; }
     .gd-process-step::after { display: none !important; }
     .gd-retainer-top { grid-template-columns: 1fr !important; gap: 28px !important; }
     .gd-retainer-items { grid-template-columns: 1fr !important; }
+    .gd-pricing-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -20px; padding: 0 20px; }
+    .gd-pricing-table { min-width: 600px; border-radius: 0 !important; }
+    .gd-adhoc-grid { grid-template-columns: 1fr 82px 86px !important; gap: 0 8px !important; }
     .gd-qualifier-grid { grid-template-columns: 1fr !important; gap: 0 !important; }
     .gd-cta-bar { flex-direction: column !important; gap: 20px !important; }
+    .gd-cta-buttons { flex-direction: column !important; width: 100% !important; }
+    .gd-cta-buttons > * { width: 100% !important; justify-content: center !important; }
     .gd-footer-cols { flex-direction: column !important; gap: 40px !important; }
     .gd-footer-contacts { flex-direction: column !important; gap: 32px !important; }
     .gd-footer-bottom { flex-direction: column !important; text-align: center; gap: 6px !important; }
@@ -351,7 +359,7 @@ export default function RateCard() {
         {/* ── HERO ──────────────────────────────────────────── */}
         <section style={{ borderBottom: `1px solid ${BORDER}` }}>
           <div className="gd-wrap" style={{ maxWidth: 980, margin: "0 auto", padding: "80px 48px 88px" }}>
-            <div className="gd-fade-1" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, marginBottom: 28 }}>
+            <div className="gd-fade-1 gd-hero-flex" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, marginBottom: 28 }}>
               <h1 className="gd-hero-title" style={{ fontSize: "clamp(48px, 7vw, 84px)", fontWeight: 800, letterSpacing: "-0.045em", lineHeight: 1, margin: 0, color: TEXT }}>
                 Rate Card
               </h1>
@@ -387,7 +395,7 @@ export default function RateCard() {
               <div style={{ flex: 1, height: 1, background: BORDER }} />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+            <div className="gd-services-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
               {[...services, { index: "06", name: "Hosting & Infrastructure", desc: "Server management, uptime monitoring, deployment pipelines, domain administration — per platform managed" }].map((s, i, arr) => (
                 <div
                   key={s.index}
@@ -486,7 +494,8 @@ export default function RateCard() {
             </div>
 
             {/* Pricing matrix */}
-            <div style={{ borderRadius: 12, border: `1px solid ${BORDER}`, background: "#fff", overflow: "hidden" }}>
+            <div className="gd-pricing-scroll">
+            <div className="gd-pricing-table" style={{ borderRadius: 12, border: `1px solid ${BORDER}`, background: "#fff", overflow: "hidden" }}>
 
               {/* Column headers */}
               <div style={{ display: "grid", gridTemplateColumns: "200px 1fr 1fr 1fr" }}>
@@ -596,6 +605,7 @@ export default function RateCard() {
               </div>
 
             </div>
+            </div>
 
             <p style={{ fontSize: 12, color: FAINT, marginTop: 16 }}>
               All retainers invoiced monthly in advance. One month's written notice to scale up, down, or pause.
@@ -666,7 +676,7 @@ export default function RateCard() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
               {/* Column headers */}
-              <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 110px 115px", gap: "0 24px", paddingBottom: 10, borderBottom: `1px solid ${BORDER}`, marginBottom: 0 }}>
+              <div className="gd-adhoc-grid" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 110px 115px", gap: "0 24px", paddingBottom: 10, borderBottom: `1px solid ${BORDER}`, marginBottom: 0 }}>
                 <div />
                 <div style={{ textAlign: "right", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: FAINT }}>Per Hour</div>
                 <div style={{ textAlign: "right", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: FAINT }}>Per Day</div>
@@ -674,7 +684,7 @@ export default function RateCard() {
 
               {/* Rate rows */}
               {[...services, { index: "06", name: "Hosting & Infrastructure", desc: "Per platform managed", hourly: null, daily: null, monthly: "6,000" }].map((s: any) => (
-                <div key={s.index} style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 110px 115px", gap: "0 24px", padding: "16px 0", borderBottom: `1px solid ${BORDER}`, alignItems: "center" }}>
+                <div key={s.index} className="gd-adhoc-grid" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 110px 115px", gap: "0 24px", padding: "16px 0", borderBottom: `1px solid ${BORDER}`, alignItems: "center" }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                       <span style={{ fontSize: 10, color: FAINT, minWidth: 20 }}>{s.index}</span>
@@ -721,7 +731,7 @@ export default function RateCard() {
                 <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em", color: TEXT, marginBottom: 6 }}>Ready to work together?</div>
                 <div style={{ fontSize: 13.5, color: MUTED }}>Discuss a project, retainer, or anything in between.</div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+              <div className="gd-cta-buttons" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                 <DownloadButton />
                 <a href="mailto:wesley@grodigital.co.za" className="gd-cta-lg">
                   Get in touch

@@ -101,6 +101,28 @@
       body { padding: 0; max-width: 100%; }
       .section-gap { margin-top: 20px; }
     }
+
+    @media (max-width: 600px) {
+      body { padding: 24px 20px 48px; font-size: 13px; }
+      .doc-title { font-size: 16px; }
+      .meta-grid { grid-template-columns: 1fr; }
+      .meta-cell:nth-child(even) { border-left: none; padding-left: 0; }
+      .meta-label { font-size: 11px; }
+      .meta-value { font-size: 13px; }
+      table.items th, table.items td { font-size: 12px; }
+      table.items td.desc .sub { font-size: 11px; }
+      table.items th.center, table.items td.center { display: none; }
+      .payment-strip { flex-direction: column; }
+      .payment-cell { border-right: none; border-bottom: 1px solid #e0e0e0; }
+      .payment-cell:last-child { border-bottom: none; }
+      .payment-cell .plabel { font-size: 11px; }
+      .payment-cell .pval { font-size: 13px; }
+      .scope-note, .excl-note { font-size: 12px; }
+      .terms-intro { font-size: 13px; }
+      ol.terms li { font-size: 12px; }
+      .doc-footer { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .doc-footer .footer-text { font-size: 11px; }
+    }
   </style>
 </head>
 <body>
