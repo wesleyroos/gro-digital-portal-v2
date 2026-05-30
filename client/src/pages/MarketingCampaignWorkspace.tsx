@@ -724,6 +724,34 @@ export default function MarketingCampaignWorkspace() {
     }
   }
 
+  const [downloadingAll, setDownloadingAll] = useState(false);
+
+  async function downloadAllImages() {
+    const withImages = posts.filter(p => p.imageUrl);
+    if (withImages.length === 0) { toast.error("No images to download"); return; }
+    setDownloadingAll(true);
+    let failed = 0;
+    for (let i = 0; i < withImages.length; i++) {
+      const post = withImages[i];
+      try {
+        const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(post.imageUrl!)}`;
+        const res = await fetch(proxyUrl);
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `post-${post.id}.jpg`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        if (i < withImages.length - 1) await new Promise(r => setTimeout(r, 400));
+      } catch {
+        failed++;
+      }
+    }
+    setDownloadingAll(false);
+    if (failed > 0) toast.error(`${failed} image(s) failed to download`);
+    else toast.success(`${withImages.length} image(s) downloaded`);
+  }
+
   function handleFileUpload(postId: number, file: File) {
     const reader = new FileReader();
     reader.onload = () => {
@@ -1465,6 +1493,16 @@ export default function MarketingCampaignWorkspace() {
                   >
                     <Download className="w-3.5 h-3.5" />
                     Export .md
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-7 text-xs"
+                    onClick={downloadAllImages}
+                    disabled={downloadingAll || posts.filter(p => p.imageUrl).length === 0}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {downloadingAll ? "Downloading…" : `Download images (${posts.filter(p => p.imageUrl).length})`}
                   </Button>
                 </div>
               </div>
