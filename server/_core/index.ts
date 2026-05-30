@@ -52,10 +52,10 @@ async function startServer() {
   });
 
   app.use(express.json({
-    limit: "10mb",
+    limit: "25mb",
     verify: (req: any, _res, buf) => { req.rawBody = buf; },
   }));
-  app.use(express.urlencoded({ limit: "10mb", extended: true }));
+  app.use(express.urlencoded({ limit: "25mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   registerCampaignAgentRoutes(app);
