@@ -250,54 +250,57 @@ function buildRateCardHtml(): string {
 
 </div>
 
-<!-- ════════════════════════════════════ SERVICES ══ -->
+<!-- ══════════════════════════ SERVICES + HOW WE WORK ══ -->
 <div class="page" style="min-height:297mm;background:#fff;display:flex;flex-direction:column;">
   <div style="height:4px;background:${BLUE};"></div>
   <div style="flex:1;padding:36px 48px 24px;">
 
-    <!-- Belief statement -->
-    <div style="margin-bottom:32px;padding:24px 28px;background:${DARK};border-radius:10px;">
-      <p style="font-size:14px;font-weight:700;color:#fff;line-height:1.55;letter-spacing:-0.02em;max-width:440px;">
-        Great products aren't built by the biggest teams. They're built by the right people — deeply embedded, moving fast, and obsessed with the outcome.
-      </p>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;">
-        <div style="width:20px;height:2px;background:${BLUE};border-radius:1px;"></div>
-        <span style="font-size:10px;color:rgba(255,255,255,0.55);">From idea to MVP — fast.</span>
-      </div>
-    </div>
-
-    <!-- Section label -->
+    <!-- Services & rates -->
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-      <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Services</span>
+      <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Services & rates</span>
       <div style="flex:1;height:1px;background:${BORDER};"></div>
     </div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 10px;border-bottom:1px solid ${BORDER};text-align:left;" colspan="2">Service</th>
+          <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 10px;border-bottom:1px solid ${BORDER};text-align:right;width:90px;">Per Hour</th>
+          <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 10px;border-bottom:1px solid ${BORDER};text-align:right;width:100px;">Per Day</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${services.filter(s => s.hourly).map(s => `<tr>
+          <td style="padding:12px 8px 12px 0;border-bottom:1px solid #F3F4F6;vertical-align:top;width:24px;">
+            <span style="font-size:8.5px;color:${FAINT};">${s.index}</span>
+          </td>
+          <td style="padding:12px 16px 12px 0;border-bottom:1px solid #F3F4F6;vertical-align:top;">
+            <div style="font-size:11.5px;font-weight:700;color:${TEXT};letter-spacing:-0.01em;margin-bottom:3px;">${s.name}</div>
+            <div style="font-size:9px;color:${MUTED};line-height:1.55;">${s.desc}</div>
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:top;white-space:nowrap;">
+            <span style="font-size:12px;font-weight:700;color:${TEXT};">R${s.hourly}</span><span style="font-size:8px;color:${FAINT};">/hr</span>
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:top;white-space:nowrap;">
+            <span style="font-size:12px;font-weight:700;color:${BLUE};">R${s.daily}</span><span style="font-size:8px;color:${FAINT};">/day</span>
+          </td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <p style="font-size:8px;color:${FAINT};margin-top:8px;margin-bottom:32px;">A day rate assumes 8 hours. Retainer clients receive 25–30% off these rates.</p>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
-      ${serviceRows.join("")}
-    </div>
-
-  </div>
-  ${pageFooter(2, 5)}
-</div>
-
-<!-- ════════════════════════════════════ PROCESS ══ -->
-<div class="page" style="min-height:297mm;background:#F9FAFB;display:flex;flex-direction:column;">
-  <div style="height:4px;background:${BLUE};"></div>
-  <div style="flex:1;padding:36px 48px 24px;">
-
+    <!-- How we work -->
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
       <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">How we work</span>
       <div style="flex:1;height:1px;background:${BORDER};"></div>
     </div>
-    <h2 style="font-size:22px;font-weight:800;letter-spacing:-0.03em;color:${TEXT};margin-bottom:6px;line-height:1.1;">Fast by design.</h2>
-    <p style="font-size:12px;color:${MUTED};margin-bottom:24px;line-height:1.6;">Most agencies spend months in discovery. We start building useful things in days.</p>
-
+    <h2 style="font-size:20px;font-weight:800;letter-spacing:-0.03em;color:${TEXT};margin-bottom:5px;line-height:1.1;">Fast by design. Not by accident.</h2>
+    <p style="font-size:11px;color:${MUTED};margin-bottom:20px;line-height:1.6;">Most agencies spend months in discovery. We start building useful things in days.</p>
     <table style="width:100%;border-collapse:collapse;">
       <tbody>${processHtml}</tbody>
     </table>
 
   </div>
-  ${pageFooter(3, 5)}
+  ${pageFooter(2, 4)}
 </div>
 
 <!-- ═══════════════════════════════════ PACKAGES ══ -->
@@ -340,81 +343,48 @@ function buildRateCardHtml(): string {
     <p style="font-size:8.5px;color:${FAINT};margin-top:10px;">All retainers invoiced monthly in advance. One month's written notice to scale up, down, or pause.</p>
 
   </div>
-  ${pageFooter(4, 5)}
+  ${pageFooter(3, 4)}
 </div>
 
-<!-- ══════════════════════════ QUALIFIERS · FAQ · RATES ══ -->
+<!-- ══════════════════════════ QUALIFIERS · FAQ · CONTACT ══ -->
 <div class="page" style="min-height:297mm;background:#fff;display:flex;flex-direction:column;">
   <div style="height:4px;background:${BLUE};"></div>
   <div style="flex:1;padding:36px 48px 24px;">
 
     <!-- Right for us if -->
-    <div style="margin-bottom:28px;">
+    <div style="margin-bottom:24px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Right for us if</span>
         <div style="flex:1;height:1px;background:${BORDER};"></div>
       </div>
       <p style="font-size:11px;font-weight:700;color:${TEXT};letter-spacing:-0.01em;margin-bottom:10px;">We do our best work with clients who:</p>
-      ${qualifiers.map(q => `<div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid ${BORDER};">
-        <div style="width:16px;height:16px;border-radius:50%;background:${BLUE}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;text-align:center;line-height:16px;">
+      ${qualifiers.map(q => `<div style="display:flex;align-items:flex-start;gap:12px;padding:7px 0;border-bottom:1px solid ${BORDER};">
+        <div style="width:15px;height:15px;border-radius:50%;background:${BLUE}18;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;text-align:center;line-height:15px;">
           <span style="font-size:9px;color:${BLUE};font-weight:700;">✓</span>
         </div>
-        <span style="font-size:10px;color:${TEXT};line-height:1.65;">${q}</span>
+        <span style="font-size:10px;color:${TEXT};line-height:1.6;">${q}</span>
       </div>`).join("")}
     </div>
 
     <!-- FAQ -->
-    <div style="margin-bottom:28px;">
+    <div style="margin-bottom:24px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">FAQ</span>
         <div style="flex:1;height:1px;background:${BORDER};"></div>
       </div>
-      ${faqs.map(f => `<div style="padding:10px 0;border-bottom:1px solid ${BORDER};">
-        <div style="font-size:11px;font-weight:700;color:${TEXT};letter-spacing:-0.01em;margin-bottom:5px;">${f.q}</div>
-        <div style="font-size:9.5px;color:${MUTED};line-height:1.7;">${f.a}</div>
+      ${faqs.map(f => `<div style="padding:9px 0;border-bottom:1px solid ${BORDER};page-break-inside:avoid;">
+        <div style="font-size:11px;font-weight:700;color:${TEXT};letter-spacing:-0.01em;margin-bottom:4px;">${f.q}</div>
+        <div style="font-size:9.5px;color:${MUTED};line-height:1.65;">${f.a}</div>
       </div>`).join("")}
     </div>
 
-    <!-- Ad hoc rates -->
-    <div style="margin-bottom:28px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Ad hoc rates</span>
-        <div style="flex:1;height:1px;background:${BORDER};"></div>
-      </div>
-      <p style="font-size:10px;color:${MUTED};line-height:1.7;margin-bottom:14px;max-width:480px;">For once-off projects, short engagements, or work outside a retainer scope, we bill at the following standard rates.</p>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr>
-            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:left;"></th>
-            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:right;width:100px;">Per Hour</th>
-            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:right;width:110px;">Per Day</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${services.filter(s => s.hourly).map(s => `<tr>
-            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;vertical-align:middle;">
-              <span style="font-size:8.5px;color:${FAINT};margin-right:8px;">${s.index}</span>
-              <span style="font-size:10.5px;font-weight:600;color:${TEXT};">${s.name}</span>
-            </td>
-            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:middle;">
-              <span style="font-size:12px;font-weight:700;color:${TEXT};">R${s.hourly}</span><span style="font-size:8px;color:${FAINT};">/hr</span>
-            </td>
-            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:middle;">
-              <span style="font-size:12px;font-weight:700;color:${BLUE};">R${s.daily}</span><span style="font-size:8px;color:${FAINT};">/day</span>
-            </td>
-          </tr>`).join("")}
-        </tbody>
-      </table>
-      <p style="font-size:8px;color:${FAINT};margin-top:8px;">A day rate assumes 8 hours. Retainer clients receive 25–30% off these rates.</p>
-    </div>
-
     <!-- Contact -->
-    <div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+    <div style="page-break-inside:avoid;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Get in touch</span>
         <div style="flex:1;height:1px;background:${BORDER};"></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid ${BORDER};border-radius:8px;overflow:hidden;background:#F9FAFB;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid ${BORDER};border-radius:8px;overflow:hidden;background:#F9FAFB;">
         <div style="padding:18px 20px;border-right:1px solid ${BORDER};">
           <div style="font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${FAINT};margin-bottom:8px;">Email</div>
           <div style="font-size:11px;color:${BLUE};font-weight:500;">wesley@grodigital.co.za</div>
@@ -425,13 +395,13 @@ function buildRateCardHtml(): string {
         </div>
         <div style="padding:18px 20px;">
           <div style="font-size:8px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${FAINT};margin-bottom:8px;">Address</div>
-          <div style="font-size:10.5px;color:${TEXT};line-height:1.7;">Darter Studios<br/>Longkloof, 7 Darter Rd<br/>Gardens, Cape Town, 8001</div>
+          <div style="font-size:10.5px;color:${TEXT};line-height:1.7;">Darter Studios, Longkloof<br/>7 Darter Rd, Gardens<br/>Cape Town, 8001</div>
         </div>
       </div>
     </div>
 
   </div>
-  ${pageFooter(5, 5)}
+  ${pageFooter(4, 4)}
 </div>
 
 </body>
