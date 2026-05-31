@@ -25,13 +25,13 @@ const FAINT = "#9CA3AF";
 const BORDER = "#E5E7EB";
 
 const services = [
-  { index: "01", name: "Product Strategy & Advisory", desc: "Strategic roadmapping, innovation sessions, Exco-level presentations, stakeholder workshops, product vision" },
-  { index: "02", name: "Product & UX Audit", desc: "Deep-dive product audits, UX and conversion analysis, competitive benchmarking, bottleneck identification, findings reports" },
-  { index: "03", name: "Platform & Web Development", desc: "Full-stack development, platform builds, API integrations, codebase analysis, deployment, QA" },
-  { index: "04", name: "Discovery & Scoping", desc: "Requirements gathering, technical scoping, product definition, stakeholder alignment sessions" },
-  { index: "05", name: "Project & Delivery Management", desc: "Sprint management, QA oversight, progress reporting, stakeholder coordination" },
-  { index: "06", name: "Hosting & Infrastructure", desc: "Server management, uptime monitoring, deployment pipelines, domain administration — per platform managed" },
-];
+  { index: "01", name: "Product Strategy & Advisory", desc: "Strategic roadmapping, innovation sessions, Exco-level presentations, stakeholder workshops, product vision", hourly: "1,800", daily: "14,400" },
+  { index: "02", name: "Product & UX Audit", desc: "Deep-dive product audits, UX and conversion analysis, competitive benchmarking, bottleneck identification, findings reports", hourly: "1,800", daily: "14,400" },
+  { index: "03", name: "Platform & Web Development", desc: "Full-stack development, platform builds, API integrations, codebase analysis, deployment, QA", hourly: "1,500", daily: "12,000" },
+  { index: "04", name: "Discovery & Scoping", desc: "Requirements gathering, technical scoping, product definition, stakeholder alignment sessions", hourly: "1,800", daily: "14,400" },
+  { index: "05", name: "Project & Delivery Management", desc: "Sprint management, QA oversight, progress reporting, stakeholder coordination", hourly: "1,200", daily: "9,600" },
+  { index: "06", name: "Hosting & Infrastructure", desc: "Server management, uptime monitoring, deployment pipelines, domain administration — per platform managed", monthly: "6,000" },
+] as Array<{ index: string; name: string; desc: string; hourly?: string; daily?: string; monthly?: string }>;
 
 const tiers = [
   {
@@ -75,6 +75,7 @@ const rowGroups = [
       { name: "Go-to-market strategy", desc: "Positioning, channels, messaging, launch plan", vals: [false, true, true] },
       { name: "Outreach & meeting generation", desc: "We get in the room — direct outreach for adoption", vals: [false, true, true] },
       { name: "Launch planning & execution", desc: "End-to-end launch ownership from brief to live", vals: [false, true, true] },
+      { name: "WhatsApp integration", desc: "Full build-out: business logic, automated workflows, BSP relationship management — scoped separately", vals: [false, "Scoped", "Scoped"] },
     ],
   },
   {
@@ -92,6 +93,22 @@ const steps = [
   { step: "03", title: "Audit & diagnose", body: "We dig into what exists — the codebase, the UX, the ops. We build a clear, honest picture of the current state before proposing anything." },
   { step: "04", title: "Propose a plan", body: "Clear, opinionated, prioritised. Not a 40-slide deck — a direct path forward with a rationale behind every decision." },
   { step: "05", title: "Build & iterate fast", body: "Implementation begins immediately. Working software in days, not months. We ship, get feedback, and improve — continuously, without stopping." },
+];
+
+const qualifiers = [
+  "You need a senior product mind embedded in your team — not just development capacity.",
+  "You're building something new and ambitious, not maintaining a system someone else designed.",
+  "You want direct access to the person doing the work, not a PM relaying messages.",
+  "You can move fast and make decisions without 10 layers of approval.",
+  "You value craft. The technology you ship should reflect the quality of your brand.",
+];
+
+const faqs = [
+  { q: "How do we get started?", a: "A short discovery call — usually 30 minutes. We scope the first sprint together and move from there. Turnaround from first contact to active development is typically under a week." },
+  { q: "Do you work on fixed-price projects?", a: "We prefer time-based billing for embedded and innovation work because scope is rarely fixed upfront. Fixed-price engagements are available for well-defined, contained scopes — discuss this on the discovery call." },
+  { q: "What's the minimum retainer commitment?", a: "There's no hard minimum, but we recommend at least three months to see real impact. A retainer works best when there's a genuine product roadmap — not a one-off task list." },
+  { q: "How does the AI tooling affect quality?", a: "It accelerates delivery without compromising quality. We use agentic AI tooling for development velocity — but product strategy, architecture decisions, and quality standards are always senior-led. Speed is the benefit, not a cut corner." },
+  { q: "Do you work with multiple clients at once?", a: "Yes, but retainer clients receive allocated capacity and are never bumped. Project work is scheduled around retainer commitments, not the other way around." },
 ];
 
 function cell(val: boolean | string, isRec: boolean): string {
@@ -260,6 +277,39 @@ function buildRateCardHtml(): string {
       ${serviceRows.join("")}
     </div>
 
+    <!-- Ad hoc rates -->
+    <div style="margin-top:28px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Ad hoc rates</span>
+        <div style="flex:1;height:1px;background:${BORDER};"></div>
+      </div>
+      <p style="font-size:10px;color:${MUTED};line-height:1.7;margin-bottom:14px;max-width:480px;">For once-off projects, short engagements, or work outside a retainer scope, we bill at the following standard rates.</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:left;"></th>
+            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:right;width:100px;">Per Hour</th>
+            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:right;width:110px;">Per Day</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${services.map(s => `<tr>
+            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;vertical-align:middle;">
+              <span style="font-size:8.5px;color:${FAINT};margin-right:8px;">${s.index}</span>
+              <span style="font-size:10.5px;font-weight:600;color:${TEXT};">${s.name}</span>
+            </td>
+            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:middle;">
+              ${s.hourly ? `<span style="font-size:12px;font-weight:700;color:${TEXT};">R${s.hourly}</span><span style="font-size:8px;color:${FAINT};">/hr</span>` : `<span style="font-size:11px;font-weight:700;color:${TEXT};">R${s.monthly}</span><span style="font-size:8px;color:${FAINT};">/mo</span>`}
+            </td>
+            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:middle;">
+              ${s.daily ? `<span style="font-size:12px;font-weight:700;color:${BLUE};">R${s.daily}</span><span style="font-size:8px;color:${FAINT};">/day</span>` : `<span style="font-size:10px;color:${FAINT};">—</span>`}
+            </td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      <p style="font-size:8px;color:${FAINT};margin-top:8px;">A day rate assumes 8 hours. Retainer clients receive 25–30% off these rates.</p>
+    </div>
+
   </div>
   ${pageFooter(2, 4)}
 </div>
@@ -322,6 +372,33 @@ function buildRateCardHtml(): string {
     <table style="width:100%;border-collapse:collapse;">
       <tbody>${processHtml}</tbody>
     </table>
+
+    <!-- Right for us if -->
+    <div style="margin-top:28px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Right for us if</span>
+        <div style="flex:1;height:1px;background:${BORDER};"></div>
+      </div>
+      <p style="font-size:11px;font-weight:700;color:${TEXT};letter-spacing:-0.01em;margin-bottom:10px;">We do our best work with clients who:</p>
+      ${qualifiers.map(q => `<div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid ${BORDER};">
+        <div style="width:16px;height:16px;border-radius:50%;background:${BLUE}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;text-align:center;line-height:16px;">
+          <span style="font-size:9px;color:${BLUE};font-weight:700;">✓</span>
+        </div>
+        <span style="font-size:10px;color:${TEXT};line-height:1.65;">${q}</span>
+      </div>`).join("")}
+    </div>
+
+    <!-- FAQ -->
+    <div style="margin-top:24px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">FAQ</span>
+        <div style="flex:1;height:1px;background:${BORDER};"></div>
+      </div>
+      ${faqs.map(f => `<div style="padding:10px 0;border-bottom:1px solid ${BORDER};">
+        <div style="font-size:11px;font-weight:700;color:${TEXT};letter-spacing:-0.01em;margin-bottom:5px;">${f.q}</div>
+        <div style="font-size:9.5px;color:${MUTED};line-height:1.7;">${f.a}</div>
+      </div>`).join("")}
+    </div>
 
     <!-- Contact -->
     <div style="margin-top:32px;">
