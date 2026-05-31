@@ -53,7 +53,6 @@ const tiers = [
     days: "16",
     recommended: false,
     rows: {
-      "Days per month": "16",
       "Product strategy & roadmapping": true,
       "Platform & web development": true,
       "Product & UX audits": true,
@@ -75,7 +74,6 @@ const tiers = [
     days: "22",
     recommended: true,
     rows: {
-      "Days per month": "22",
       "Product strategy & roadmapping": true,
       "Platform & web development": true,
       "Product & UX audits": true,
@@ -97,7 +95,6 @@ const tiers = [
     days: "30+",
     recommended: false,
     rows: {
-      "Days per month": "30+",
       "Product strategy & roadmapping": true,
       "Platform & web development": true,
       "Product & UX audits": true,
@@ -114,7 +111,6 @@ const tiers = [
 
 const rowGroups = [
   { label: "Build", rows: [
-    { name: "Days per month", desc: "Committed capacity allocated each month" },
     { name: "Product strategy & roadmapping", desc: "Roadmaps, workshops, vision alignment, innovation sessions" },
     { name: "Platform & web development", desc: "Full-stack builds, API integrations, deployment, QA" },
     { name: "Product & UX audits", desc: "Deep-dive reviews of existing products, UX and conversion analysis" },

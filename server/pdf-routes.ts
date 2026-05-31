@@ -61,7 +61,6 @@ const rowGroups = [
   {
     label: "Build",
     rows: [
-      { name: "Days per month", desc: "Committed capacity allocated each month", vals: ["16", "22", "30+"] },
       { name: "Product strategy & roadmapping", desc: "Roadmaps, workshops, vision alignment", vals: [true, true, true] },
       { name: "Platform & web development", desc: "Full-stack builds, APIs, deployment", vals: [true, true, true] },
       { name: "Product & UX audits", desc: "Deep-dive reviews & findings reports", vals: [true, true, true] },
