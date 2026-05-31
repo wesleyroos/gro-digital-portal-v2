@@ -65,7 +65,6 @@ const rowGroups = [
       { name: "Product strategy & roadmapping", desc: "Roadmaps, workshops, vision alignment", vals: [true, true, true] },
       { name: "Platform & web development", desc: "Full-stack builds, APIs, deployment", vals: [true, true, true] },
       { name: "Product & UX audits", desc: "Deep-dive reviews & findings reports", vals: [true, true, true] },
-      { name: "Hosting & infrastructure", desc: "Managed servers, uptime, pipelines", vals: [true, true, true] },
       { name: "Progress reporting", desc: "Monthly delivery summaries", vals: [true, true, true] },
     ],
   },
@@ -277,41 +276,28 @@ function buildRateCardHtml(): string {
       ${serviceRows.join("")}
     </div>
 
-    <!-- Ad hoc rates -->
-    <div style="margin-top:28px;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Ad hoc rates</span>
-        <div style="flex:1;height:1px;background:${BORDER};"></div>
-      </div>
-      <p style="font-size:10px;color:${MUTED};line-height:1.7;margin-bottom:14px;max-width:480px;">For once-off projects, short engagements, or work outside a retainer scope, we bill at the following standard rates.</p>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr>
-            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:left;"></th>
-            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:right;width:100px;">Per Hour</th>
-            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:right;width:110px;">Per Day</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${services.map(s => `<tr>
-            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;vertical-align:middle;">
-              <span style="font-size:8.5px;color:${FAINT};margin-right:8px;">${s.index}</span>
-              <span style="font-size:10.5px;font-weight:600;color:${TEXT};">${s.name}</span>
-            </td>
-            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:middle;">
-              ${s.hourly ? `<span style="font-size:12px;font-weight:700;color:${TEXT};">R${s.hourly}</span><span style="font-size:8px;color:${FAINT};">/hr</span>` : `<span style="font-size:11px;font-weight:700;color:${TEXT};">R${s.monthly}</span><span style="font-size:8px;color:${FAINT};">/mo</span>`}
-            </td>
-            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:middle;">
-              ${s.daily ? `<span style="font-size:12px;font-weight:700;color:${BLUE};">R${s.daily}</span><span style="font-size:8px;color:${FAINT};">/day</span>` : `<span style="font-size:10px;color:${FAINT};">—</span>`}
-            </td>
-          </tr>`).join("")}
-        </tbody>
-      </table>
-      <p style="font-size:8px;color:${FAINT};margin-top:8px;">A day rate assumes 8 hours. Retainer clients receive 25–30% off these rates.</p>
+  </div>
+  ${pageFooter(2, 5)}
+</div>
+
+<!-- ════════════════════════════════════ PROCESS ══ -->
+<div class="page" style="min-height:297mm;background:#F9FAFB;display:flex;flex-direction:column;">
+  <div style="height:4px;background:${BLUE};"></div>
+  <div style="flex:1;padding:36px 48px 24px;">
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">How we work</span>
+      <div style="flex:1;height:1px;background:${BORDER};"></div>
     </div>
+    <h2 style="font-size:22px;font-weight:800;letter-spacing:-0.03em;color:${TEXT};margin-bottom:6px;line-height:1.1;">Fast by design.</h2>
+    <p style="font-size:12px;color:${MUTED};margin-bottom:24px;line-height:1.6;">Most agencies spend months in discovery. We start building useful things in days.</p>
+
+    <table style="width:100%;border-collapse:collapse;">
+      <tbody>${processHtml}</tbody>
+    </table>
 
   </div>
-  ${pageFooter(2, 4)}
+  ${pageFooter(3, 5)}
 </div>
 
 <!-- ═══════════════════════════════════ PACKAGES ══ -->
@@ -354,27 +340,16 @@ function buildRateCardHtml(): string {
     <p style="font-size:8.5px;color:${FAINT};margin-top:10px;">All retainers invoiced monthly in advance. One month's written notice to scale up, down, or pause.</p>
 
   </div>
-  ${pageFooter(3, 4)}
+  ${pageFooter(4, 5)}
 </div>
 
-<!-- ════════════════════════════════════ PROCESS ══ -->
+<!-- ══════════════════════════ QUALIFIERS · FAQ · RATES ══ -->
 <div class="page" style="min-height:297mm;background:#fff;display:flex;flex-direction:column;">
   <div style="height:4px;background:${BLUE};"></div>
   <div style="flex:1;padding:36px 48px 24px;">
 
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-      <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">How we work</span>
-      <div style="flex:1;height:1px;background:${BORDER};"></div>
-    </div>
-    <h2 style="font-size:22px;font-weight:800;letter-spacing:-0.03em;color:${TEXT};margin-bottom:6px;line-height:1.1;">Fast by design.</h2>
-    <p style="font-size:12px;color:${MUTED};margin-bottom:24px;line-height:1.6;">Most agencies spend months in discovery. We start building useful things in days.</p>
-
-    <table style="width:100%;border-collapse:collapse;">
-      <tbody>${processHtml}</tbody>
-    </table>
-
     <!-- Right for us if -->
-    <div style="margin-top:28px;">
+    <div style="margin-bottom:28px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Right for us if</span>
         <div style="flex:1;height:1px;background:${BORDER};"></div>
@@ -389,7 +364,7 @@ function buildRateCardHtml(): string {
     </div>
 
     <!-- FAQ -->
-    <div style="margin-top:24px;">
+    <div style="margin-bottom:28px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">FAQ</span>
         <div style="flex:1;height:1px;background:${BORDER};"></div>
@@ -400,8 +375,41 @@ function buildRateCardHtml(): string {
       </div>`).join("")}
     </div>
 
+    <!-- Ad hoc rates -->
+    <div style="margin-bottom:28px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Ad hoc rates</span>
+        <div style="flex:1;height:1px;background:${BORDER};"></div>
+      </div>
+      <p style="font-size:10px;color:${MUTED};line-height:1.7;margin-bottom:14px;max-width:480px;">For once-off projects, short engagements, or work outside a retainer scope, we bill at the following standard rates.</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:left;"></th>
+            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:right;width:100px;">Per Hour</th>
+            <th style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${FAINT};padding:0 0 8px;border-bottom:1px solid ${BORDER};text-align:right;width:110px;">Per Day</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${services.filter(s => s.hourly).map(s => `<tr>
+            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;vertical-align:middle;">
+              <span style="font-size:8.5px;color:${FAINT};margin-right:8px;">${s.index}</span>
+              <span style="font-size:10.5px;font-weight:600;color:${TEXT};">${s.name}</span>
+            </td>
+            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:middle;">
+              <span style="font-size:12px;font-weight:700;color:${TEXT};">R${s.hourly}</span><span style="font-size:8px;color:${FAINT};">/hr</span>
+            </td>
+            <td style="padding:8px 0;border-bottom:1px solid #F3F4F6;text-align:right;vertical-align:middle;">
+              <span style="font-size:12px;font-weight:700;color:${BLUE};">R${s.daily}</span><span style="font-size:8px;color:${FAINT};">/day</span>
+            </td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      <p style="font-size:8px;color:${FAINT};margin-top:8px;">A day rate assumes 8 hours. Retainer clients receive 25–30% off these rates.</p>
+    </div>
+
     <!-- Contact -->
-    <div style="margin-top:32px;">
+    <div>
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
         <span style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${FAINT};">Get in touch</span>
         <div style="flex:1;height:1px;background:${BORDER};"></div>
@@ -423,7 +431,7 @@ function buildRateCardHtml(): string {
     </div>
 
   </div>
-  ${pageFooter(4, 4)}
+  ${pageFooter(5, 5)}
 </div>
 
 </body>

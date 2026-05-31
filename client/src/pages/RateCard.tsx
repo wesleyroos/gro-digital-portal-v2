@@ -57,7 +57,6 @@ const tiers = [
       "Product strategy & roadmapping": true,
       "Platform & web development": true,
       "Product & UX audits": true,
-      "Hosting & infrastructure": true,
       "Progress reporting": true,
       "Go-to-market strategy": false,
       "Outreach & meeting generation": false,
@@ -80,7 +79,6 @@ const tiers = [
       "Product strategy & roadmapping": true,
       "Platform & web development": true,
       "Product & UX audits": true,
-      "Hosting & infrastructure": true,
       "Progress reporting": true,
       "Go-to-market strategy": true,
       "Outreach & meeting generation": true,
@@ -103,7 +101,6 @@ const tiers = [
       "Product strategy & roadmapping": true,
       "Platform & web development": true,
       "Product & UX audits": true,
-      "Hosting & infrastructure": true,
       "Progress reporting": true,
       "Go-to-market strategy": true,
       "Outreach & meeting generation": true,
@@ -121,7 +118,6 @@ const rowGroups = [
     { name: "Product strategy & roadmapping", desc: "Roadmaps, workshops, vision alignment, innovation sessions" },
     { name: "Platform & web development", desc: "Full-stack builds, API integrations, deployment, QA" },
     { name: "Product & UX audits", desc: "Deep-dive reviews of existing products, UX and conversion analysis" },
-    { name: "Hosting & infrastructure", desc: "Managed servers, uptime monitoring, deployment pipelines" },
     { name: "Progress reporting", desc: "Monthly delivery summaries, what shipped and what's next" },
   ]},
   { label: "Grow", rows: [
@@ -683,7 +679,7 @@ export default function RateCard() {
               </div>
 
               {/* Rate rows */}
-              {[...services, { index: "06", name: "Hosting & Infrastructure", desc: "Per platform managed", hourly: null, daily: null, monthly: "6,000" }].map((s: any) => (
+              {services.map((s: any) => (
                 <div key={s.index} className="gd-adhoc-grid" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1fr 110px 115px", gap: "0 24px", padding: "16px 0", borderBottom: `1px solid ${BORDER}`, alignItems: "center" }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
