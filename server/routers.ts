@@ -66,6 +66,7 @@ import {
   updatePostStatus,
   setPostNotes,
   maybeSendBatchCompleteEmail,
+  sendPostRejectedEmail,
   updatePostContent,
   approveAllPosts,
   getCampaignMessages,
@@ -1222,6 +1223,16 @@ export const appRouter = router({
           if (!campaign) throw new TRPCError({ code: 'NOT_FOUND' });
           assertCampaignAccess(ctx.user, campaign.clientSlug);
           await updatePostStatus(input.postId, 'rejected', { notes: input.notes });
+          if (input.notes) {
+            const profile = await getClientProfile(campaign.clientSlug);
+            sendPostRejectedEmail({
+              campaignId: campaign.id,
+              campaignName: campaign.name,
+              clientName: profile?.name ?? campaign.clientSlug,
+              postTheme: post.theme,
+              notes: input.notes,
+            }).catch(() => {});
+          }
           return { success: true };
         }),
 
@@ -1694,6 +1705,14 @@ Instructions:
           const post = await getPostById(input.postId);
           if (!post || post.campaignId !== campaign.id) throw new TRPCError({ code: 'NOT_FOUND' });
           await updatePostStatus(input.postId, 'rejected', { notes: input.notes });
+          const profile = await getClientProfile(campaign.clientSlug);
+          sendPostRejectedEmail({
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            clientName: profile?.name ?? campaign.clientSlug,
+            postTheme: post.theme,
+            notes: input.notes,
+          }).catch(() => {});
           maybeSendBatchCompleteEmail(campaign.id, campaign).catch(() => {});
           return { success: true };
         }),

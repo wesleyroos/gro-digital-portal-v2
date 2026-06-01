@@ -828,6 +828,62 @@ export async function maybeSendBatchCompleteEmail(campaignId: number, campaign: 
   });
 }
 
+export async function sendPostRejectedEmail(opts: {
+  campaignId: number;
+  campaignName: string;
+  clientName: string;
+  postTheme: string | null | undefined;
+  notes: string;
+}) {
+  const { Resend } = await import('resend');
+  const apiKey = process.env.RESEND_API_KEY;
+  const ownerEmail = process.env.OWNER_EMAIL;
+  const appUrl = (process.env.APP_URL ?? '').trim();
+  if (!apiKey || !ownerEmail) return;
+
+  const campaignUrl = `${appUrl}/marketing/${opts.campaignId}`;
+  const postLabel = opts.postTheme ?? `Post #${opts.campaignId}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+        <tr><td style="background:#0d1904;padding:20px 28px;">
+          <p style="margin:0;font-size:15px;font-weight:600;color:#fff;">Gro Digital</p>
+        </td></tr>
+        <tr><td style="padding:28px;">
+          <h2 style="margin:0 0 6px;font-size:18px;color:#111;">Post rejected</h2>
+          <p style="margin:0 0 20px;font-size:14px;color:#555;"><strong>${opts.clientName}</strong> rejected a post in <strong>${opts.campaignName}</strong> and is waiting for a replacement.</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin-bottom:20px;">
+            <tr style="background:#f9fafb;">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;font-weight:600;">Post</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;font-weight:600;">Client notes</th>
+            </tr>
+            <tr>
+              <td style="padding:8px 12px;font-size:13px;color:#111;">${postLabel}</td>
+              <td style="padding:8px 12px;font-size:13px;color:#555;">${opts.notes}</td>
+            </tr>
+          </table>
+          <a href="${campaignUrl}" style="display:inline-block;background:#0d1904;color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;">View Campaign →</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const resend = new Resend(apiKey);
+  await resend.emails.send({
+    from: 'Gro Digital <hello@grodigital.co.za>',
+    to: ownerEmail,
+    subject: `❌ ${opts.clientName} rejected a post — ${opts.campaignName}`,
+    html,
+  });
+}
+
 // ── Email ──
 
 export async function sendWelcomeEmail(opts: {
