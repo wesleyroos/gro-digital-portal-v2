@@ -1448,7 +1448,7 @@ export default function MarketingCampaignWorkspace() {
                     </select>
                   </div>
                 </div>
-                {allPostsApproved && campaign.status === "approval" && (
+                {campaign.status === "approval" && (
                   <Button
                     size="sm"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
