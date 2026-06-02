@@ -140,8 +140,6 @@ export default function CampaignPreview() {
 
       {/* ── Post detail modal ── */}
       {selectedPost && selectedPostIdx !== null && (() => {
-        const row = rowByPostId.get(selectedPost.id);
-        const dateInfo = formatPostedDate(selectedPost.postedAt, selectedPost.scheduledAt);
         const hasPrev = selectedPostIdx > 0;
         const hasNext = selectedPostIdx < navigablePosts.length - 1;
         return (
@@ -168,97 +166,18 @@ export default function CampaignPreview() {
                 <ChevronRight className="w-5 h-5" />
               </button>
             )}
-            <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-              <div className="relative shrink-0">
-                {selectedPost.mediaType === "video" && selectedPost.videoUrl
-                  ? <video src={selectedPost.videoUrl} className="w-full aspect-square object-cover" controls preload="metadata" />
-                  : selectedPost.imageUrl
-                  ? <img src={selectedPost.imageUrl} alt="" className="w-full aspect-square object-cover" />
-                  : <div className="w-full aspect-square bg-muted flex items-center justify-center"><ImageIcon className="w-12 h-12 text-muted-foreground/30" /></div>
-                }
-                <button className="absolute top-3 right-3 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-1.5 transition-colors" onClick={() => setSelectedPostIdx(null)}>
-                  <X className="w-4 h-4" />
-                </button>
-                <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                  <Badge className={`${POST_STATUS_COLORS[selectedPost.status]} text-[10px]`} variant="secondary">{selectedPost.status}</Badge>
-                  <PlatformBadges hasIg={!!selectedPost.instagramPostId} hasFb={!!selectedPost.facebookPostId} />
-                </div>
-                <div className="absolute bottom-3 right-3 bg-black/50 rounded-full px-2 py-0.5">
-                  <p className="text-[10px] text-white/80">{selectedPostIdx + 1} / {navigablePosts.length}</p>
-                </div>
-              </div>
-              <div className="p-4 overflow-y-auto space-y-3">
-                {dateInfo && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Calendar className="w-3 h-3" />
-                    {dateInfo.isPosted ? "Posted " : "Scheduled "}
-                    {dateInfo.date.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-                  </p>
-                )}
-                {selectedPost.theme && <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-wider">{selectedPost.theme}</p>}
-                {selectedPost.caption && <p className="text-sm leading-relaxed text-foreground">{selectedPost.caption}</p>}
-                {selectedPost.hashtags && <p className="text-xs text-violet-500 leading-relaxed">{selectedPost.hashtags}</p>}
-
-                {/* Analytics — IG */}
-                {selectedPost.status === "posted" && selectedPost.instagramPostId && row?.insights && (() => {
-                  const ins = row.insights;
-                  const engRate = ins.reach > 0 ? ((ins.totalInteractions / ins.reach) * 100).toFixed(1) : null;
-                  return (
-                    <div className="border-t pt-3 space-y-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <Instagram className="w-3 h-3 text-pink-500" /> Instagram
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { label: "Reach",        value: ins.reach,             icon: Users         },
-                          { label: "Likes",         value: ins.likes,             icon: Heart         },
-                          { label: "Comments",      value: ins.comments,          icon: MessageCircle },
-                          { label: "Shares",        value: ins.shares,            icon: Share2        },
-                          { label: "Saves",         value: ins.saved,             icon: Bookmark      },
-                          { label: "Interactions",  value: ins.totalInteractions, icon: TrendingUp    },
-                        ].map(({ label, value, icon: Icon }) => (
-                          <div key={label} className="bg-muted rounded-xl px-2 py-2.5 text-center">
-                            <Icon className="w-3.5 h-3.5 mx-auto mb-0.5 text-muted-foreground" />
-                            <p className="text-sm font-bold leading-none">{value.toLocaleString()}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {engRate && <p className="text-[11px] text-muted-foreground text-center">Engagement rate: <span className="font-semibold text-foreground">{engRate}%</span></p>}
-                    </div>
-                  );
-                })()}
-
-                {/* Analytics — FB */}
-                {selectedPost.status === "posted" && selectedPost.facebookPostId && row?.fbInsights && (() => {
-                  const fb = row.fbInsights;
-                  const total = fb.reactions + fb.shares + fb.clicks;
-                  const engRate = fb.reach > 0 ? ((total / fb.reach) * 100).toFixed(1) : null;
-                  return (
-                    <div className="border-t pt-3 space-y-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <Facebook className="w-3 h-3 text-blue-600" /> Facebook
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { label: "Reach",       value: fb.reach,       icon: Users        },
-                          { label: "Engaged",     value: fb.reactions,   icon: Heart        },
-                          { label: "Clicks",      value: fb.clicks,      icon: MessageCircle},
-                          { label: "Impressions", value: fb.impressions, icon: BarChart2    },
-                          { label: "Video Views", value: fb.videoViews,  icon: Share2       },
-                          { label: "Total",       value: total,          icon: TrendingUp   },
-                        ].map(({ label, value, icon: Icon }) => (
-                          <div key={label} className="bg-blue-50 rounded-xl px-2 py-2.5 text-center">
-                            <Icon className="w-3.5 h-3.5 mx-auto mb-0.5 text-blue-400" />
-                            <p className="text-sm font-bold leading-none text-blue-700">{label === '—' ? '—' : value.toLocaleString()}</p>
-                            <p className="text-[10px] text-blue-500/70 mt-0.5">{label}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {engRate && <p className="text-[11px] text-muted-foreground text-center">Engagement rate: <span className="font-semibold text-foreground">{engRate}%</span></p>}
-                    </div>
-                  );
-                })()}
+            <div className="relative max-w-3xl w-full" onClick={e => e.stopPropagation()}>
+              {selectedPost.mediaType === "video" && selectedPost.videoUrl
+                ? <video src={selectedPost.videoUrl} className="w-full h-auto max-h-[90vh] object-contain rounded-xl" controls preload="metadata" />
+                : selectedPost.imageUrl
+                ? <img src={selectedPost.imageUrl} alt="" className="w-full h-auto max-h-[90vh] object-contain rounded-xl" />
+                : <div className="w-64 h-64 flex items-center justify-center"><ImageIcon className="w-12 h-12 text-white/30" /></div>
+              }
+              <button className="absolute top-3 right-3 text-white/90 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-1.5 transition-colors" onClick={() => setSelectedPostIdx(null)}>
+                <X className="w-4 h-4" />
+              </button>
+              <div className="absolute bottom-3 right-3 bg-black/50 rounded-full px-2 py-0.5">
+                <p className="text-[10px] text-white/80">{selectedPostIdx + 1} / {navigablePosts.length}</p>
               </div>
             </div>
           </div>
@@ -312,9 +231,9 @@ export default function CampaignPreview() {
                 <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPostIdx(navigablePosts.findIndex(p => p.id === post.id))}>
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
                     {post.mediaType === "video" && post.videoUrl
-                      ? <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
+                      ? <video src={post.videoUrl} className="w-full h-full object-contain" preload="metadata" />
                       : post.imageUrl
-                      ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ? <img src={post.imageUrl} alt="" className="w-full h-full object-contain" />
                       : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-slate-300" /></div>
                     }
                     {post.scheduledAt && (
@@ -358,8 +277,8 @@ export default function CampaignPreview() {
               {upcomingPosts.map(post => (
                 <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPostIdx(navigablePosts.findIndex(p => p.id === post.id))}>
                   <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                    {post.mediaType === "video" && post.videoUrl ? <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
-                      : post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    {post.mediaType === "video" && post.videoUrl ? <video src={post.videoUrl} className="w-full h-full object-contain" preload="metadata" />
+                      : post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-contain" />
                       : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-6 h-6 text-slate-300" /></div>}
                     <div className="absolute top-2 right-2">
                       <Badge className={`${POST_STATUS_COLORS[post.status]} text-[9px] px-1.5`} variant="secondary">{post.status}</Badge>
@@ -395,8 +314,8 @@ export default function CampaignPreview() {
                 return (
                   <div key={post.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm cursor-pointer hover:border-violet-300 hover:shadow-md transition-all group" onClick={() => setSelectedPostIdx(navigablePosts.findIndex(p => p.id === post.id))}>
                     <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                      {post.mediaType === "video" && post.videoUrl ? <video src={post.videoUrl} className="w-full h-full object-cover" preload="metadata" />
-                        : post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      {post.mediaType === "video" && post.videoUrl ? <video src={post.videoUrl} className="w-full h-full object-contain" preload="metadata" />
+                        : post.imageUrl ? <img src={post.imageUrl} alt="" className="w-full h-full object-contain" />
                         : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-6 h-6 text-slate-300" /></div>}
                       {ins && (
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
