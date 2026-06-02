@@ -199,6 +199,7 @@ export default function MarketingCampaignWorkspace() {
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
   const [assetsExpanded, setAssetsExpanded] = useState(true);
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [uploadingPostIds, setUploadingPostIds] = useState<Set<number>>(new Set());
   const [selectedMailerId, setSelectedMailerId] = useState<number | null>(null);
   const [mailerTab, setMailerTab] = useState<'edit' | 'preview' | 'ai'>('preview');
   const [mailerAiMessages, setMailerAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
@@ -656,12 +657,12 @@ export default function MarketingCampaignWorkspace() {
     onError: () => toast.error("Failed to save changes"),
   });
   const uploadImageMutation = trpc.campaign.post.uploadImage.useMutation({
-    onSuccess: () => { toast.success("Image uploaded"); refetch(); },
-    onError: () => toast.error("Upload failed"),
+    onSuccess: (_, vars) => { toast.success("Image uploaded"); setUploadingPostIds(s => { const n = new Set(s); n.delete(vars.postId); return n; }); refetch(); },
+    onError: (_, vars) => { toast.error("Upload failed"); setUploadingPostIds(s => { const n = new Set(s); n.delete(vars.postId); return n; }); },
   });
   const uploadVideoMutation = trpc.campaign.post.uploadVideo.useMutation({
-    onSuccess: () => { toast.success("Video uploaded"); refetch(); },
-    onError: () => toast.error("Video upload failed"),
+    onSuccess: (_, vars) => { toast.success("Video uploaded"); setUploadingPostIds(s => { const n = new Set(s); n.delete(vars.postId); return n; }); refetch(); },
+    onError: (_, vars) => { toast.error("Video upload failed"); setUploadingPostIds(s => { const n = new Set(s); n.delete(vars.postId); return n; }); },
   });
   const setImageModelMutation = trpc.campaign.setImageModel.useMutation({
     onSuccess: () => { toast.success("Image model updated"); refetch(); },
@@ -753,6 +754,7 @@ export default function MarketingCampaignWorkspace() {
   }
 
   function handleFileUpload(postId: number, file: File) {
+    setUploadingPostIds(s => new Set(s).add(postId));
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -763,6 +765,7 @@ export default function MarketingCampaignWorkspace() {
   }
 
   function handleVideoUpload(postId: number, file: File) {
+    setUploadingPostIds(s => new Set(s).add(postId));
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -1529,6 +1532,17 @@ export default function MarketingCampaignWorkspace() {
                           <div className="text-center">
                             <p className="text-xs font-medium text-violet-700">Generating image…</p>
                             <p className="text-[10px] text-violet-500 mt-0.5">This takes 10–30 seconds</p>
+                          </div>
+                        </div>
+                      ) : uploadingPostIds.has(post.id) ? (
+                        /* ── Uploading overlay ── */
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-slate-50">
+                          <Upload className="w-6 h-6 text-slate-400" />
+                          <div className="w-32 space-y-1.5">
+                            <p className="text-xs font-medium text-slate-600 text-center">Uploading…</p>
+                            <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-slate-500 rounded-full" style={{ animation: "progress 1.5s ease-in-out infinite" }} />
+                            </div>
                           </div>
                         </div>
                       ) : post.mediaType === "video" && post.videoUrl ? (
