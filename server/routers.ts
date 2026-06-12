@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { buildAndSendRecurringInvoice } from './scheduler';
+import { buildAndSendRecurringInvoice, runMandateBillingTick } from './scheduler';
 import sharp from 'sharp';
 import { COOKIE_NAME } from "@shared/const";
 import { ENV } from "./_core/env";
@@ -4105,6 +4105,15 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
       .mutation(async ({ input }) => {
         await updateMandateStatus(input.mandateId, "active");
         return { success: true };
+      }),
+
+    retryCharge: adminProcedure
+      .input(z.object({ mandateId: z.number() }))
+      .mutation(async ({ input }) => {
+        await updateMandateStatus(input.mandateId, "active");
+        await runMandateBillingTick();
+        const mandate = await getMandateById(input.mandateId);
+        return { success: true, status: mandate?.status ?? "active" };
       }),
 
     cancel: adminProcedure

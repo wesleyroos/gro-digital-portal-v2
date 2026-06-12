@@ -226,6 +226,15 @@ export default function ClientPortal() {
   });
   const pauseMandate = trpc.mandate.pause.useMutation({ onSuccess: () => refetchMandate() });
   const resumeMandate = trpc.mandate.resume.useMutation({ onSuccess: () => refetchMandate() });
+  const retryCharge = trpc.mandate.retryCharge.useMutation({
+    onSuccess: (res) => {
+      refetchMandate();
+      utils.invoice.listByClient.invalidate({ clientSlug: slug });
+      if (res.status === "active") toast.success("Charge succeeded — billing resumed");
+      else toast.error("Charge failed again — the client needs to update their card");
+    },
+    onError: () => toast.error("Retry failed"),
+  });
   const cancelMandate = trpc.mandate.cancel.useMutation({ onSuccess: () => { refetchMandate(); toast.success("Mandate cancelled"); } });
   const sendSetupEmail = trpc.mandate.sendSetupEmail.useMutation({ onSuccess: () => toast.success("Setup email sent"), onError: () => toast.error("Failed to send email") });
   const updateLineItems = trpc.mandate.updateLineItems.useMutation({
@@ -1289,15 +1298,20 @@ export default function ClientPortal() {
                   </div>
                 ) : mandate.status === "failed" ? (
                   <div className="space-y-2">
-                    <p className="text-xs text-red-600">A charge failed. Please contact the client to update their card details — create a new mandate to restart billing.</p>
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                      setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual", nextBillingDate: "" })));
-                      setMandateStartDate(new Date().toISOString().slice(0, 10));
-                      setMandateChargeOnSetup(true);
-                      setMandateFormOpen(true);
-                    }}>
-                      Create new mandate
-                    </Button>
+                    <p className="text-xs text-red-600">A charge failed. You can retry with the card on file, or create a new mandate if the client needs to enter new card details.</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => retryCharge.mutate({ mandateId: mandate.id })} disabled={retryCharge.isPending}>
+                        {retryCharge.isPending ? "Retrying…" : "Retry charge"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => {
+                        setMandateLineItems(mandate.lineItems.map(i => ({ description: i.description, amount: String(i.amount), interval: i.interval as "monthly" | "annual", nextBillingDate: "" })));
+                        setMandateStartDate(new Date().toISOString().slice(0, 10));
+                        setMandateChargeOnSetup(true);
+                        setMandateFormOpen(true);
+                      }}>
+                        Create new mandate
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
