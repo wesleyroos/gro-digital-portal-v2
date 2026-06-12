@@ -412,6 +412,15 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    bulkDelete: adminProcedure
+      .input(z.object({ invoiceNumbers: z.array(z.string()).min(1) }))
+      .mutation(async ({ input }) => {
+        for (const invoiceNumber of input.invoiceNumbers) {
+          await deleteInvoice(invoiceNumber);
+        }
+        return { success: true, deleted: input.invoiceNumbers.length };
+      }),
+
     // Admin-only: list invoices for a specific client
     listByClient: adminProcedure
       .input(z.object({ clientSlug: z.string() }))

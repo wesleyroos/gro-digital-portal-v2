@@ -2900,6 +2900,18 @@ export async function createMandateInvoiceForItems(
   return { invoiceId, shareToken, totalAmount };
 }
 
+export async function getUnpaidMandateInvoice(mandateId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.mandateId, mandateId), inArray(invoices.status, ["sent", "overdue"])))
+    .orderBy(desc(invoices.id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function listFlyAppMappings(): Promise<FlyApp[]> {
   const db = await getDb();
   if (!db) return [];

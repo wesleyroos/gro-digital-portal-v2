@@ -1,4 +1,4 @@
-import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllConnectedInstagramClients, updateInstagramAccessToken, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, updateMandateStatus, getInvoicesDueForScheduledSend, clearInvoiceScheduledSendDate, updateInvoiceStatus, getInvoiceItems, cloneInvoiceAsDraft } from './db';
+import { getPostsDueForPublishing, getCampaignById, getInstagramTokens, getFacebookTokens, getLinkedinTokens, updatePostStatus, updatePostFacebookId, updatePostLinkedinId, setPostNotes, getAllConnectedInstagramClients, updateInstagramAccessToken, getAllEnabledRecurringConfigs, getInvoiceForClientInMonth, getClientProfile, createInvoice, getInvoiceByNumber, updateRecurringInvoiceLastSent, sendInvoiceEmail, getNextInvoiceNumber, getDueMandateLineItems, getMandateById, getMandateLineItems, createMandateInvoiceForItems, getUnpaidMandateInvoice, updateMandateStatus, getInvoicesDueForScheduledSend, clearInvoiceScheduledSendDate, updateInvoiceStatus, getInvoiceItems, cloneInvoiceAsDraft } from './db';
 import { chargeAuthorization, randsToCents } from './paystack';
 import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia, refreshLongLivedToken } from './instagram';
@@ -194,15 +194,26 @@ export async function runMandateBillingTick() {
 
       const items = rows.map(r => r.item);
       const totalRands = items.reduce((sum, item) => sum + parseFloat(String(item.amount)), 0);
-      const invoiceNumber = await getNextInvoiceNumber(mandate.clientSlug);
 
       const fullMandate = await getMandateById(mandateId);
-      const { invoiceId } = await createMandateInvoiceForItems(fullMandate, items, invoiceNumber);
 
-      // Build reference that encodes mandateId and invoiceId for webhook reconciliation
-      // Format: m_{mandateId}_inv_{invoiceId}_item_{itemId}_{interval}  (first item only for single-item mandates)
-      // For multi-item, we use m_{mandateId}_inv_{invoiceId}
-      const reference = `m_${mandateId}_inv_${invoiceId}`;
+      // Reuse the unpaid invoice from a previous failed attempt — a retry must
+      // never create a duplicate invoice
+      const existingInvoice = await getUnpaidMandateInvoice(mandateId);
+      let invoiceId: number;
+      let invoiceNumber: string;
+      if (existingInvoice) {
+        invoiceId = existingInvoice.id;
+        invoiceNumber = existingInvoice.invoiceNumber;
+      } else {
+        invoiceNumber = await getNextInvoiceNumber(mandate.clientSlug);
+        ({ invoiceId } = await createMandateInvoiceForItems(fullMandate, items, invoiceNumber));
+      }
+
+      // Build reference that encodes mandateId and invoiceId for webhook reconciliation.
+      // Paystack rejects duplicate references, so each attempt gets a unique suffix —
+      // the webhook only parses the m_{id} and inv_{id} tokens.
+      const reference = `m_${mandateId}_inv_${invoiceId}_t${Date.now()}`;
 
       const chargeResult = await chargeAuthorization({
         authCode: mandate.paystackAuthCode,
@@ -220,8 +231,25 @@ export async function runMandateBillingTick() {
           await advanceLineItemNextBillingDate(item.id, item.interval as 'monthly' | 'annual');
         }
         console.log(`[MandateBilling] Charged mandate ${mandateId} R${totalRands} — invoice ${invoiceNumber}`);
+      } else if (chargeResult.status === 'failed') {
+        // Declined synchronously — stop retrying until the mandate is resumed manually
+        await updateInvoiceStatus(invoiceId, 'overdue');
+        await updateMandateStatus(mandateId, 'failed');
+        console.warn(`[MandateBilling] Charge declined for mandate ${mandateId}: ${chargeResult.gateway_response}`);
+
+        const ownerEmail = process.env.OWNER_EMAIL;
+        if (ownerEmail && fullMandate) {
+          const { Resend } = await import('resend');
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          resend.emails.send({
+            from: 'Gro Digital Portal <wesley@grodigital.co.za>',
+            to: ownerEmail,
+            subject: `Charge failed: ${fullMandate.clientName}`,
+            html: `<p>The recurring charge for <strong>${fullMandate.clientName}</strong> (invoice ${invoiceNumber}) was declined: ${chargeResult.gateway_response}.</p><p>The mandate has been marked as failed — no further charge attempts will be made until you resume it in the portal.</p>`,
+          }).catch(() => {});
+        }
       } else {
-        console.warn(`[MandateBilling] Charge pending for mandate ${mandateId}: ${chargeResult.gateway_response}`);
+        console.warn(`[MandateBilling] Charge ${chargeResult.status} for mandate ${mandateId}: ${chargeResult.gateway_response}`);
       }
     } catch (e) {
       console.error(`[MandateBilling] Failed for mandate ${mandateId}:`, e);

@@ -32,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -302,6 +303,18 @@ export default function ClientPortal() {
     onError: () => toast.error("Failed to delete invoice"),
   });
 
+  const [selectedInvoiceNumbers, setSelectedInvoiceNumbers] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const bulkDeleteInvoices = trpc.invoice.bulkDelete.useMutation({
+    onSuccess: (res) => {
+      utils.invoice.listByClient.invalidate({ clientSlug: slug });
+      setSelectedInvoiceNumbers([]);
+      setBulkDeleteOpen(false);
+      toast.success(`${res.deleted} invoice${res.deleted === 1 ? "" : "s"} deleted`);
+    },
+    onError: () => toast.error("Failed to delete invoices"),
+  });
+
   const updateInvoiceStatus = trpc.invoice.updateStatus.useMutation({
     onSuccess: () => utils.invoice.listByClient.invalidate({ clientSlug: slug }),
     onError: () => toast.error("Failed to update status"),
@@ -401,6 +414,9 @@ export default function ClientPortal() {
   const onceOff = invoices?.filter((i) => i.invoiceType === "once-off") || [];
   const monthly = invoices?.filter((i) => i.invoiceType === "monthly") || [];
   const annual = invoices?.filter((i) => i.invoiceType === "annual") || [];
+  const billingRows = [...onceOff, ...monthly, ...annual]
+    .sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime());
+  const allBillingRowsSelected = billingRows.length > 0 && billingRows.every((inv) => selectedInvoiceNumbers.includes(inv.invoiceNumber));
 
   // ── Non-admin (client) view ──────────────────────────────────────────────────
   if (!isAdmin) {
@@ -1680,6 +1696,24 @@ export default function ClientPortal() {
               </AlertDialogContent>
             </AlertDialog>
 
+            {/* Bulk delete invoices confirm */}
+            <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {selectedInvoiceNumbers.length} invoice{selectedInvoiceNumbers.length === 1 ? "" : "s"}?</AlertDialogTitle>
+                  <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive hover:bg-destructive/90"
+                    disabled={bulkDeleteInvoices.isPending}
+                    onClick={() => bulkDeleteInvoices.mutate({ invoiceNumbers: selectedInvoiceNumbers })}>
+                    {bulkDeleteInvoices.isPending ? "Deleting…" : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
             {/* Resend invoice modal */}
             <AlertDialog open={!!resendInvoice} onOpenChange={(o) => { if (!o) setResendInvoice(null); }}>
               <AlertDialogContent>
@@ -1708,11 +1742,30 @@ export default function ClientPortal() {
               </AlertDialogContent>
             </AlertDialog>
 
-            {(onceOff.length > 0 || monthly.length > 0 || annual.length > 0) && (
+            {billingRows.length > 0 && (
+              <div className="space-y-2">
+                {selectedInvoiceNumbers.length > 0 && (
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-4 py-2">
+                    <p className="text-sm text-muted-foreground">{selectedInvoiceNumbers.length} selected</p>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedInvoiceNumbers([])}>Clear</Button>
+                      <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+                        <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete Selected
+                      </Button>
+                    </div>
+                  </div>
+                )}
               <div className="rounded-lg border border-border overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-muted/50 border-b border-border">
+                      <th className="px-4 py-2.5 w-8">
+                        <Checkbox
+                          checked={allBillingRowsSelected}
+                          onCheckedChange={(checked) =>
+                            setSelectedInvoiceNumbers(checked ? billingRows.map((inv) => inv.invoiceNumber) : [])}
+                        />
+                      </th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">#</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Description</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Date</th>
@@ -1722,12 +1775,20 @@ export default function ClientPortal() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border bg-background">
-                    {[...onceOff, ...monthly, ...annual]
-                      .sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime())
+                    {billingRows
                       .map((inv) => (
                         <tr key={inv.id}
                           className="hover:bg-muted/40 transition-colors cursor-pointer group"
                           onClick={() => window.location.href = `/invoice/${inv.invoiceNumber}`}>
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedInvoiceNumbers.includes(inv.invoiceNumber)}
+                              onCheckedChange={(checked) =>
+                                setSelectedInvoiceNumbers(prev => checked
+                                  ? [...prev, inv.invoiceNumber]
+                                  : prev.filter(n => n !== inv.invoiceNumber))}
+                            />
+                          </td>
                           <td className="px-4 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">{inv.invoiceNumber}</td>
                           <td className="px-4 py-3 text-sm text-foreground max-w-[200px] truncate">{inv.projectName || "—"}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
@@ -1778,6 +1839,7 @@ export default function ClientPortal() {
                       ))}
                   </tbody>
                 </table>
+              </div>
               </div>
             )}
           </div>
