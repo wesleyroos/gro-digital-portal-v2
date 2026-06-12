@@ -1897,6 +1897,9 @@ function gdSubmitAccept(token) {
               const invoiceNumber = await getNextInvoiceNumber(mandate!.clientSlug);
               const { invoiceId } = await createMandateInvoiceForItems(mandate!, items, invoiceNumber);
               await updateInvoiceStatus(invoiceId, 'paid');
+              for (const item of items) {
+                await advanceLineItemNextBillingDate(item.id, item.interval as 'monthly' | 'annual');
+              }
             }
 
             // Notify admin
@@ -1946,8 +1949,8 @@ function gdSubmitAccept(token) {
               await updateMandateStatus(mandateId, 'failed');
               const mandate = await getMandateById(mandateId);
               const resend = new Resend(process.env.RESEND_API_KEY);
-              const ownerEmail = process.env.OWNER_EMAIL;
-              if (ownerEmail && mandate) {
+              const ownerEmail = process.env.OWNER_EMAIL || 'wesley@grodigital.co.za';
+              if (mandate) {
                 resend.emails.send({
                   from: 'Gro Digital Portal <wesley@grodigital.co.za>',
                   to: ownerEmail,

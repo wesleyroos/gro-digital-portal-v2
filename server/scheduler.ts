@@ -237,8 +237,8 @@ export async function runMandateBillingTick() {
         await updateMandateStatus(mandateId, 'failed');
         console.warn(`[MandateBilling] Charge declined for mandate ${mandateId}: ${chargeResult.gateway_response}`);
 
-        const ownerEmail = process.env.OWNER_EMAIL;
-        if (ownerEmail && fullMandate) {
+        const ownerEmail = process.env.OWNER_EMAIL || 'wesley@grodigital.co.za';
+        if (fullMandate) {
           const { Resend } = await import('resend');
           const resend = new Resend(process.env.RESEND_API_KEY);
           resend.emails.send({
