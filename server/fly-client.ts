@@ -16,9 +16,9 @@ function parseOrgTokens(): Map<string, string> {
 function tokenForOrg(orgSlug?: string): string {
   if (orgSlug) {
     const perOrg = parseOrgTokens().get(orgSlug);
-    if (perOrg) return perOrg;
+    if (perOrg) return perOrg.trim();
   }
-  return ENV.flyApiToken;
+  return ENV.flyApiToken.trim();
 }
 
 function flyHeaders(orgSlug?: string): Record<string, string> {
@@ -252,6 +252,7 @@ export async function fetchAllAppsAcrossOrgs(): Promise<FlyAppDetail[]> {
   if (configuredSlugs.length === 0) throw new Error("No matching tokens found for configured orgs");
 
   let okCount = 0;
+  const failures: string[] = [];
   const appsByOrg = await Promise.all(
     configuredSlugs.map(async slug => {
       try {
@@ -259,12 +260,14 @@ export async function fetchAllAppsAcrossOrgs(): Promise<FlyAppDetail[]> {
         okCount++;
         return { slug, apps };
       } catch (e) {
-        console.error(`[Fly] Skipping org "${slug}": ${e instanceof Error ? e.message : String(e)}`);
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`[Fly] Skipping org "${slug}": ${msg}`);
+        failures.push(msg);
         return { slug, apps: [] as FlyApp[] };
       }
     })
   );
-  if (okCount === 0) throw new Error("All Fly orgs failed to list apps (rate limited or invalid token?)");
+  if (okCount === 0) throw new Error(`All Fly orgs failed to list apps. ${failures[0] ?? ""}`);
 
   type AppRef = { orgSlug: string; app: FlyApp };
   const refs: AppRef[] = appsByOrg.flatMap(({ slug, apps }) =>
