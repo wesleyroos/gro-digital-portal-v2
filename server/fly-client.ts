@@ -13,17 +13,24 @@ function parseOrgTokens(): Map<string, string> {
   return map;
 }
 
+function tokenForOrg(orgSlug?: string): string {
+  if (orgSlug) {
+    const perOrg = parseOrgTokens().get(orgSlug);
+    if (perOrg) return perOrg;
+  }
+  return ENV.flyApiToken;
+}
+
 function flyHeaders(orgSlug?: string): Record<string, string> {
-  const token = orgSlug ? (parseOrgTokens().get(orgSlug) ?? "") : "";
   return {
-    "Authorization": `Bearer ${token}`,
+    "Authorization": `Bearer ${tokenForOrg(orgSlug)}`,
     "Content-Type": "application/json",
   };
 }
 
 function graphqlToken(): string {
   const tokens = parseOrgTokens();
-  return tokens.values().next().value ?? "";
+  return tokens.values().next().value ?? ENV.flyApiToken;
 }
 
 export type FlyApp = {
@@ -180,7 +187,8 @@ export async function createVolumeSnapshot(appName: string, volumeId: string, or
 
 export async function listDbBackups(): Promise<DbBackupSummary[]> {
   const orgTokens = parseOrgTokens();
-  const orgSlugs = ENV.flyOrgSlugs.split(",").map(s => s.trim()).filter(Boolean).filter(s => orgTokens.has(s));
+  const hasSharedToken = ENV.flyApiToken.length > 0;
+  const orgSlugs = ENV.flyOrgSlugs.split(",").map(s => s.trim()).filter(Boolean).filter(s => hasSharedToken || orgTokens.has(s));
 
   type RichVolume = { id: string; name?: string; size_gb?: number; auto_backup_enabled?: boolean; snapshot_retention?: number };
 
@@ -230,7 +238,8 @@ export type FlyAppDetail = {
 
 export async function fetchAllAppsAcrossOrgs(): Promise<FlyAppDetail[]> {
   const orgTokens = parseOrgTokens();
-  if (orgTokens.size === 0) throw new Error("FLY_ORG_TOKENS is not set");
+  const hasSharedToken = ENV.flyApiToken.length > 0;
+  if (orgTokens.size === 0 && !hasSharedToken) throw new Error("Set FLY_API_TOKEN or FLY_ORG_TOKENS");
 
   const orgSlugs = ENV.flyOrgSlugs
     .split(",")
@@ -239,11 +248,18 @@ export async function fetchAllAppsAcrossOrgs(): Promise<FlyAppDetail[]> {
 
   if (orgSlugs.length === 0) throw new Error("FLY_ORG_SLUGS is not set");
 
-  const configuredSlugs = orgSlugs.filter(s => orgTokens.has(s));
+  const configuredSlugs = hasSharedToken ? orgSlugs : orgSlugs.filter(s => orgTokens.has(s));
   if (configuredSlugs.length === 0) throw new Error("No matching tokens found for configured orgs");
 
   const appsByOrg = await Promise.all(
-    configuredSlugs.map(async slug => ({ slug, apps: await listApps(slug) }))
+    configuredSlugs.map(async slug => {
+      try {
+        return { slug, apps: await listApps(slug) };
+      } catch (e) {
+        console.error(`[Fly] Skipping org "${slug}": ${e instanceof Error ? e.message : String(e)}`);
+        return { slug, apps: [] as FlyApp[] };
+      }
+    })
   );
 
   type AppRef = { orgSlug: string; app: FlyApp };
