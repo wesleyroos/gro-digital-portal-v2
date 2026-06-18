@@ -251,16 +251,20 @@ export async function fetchAllAppsAcrossOrgs(): Promise<FlyAppDetail[]> {
   const configuredSlugs = hasSharedToken ? orgSlugs : orgSlugs.filter(s => orgTokens.has(s));
   if (configuredSlugs.length === 0) throw new Error("No matching tokens found for configured orgs");
 
+  let okCount = 0;
   const appsByOrg = await Promise.all(
     configuredSlugs.map(async slug => {
       try {
-        return { slug, apps: await listApps(slug) };
+        const apps = await listApps(slug);
+        okCount++;
+        return { slug, apps };
       } catch (e) {
         console.error(`[Fly] Skipping org "${slug}": ${e instanceof Error ? e.message : String(e)}`);
         return { slug, apps: [] as FlyApp[] };
       }
     })
   );
+  if (okCount === 0) throw new Error("All Fly orgs failed to list apps (rate limited or invalid token?)");
 
   type AppRef = { orgSlug: string; app: FlyApp };
   const refs: AppRef[] = appsByOrg.flatMap(({ slug, apps }) =>

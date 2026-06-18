@@ -3956,7 +3956,7 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
         notes: z.string().nullable().optional(),
       }))
       .mutation(async ({ input }) => {
-        const { cacheBust } = await import("./fly-cache");
+        const { cacheGet, cacheSet } = await import("./fly-cache");
         await upsertFlyAppMapping({
           appName: input.appName,
           orgSlug: input.orgSlug,
@@ -3964,7 +3964,17 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
           label: input.label ?? null,
           notes: input.notes ?? null,
         });
-        cacheBust("apps:");
+        // Patch the cached rows in place — a client assignment is just a label,
+        // so there's no need to re-hit the Fly API for every org.
+        const cached = cacheGet<{ rows: Array<{ appName: string; clientSlug: string | null; label: string | null }>; fetchedAt: string }>("apps:all");
+        if (cached) {
+          const row = cached.rows.find(r => r.appName === input.appName);
+          if (row) {
+            row.clientSlug = input.clientSlug ?? null;
+            row.label = input.label ?? null;
+            cacheSet("apps:all", cached);
+          }
+        }
         return { success: true };
       }),
 
