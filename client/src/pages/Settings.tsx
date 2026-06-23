@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -512,6 +514,7 @@ export default function Settings() {
       <Tabs defaultValue="integrations">
         <TabsList className="mb-6">
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="railway">Railway Status</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
@@ -598,6 +601,12 @@ export default function Settings() {
           )}
         </TabsContent>
 
+        <TabsContent value="company">
+          <div className="space-y-6 max-w-3xl">
+            <CompanyInfoCard />
+          </div>
+        </TabsContent>
+
         <TabsContent value="ai">
           <div className="space-y-6 max-w-3xl">
             <AiModelCard />
@@ -623,6 +632,64 @@ const AI_MODELS = [
   { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", description: "Balanced — recommended for most tasks" },
   { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", description: "Fastest — lower cost, great for simple content" },
 ];
+
+const COMPANY_FIELDS: { key: "name" | "addressLine1" | "addressLine2" | "email" | "website"; label: string; placeholder: string }[] = [
+  { key: "name", label: "Legal name", placeholder: "Gro Digital (Pty) Ltd" },
+  { key: "addressLine1", label: "Address line 1", placeholder: "Darter Studios, Darter Road, Longkloof" },
+  { key: "addressLine2", label: "Address line 2", placeholder: "Gardens, Cape Town, 8001" },
+  { key: "email", label: "Email", placeholder: "hello@grodigital.co.za" },
+  { key: "website", label: "Website", placeholder: "grodigital.co.za" },
+];
+
+function CompanyInfoCard() {
+  const { data, isLoading } = trpc.settings.getCompanyInfo.useQuery();
+  const utils = trpc.useUtils();
+  const [form, setForm] = useState<Record<string, string> | null>(null);
+
+  useEffect(() => {
+    if (data && !form) setForm({ ...data });
+  }, [data, form]);
+
+  const save = trpc.settings.setCompanyInfo.useMutation({
+    onSuccess: () => {
+      utils.settings.getCompanyInfo.invalidate();
+      toast.success("Company details updated — new invoices will use these.");
+    },
+    onError: () => toast.error("Failed to save company details"),
+  });
+
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <h2 className="text-base font-semibold mb-1">Company Details</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        These appear on every invoice — the sender block, footer, and the emailed PDF. Changes apply to invoices generated from now on.
+      </p>
+      {isLoading || !form ? (
+        <div className="h-9 w-full max-w-md rounded-md bg-muted animate-pulse" />
+      ) : (
+        <div className="space-y-4 max-w-md">
+          {COMPANY_FIELDS.map(f => (
+            <div key={f.key} className="space-y-1.5">
+              <Label htmlFor={`company-${f.key}`}>{f.label}</Label>
+              <Input
+                id={`company-${f.key}`}
+                value={form[f.key] ?? ""}
+                placeholder={f.placeholder}
+                onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+              />
+            </div>
+          ))}
+          <Button
+            onClick={() => save.mutate(form as any)}
+            disabled={save.isPending}
+          >
+            {save.isPending ? "Saving…" : "Save changes"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PaystackModeCard() {
   const { data, isLoading, refetch } = trpc.settings.getPaystackMode.useQuery();

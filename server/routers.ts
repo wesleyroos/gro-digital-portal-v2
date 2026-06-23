@@ -105,6 +105,8 @@ import {
   setMailchimpApiKey,
   getSetting,
   setSetting,
+  getCompanyInfo,
+  setCompanyInfo,
   getMailerChatMessages,
   insertMailerChatMessage,
   clearMailerChatMessages,
@@ -834,6 +836,21 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await setSetting('paystack_mode', input.mode);
         return { mode: input.mode };
+      }),
+    getCompanyInfo: publicProcedure.query(async () => {
+      return getCompanyInfo();
+    }),
+    setCompanyInfo: adminProcedure
+      .input(z.object({
+        name: z.string().trim().min(1).max(200),
+        addressLine1: z.string().trim().max(200),
+        addressLine2: z.string().trim().max(200),
+        email: z.string().trim().max(200),
+        website: z.string().trim().max(200),
+      }))
+      .mutation(async ({ input }) => {
+        await setCompanyInfo(input);
+        return input;
       }),
   }),
 

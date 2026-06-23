@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { DEFAULT_COMPANY_INFO } from "@shared/const";
 import { useParams } from "wouter";
 import { Repeat, CalendarDays } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +71,8 @@ export default function SharedInvoice() {
   const token = params.token || "";
 
   const { data, isLoading, error } = trpc.invoice.getByToken.useQuery({ token });
+  const { data: company } = trpc.settings.getCompanyInfo.useQuery();
+  const co = company ?? DEFAULT_COMPANY_INFO;
 
   if (isLoading) {
     return (
@@ -137,9 +140,9 @@ export default function SharedInvoice() {
                   GRO<span className="font-light">digital</span>
                 </h1>
               </div>
-              <p className="text-xs text-muted-foreground mt-2 ml-0.5">Gro Digital (Pty) Ltd</p>
-              <p className="text-xs text-muted-foreground ml-0.5">Darter Studios, Darter Road, Longkloof</p>
-              <p className="text-xs text-muted-foreground ml-0.5">Gardens, Cape Town, 8001</p>
+              <p className="text-xs text-muted-foreground mt-2 ml-0.5">{co.name}</p>
+              <p className="text-xs text-muted-foreground ml-0.5">{co.addressLine1}</p>
+              <p className="text-xs text-muted-foreground ml-0.5">{co.addressLine2}</p>
             </div>
             <div className="sm:text-right">
               <h2 className="text-3xl font-light text-foreground tracking-tight mb-3">Invoice</h2>
@@ -463,7 +466,7 @@ export default function SharedInvoice() {
             Thank you for your business. We look forward to a continued successful partnership.
           </p>
           <p className="text-xs text-muted-foreground mt-2">
-            Gro Digital (Pty) Ltd &middot; Darter Studios, Darter Road, Longkloof, Gardens, Cape Town, 8001
+            {co.name} &middot; {co.addressLine1}, {co.addressLine2}
           </p>
         </div>
       </div>

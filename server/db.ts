@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem, flyApps, FlyApp, InsertFlyApp, manualApps, ManualApp, InsertManualApp } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { DEFAULT_COMPANY_INFO, type CompanyInfo } from "@shared/const";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -1019,7 +1020,8 @@ export async function sendWelcomeEmail(opts: {
 
 function renderInvoicePdfHtml(
   invoice: typeof invoices.$inferSelect,
-  items: (typeof invoiceItems.$inferSelect)[]
+  items: (typeof invoiceItems.$inferSelect)[],
+  company: CompanyInfo = DEFAULT_COMPANY_INFO
 ): string {
   const fmt = (n: number) =>
     `R${n.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1096,10 +1098,10 @@ function renderInvoicePdfHtml(
     <div>
       <p class="brand-name">GRO DIGITAL</p>
       <div class="brand-meta">
-        Gro Digital (Pty) Ltd<br>
-        Darter Studios, Darter Road<br>
-        Longkloof Gardens, Cape Town, 8001<br>
-        hello@grodigital.co.za &middot; grodigital.co.za
+        ${esc(company.name)}<br>
+        ${esc(company.addressLine1)}<br>
+        ${esc(company.addressLine2)}<br>
+        ${esc(company.email)} &middot; ${esc(company.website)}
       </div>
     </div>
     <div class="invoice-title">
@@ -1171,7 +1173,7 @@ function renderInvoicePdfHtml(
   </div>
 
   <div class="footer">
-    Thank you for your business &middot; Gro Digital (Pty) Ltd &middot; hello@grodigital.co.za
+    Thank you for your business &middot; ${esc(company.name)} &middot; ${esc(company.email)}
   </div>
 
 </div>
@@ -1203,7 +1205,8 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
   if (pdfshiftKey) {
     try {
       const items = await getInvoiceItems(invoice.id);
-      const pdfHtml = renderInvoicePdfHtml(invoice, items);
+      const company = await getCompanyInfo();
+      const pdfHtml = renderInvoicePdfHtml(invoice, items, company);
       const pdfRes = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
         method: 'POST',
         headers: {
@@ -2271,6 +2274,20 @@ export async function setSetting(key: string, value: string): Promise<void> {
   if (!db) throw new Error('Database not available');
   await db.insert(portalSettings).values({ key, value })
     .onDuplicateKeyUpdate({ set: { value } });
+}
+
+export async function getCompanyInfo(): Promise<CompanyInfo> {
+  const raw = await getSetting('company_info');
+  if (!raw) return DEFAULT_COMPANY_INFO;
+  try {
+    return { ...DEFAULT_COMPANY_INFO, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_COMPANY_INFO;
+  }
+}
+
+export async function setCompanyInfo(info: CompanyInfo): Promise<void> {
+  await setSetting('company_info', JSON.stringify(info));
 }
 
 // ── Mailer chat ──

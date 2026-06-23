@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { DEFAULT_COMPANY_INFO } from "@shared/const";
 import { Link, useParams } from "wouter";
 import { ChevronLeft, Repeat, CalendarDays, ChevronDown, CalendarClock, CalendarX, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -116,6 +117,8 @@ export default function Invoice() {
 
   const { data, isLoading, error } = trpc.invoice.getByNumber.useQuery({ invoiceNumber });
   const { data: me } = trpc.auth.me.useQuery();
+  const { data: company } = trpc.settings.getCompanyInfo.useQuery();
+  const co = company ?? DEFAULT_COMPANY_INFO;
   const isAdmin = me?.role === "admin" || me?.role === "superAdmin";
 
   const utils = trpc.useUtils();
@@ -388,13 +391,13 @@ export default function Invoice() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2 ml-0.5">
-                Gro Digital (Pty) Ltd
+                {co.name}
               </p>
               <p className="text-xs text-muted-foreground ml-0.5">
-                Darter Studios, Darter Road, Longkloof
+                {co.addressLine1}
               </p>
               <p className="text-xs text-muted-foreground ml-0.5">
-                Gardens, Cape Town, 8001
+                {co.addressLine2}
               </p>
             </div>
 
@@ -775,7 +778,7 @@ export default function Invoice() {
             Thank you for your business. We look forward to a continued successful partnership.
           </p>
           <p className="text-xs text-muted-foreground mt-2">
-            Gro Digital (Pty) Ltd &middot; Darter Studios, Darter Road, Longkloof, Gardens, Cape Town, 8001
+            {co.name} &middot; {co.addressLine1}, {co.addressLine2}
           </p>
         </div>
       </div>
