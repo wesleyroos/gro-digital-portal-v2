@@ -334,6 +334,52 @@ export async function createInvoice(
   return { invoiceNumber: data.invoiceNumber!, shareToken, clientSlug: data.clientSlug ?? '' };
 }
 
+export async function duplicateInvoice(invoiceNumber: string): Promise<{ invoiceNumber: string } | undefined> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const source = await getInvoiceByNumber(invoiceNumber);
+  if (!source) return undefined;
+
+  const items = await getInvoiceItems(source.id);
+  const newNumber = await getNextInvoiceNumber(source.clientSlug);
+
+  const {
+    id: _id,
+    invoiceNumber: _invoiceNumber,
+    shareToken: _shareToken,
+    createdAt: _createdAt,
+    updatedAt: _updatedAt,
+    ...rest
+  } = source;
+
+  await createInvoice(
+    {
+      ...rest,
+      invoiceNumber: newNumber,
+      status: 'draft',
+      invoiceDate: new Date(),
+      dueDate: null,
+      scheduledSendDate: null,
+      repeatMonthly: 0,
+      paymentUrl: null,
+      paymentToken: null,
+      mandateId: null,
+    },
+    items.map(({ description, frequency, vat, unitPrice, quantity, discountPercent, lineTotal }) => ({
+      description,
+      frequency,
+      vat,
+      unitPrice,
+      quantity,
+      discountPercent,
+      lineTotal,
+    })),
+  );
+
+  return { invoiceNumber: newNumber };
+}
+
 export async function getInvoiceByShareToken(token: string) {
   const db = await getDb();
   if (!db) return undefined;

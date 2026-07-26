@@ -29,6 +29,7 @@ import {
   X,
   Send,
   Trash2,
+  Copy,
 } from "lucide-react";
 import {
   Dialog,
@@ -149,6 +150,14 @@ export default function Invoice() {
       window.location.href = clientSlug ? `/client/${clientSlug}` : "/invoices";
     },
     onError: () => toast.error("Failed to delete invoice"),
+  });
+
+  const duplicateInvoice = trpc.invoice.duplicate.useMutation({
+    onSuccess: (res) => {
+      toast.success(`Duplicated as ${res.invoiceNumber}`);
+      window.location.href = `/invoice/${res.invoiceNumber}/edit`;
+    },
+    onError: (e) => toast.error(e.message || "Failed to duplicate invoice"),
   });
 
   const [editingPayFast, setEditingPayFast] = useState(false);
@@ -344,6 +353,13 @@ export default function Invoice() {
                       <Pencil className="w-3.5 h-3.5 mr-2" />
                       Edit Invoice
                     </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => duplicateInvoice.mutate({ invoiceNumber })}
+                    disabled={duplicateInvoice.isPending}
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-2" />
+                    {duplicateInvoice.isPending ? "Duplicating…" : "Duplicate Invoice"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => window.print()} className="text-muted-foreground">

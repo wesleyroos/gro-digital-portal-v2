@@ -10,6 +10,7 @@ import { adminProcedure, clientProcedure, protectedProcedure, publicProcedure, r
 import { z } from "zod";
 import {
   deleteInvoice,
+  duplicateInvoice,
   getInvoiceByNumber,
   getInvoiceByShareToken,
   getRecurringInvoiceConfig,
@@ -412,6 +413,15 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await deleteInvoice(input.invoiceNumber);
         return { success: true };
+      }),
+
+    duplicate: adminProcedure
+      .input(z.object({ invoiceNumber: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const result = await duplicateInvoice(input.invoiceNumber);
+        if (!result) throw new TRPCError({ code: 'NOT_FOUND', message: 'Invoice not found' });
+        logUserActivity({ openId: ctx.user.openId, action: "duplicate_invoice", meta: `${input.invoiceNumber} → ${result.invoiceNumber}` }).catch(() => {});
+        return result;
       }),
 
     bulkDelete: adminProcedure

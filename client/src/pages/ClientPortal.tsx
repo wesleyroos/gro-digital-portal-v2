@@ -329,6 +329,14 @@ export default function ClientPortal() {
     onError: () => toast.error("Failed to update status"),
   });
 
+  const duplicateInvoice = trpc.invoice.duplicate.useMutation({
+    onSuccess: (res) => {
+      utils.invoice.listByClient.invalidate({ clientSlug: slug });
+      toast.success(`Duplicated as ${res.invoiceNumber} (draft)`);
+    },
+    onError: (e) => toast.error(e.message || "Failed to duplicate invoice"),
+  });
+
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
@@ -1831,6 +1839,12 @@ export default function ClientPortal() {
                                   <a href={`/invoice/${inv.invoiceNumber}/edit`} className="flex items-center">
                                     <Pencil className="w-3.5 h-3.5 mr-2" /> Edit
                                   </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => duplicateInvoice.mutate({ invoiceNumber: inv.invoiceNumber })}
+                                  disabled={duplicateInvoice.isPending}
+                                >
+                                  <Copy className="w-3.5 h-3.5 mr-2" /> Duplicate
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => updateInvoiceStatus.mutate({ invoiceId: inv.id, status: "paid" })} disabled={inv.status === "paid"}>
