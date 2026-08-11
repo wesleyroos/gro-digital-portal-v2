@@ -36,6 +36,7 @@ import Users from "./pages/Users";
 import AiLog from "./pages/AiLog";
 import Projects from "./pages/Projects";
 import Infrastructure from "./pages/Infrastructure";
+import RetainerReport from "./pages/RetainerReport";
 import PortalDashboard from "./pages/portal/PortalDashboard";
 import PortalMarketing from "./pages/portal/PortalMarketing";
 import PortalMarketingCampaign from "./pages/portal/PortalMarketingCampaign";
@@ -126,6 +127,7 @@ function Router() {
                     <Route path={"/ai-log"} component={AiLog} />
                     <Route path={"/projects"} component={Projects} />
                     <Route path={"/infrastructure"} component={Infrastructure} />
+                    <Route path={"/retainer-report"} component={RetainerReport} />
                     <Route path={"/settings"} component={Settings} />
                     <Route path={"/client/:slug"} component={ClientPortal} />
                     <Route path={"/invoice/new"} component={CreateInvoice} />

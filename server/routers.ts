@@ -4089,6 +4089,23 @@ Return JSON only — no markdown, no code fences: { "subject": "...", "body": ".
     }),
   }),
 
+  // Retainer SLA reporting for the Fundi Monthly Report (CSS-2026-01 clause 15.2).
+  // superAdmin only: this is GD's own performance against its own contract, and the
+  // registry behind it covers every GD-hosted platform across all clients.
+  retainer: router({
+    sla: superAdminProcedure
+      .input(z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/) }))
+      .query(async ({ input }) => {
+        const { buildSlaSection } = await import("./retainer-sla");
+        try {
+          return await buildSlaSection(input.month);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
+        }
+      }),
+  }),
+
   mandate: router({
     create: adminProcedure
       .input(z.object({
