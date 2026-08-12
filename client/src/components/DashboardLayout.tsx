@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, Settings2, Repeat, ScrollText, Megaphone, Rocket, Images, Users, Brain, FolderGit2, ClipboardSignature, Server, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, Settings2, Repeat, ScrollText, Megaphone, Rocket, Images, Users, Brain, FolderGit2, ClipboardSignature, Server, ShieldCheck, type LucideIcon } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -33,7 +33,14 @@ import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 import TaskTray from "./TaskTray";
 
-const menuGroups = [
+// Typed explicitly rather than inferred: with inference, a group whose items all
+// carry `roles` (or none do) changes what `'roles' in item` narrows to, and the
+// role filter below stops compiling. Stating the shape keeps that stable however
+// the nav is edited.
+type NavItem = { icon: LucideIcon; label: string; path: string; roles?: string[] };
+type NavGroup = { label: string; items: NavItem[] };
+
+const menuGroups: NavGroup[] = [
   {
     label: "Clients & Revenue",
     items: [
@@ -64,16 +71,16 @@ const menuGroups = [
     items: [
       // Tasks, Calendar and Agents removed from the sidebar 2026-08-12. Their
       // routes and pages remain, so existing links and bookmarks still work.
-      { icon: FolderGit2, label: "Projects", path: "/projects", roles: ["superAdmin"] as string[] },
-      { icon: Server, label: "Infrastructure", path: "/infrastructure", roles: ["superAdmin"] as string[] },
-      { icon: ShieldCheck, label: "Retainer Report", path: "/retainer-report", roles: ["superAdmin"] as string[] },
+      { icon: FolderGit2, label: "Projects", path: "/projects", roles: ["superAdmin"] },
+      { icon: Server, label: "Infrastructure", path: "/infrastructure", roles: ["superAdmin"] },
+      { icon: ShieldCheck, label: "Retainer Report", path: "/retainer-report", roles: ["superAdmin"] },
     ],
   },
 ];
 
 const bottomItems = [
-  { icon: Users, label: "Users", path: "/users", roles: ["superAdmin"] as string[] },
-  { icon: Brain, label: "AI Log", path: "/ai-log", roles: ["superAdmin"] as string[] },
+  { icon: Users, label: "Users", path: "/users", roles: ["superAdmin"] },
+  { icon: Brain, label: "AI Log", path: "/ai-log", roles: ["superAdmin"] },
   { icon: Settings2, label: "Settings", path: "/settings", roles: undefined },
 ];
 
