@@ -37,7 +37,7 @@ export type MonitorEntry = {
   id: number;
   platform: string;
   tier: Tier;
-  db: "postgres" | "sqlite" | "none";
+  db: "postgres" | "mysql" | "sqlite" | "none";
   note?: string;
 };
 
@@ -91,6 +91,21 @@ export const MONITORS: MonitorEntry[] = [
   { id: 803713458, platform: "Jimny SA", tier: "gd-other", db: "sqlite" },
   { id: 803713455, platform: "Sensitive People Thriving", tier: "gd-other", db: "postgres" },
   { id: 803714841, platform: "SpeechLab", tier: "gd-other", db: "postgres" },
+  { id: 803721824, platform: "Zuidvaal", tier: "gd-other", db: "none" },
+  {
+    id: 803724048,
+    platform: "GD Portal",
+    tier: "gd-other",
+    db: "mysql",
+    note: "Keyword monitor on /api/health/deep. This app — it reports on itself, which is fine: if it is down there is no report to be wrong.",
+  },
+  {
+    id: 803724000,
+    platform: "GD Portal (HTTP)",
+    tier: "gd-other",
+    db: "mysql",
+    note: "Same endpoint as 803724048, plain HTTP. Deliberate belt-and-braces: a 503 trips this one, a missing \"db\":\"ok\" trips the keyword monitor. Expect two alerts per failure.",
+  },
 ];
 
 const BY_ID = new Map(MONITORS.map((m) => [m.id, m]));
