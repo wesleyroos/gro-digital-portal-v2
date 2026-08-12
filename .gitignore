@@ -4,3 +4,6 @@ dist/
 .env.local
 .DS_Store
 *.log
+
+# Agent worktrees — git records these as gitlinks and they break `git status`
+.claude/worktrees/
