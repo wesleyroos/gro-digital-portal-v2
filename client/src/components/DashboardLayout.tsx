@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, CalendarDays, Settings2, CheckSquare, Repeat, Bot, ScrollText, Megaphone, Rocket, Images, Users, Brain, FolderGit2, ClipboardSignature, Server, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Target, Plus, Building2, FileText, Settings2, Repeat, ScrollText, Megaphone, Rocket, Images, Users, Brain, FolderGit2, ClipboardSignature, Server, ShieldCheck } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -62,10 +62,9 @@ const menuGroups = [
   {
     label: "Workspace",
     items: [
-      { icon: CheckSquare, label: "Tasks", path: "/tasks" },
-      { icon: CalendarDays, label: "Calendar", path: "/calendar" },
+      // Tasks, Calendar and Agents removed from the sidebar 2026-08-12. Their
+      // routes and pages remain, so existing links and bookmarks still work.
       { icon: FolderGit2, label: "Projects", path: "/projects", roles: ["superAdmin"] as string[] },
-      { icon: Bot, label: "Agents", path: "/agents", roles: ["superAdmin"] as string[] },
       { icon: Server, label: "Infrastructure", path: "/infrastructure", roles: ["superAdmin"] as string[] },
       { icon: ShieldCheck, label: "Retainer Report", path: "/retainer-report", roles: ["superAdmin"] as string[] },
     ],
