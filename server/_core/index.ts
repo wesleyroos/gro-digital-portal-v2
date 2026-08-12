@@ -18,6 +18,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { markOverdueInvoices } from "../db";
 import { registerPdfRoutes } from "../pdf-routes";
+import { registerHealthRoutes } from "../health";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -50,6 +51,9 @@ async function startServer() {
     res.removeHeader("X-Powered-By");
     next();
   });
+
+  // Health checks first — they must answer even if a later subsystem is broken.
+  registerHealthRoutes(app);
 
   app.use(express.json({
     limit: "25mb",
