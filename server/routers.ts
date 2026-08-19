@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import { buildAndSendRecurringInvoice, runMandateBillingTick } from './scheduler';
 import sharp from 'sharp';
 import { COOKIE_NAME } from "@shared/const";
+import { isInternalEmail, isValidEmail, normalisePhone } from "@shared/contacts";
 import { ENV } from "./_core/env";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -39,6 +40,17 @@ import {
   setInvoiceSchedule,
   getLeads,
   createLead,
+  getOrganisations,
+  getOrganisationBySlug,
+  upsertOrganisation,
+  updateOrganisation,
+  getContacts,
+  getContactById,
+  findContactByEmail,
+  findContactByPhone,
+  createContact,
+  updateContact,
+  deleteContact,
   updateLead,
   deleteLead,
   getGoogleRefreshToken,
@@ -782,6 +794,169 @@ export const appRouter = router({
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deleteLead(input.id);
+        return { success: true };
+      }),
+  }),
+
+  organisation: router({
+    list: adminProcedure.query(async () => getOrganisations()),
+
+    getBySlug: adminProcedure
+      .input(z.object({ slug: z.string() }))
+      .query(async ({ input }) => getOrganisationBySlug(input.slug)),
+
+    upsert: adminProcedure
+      .input(z.object({
+        slug: z.string().min(1),
+        name: z.string().min(1),
+        stage: z.enum(['prospect', 'lead', 'client', 'past_client']).default('prospect'),
+        website: z.string().nullish(),
+        industry: z.string().nullish(),
+        address: z.string().nullish(),
+        notes: z.string().nullish(),
+      }))
+      .mutation(async ({ input }) => {
+        const id = await upsertOrganisation(input);
+        return { id };
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        slug: z.string().min(1).optional(),
+        name: z.string().min(1).optional(),
+        stage: z.enum(['prospect', 'lead', 'client', 'past_client']).optional(),
+        website: z.string().nullish(),
+        industry: z.string().nullish(),
+        address: z.string().nullish(),
+        notes: z.string().nullish(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateOrganisation(id, data);
+        return { success: true };
+      }),
+  }),
+
+  contact: router({
+    list: adminProcedure.query(async () => getContacts()),
+
+    create: adminProcedure
+      .input(z.object({
+        organisationId: z.number().nullish(),
+        firstName: z.string().nullish(),
+        lastName: z.string().nullish(),
+        email: z.string().nullish(),
+        phone: z.string().nullish(),
+        role: z.string().nullish(),
+        isPrimary: z.boolean().default(false),
+        isInternal: z.boolean().default(false),
+        consentBasis: z.enum(['none', 'existing_customer', 'explicit_optin']).default('none'),
+        consentSource: z.string().nullish(),
+        notes: z.string().nullish(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const email = input.email ? input.email.trim().toLowerCase() : null;
+        const phone = normalisePhone(input.phone);
+        if (input.phone && !phone) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `"${input.phone}" is not a usable phone number` });
+        }
+        if (email && !isValidEmail(email)) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: `"${email}" is not a valid email address` });
+        }
+        if (!email && !phone) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'A contact needs an email address or a phone number' });
+        }
+        // Unique indexes would reject these anyway; naming the existing contact
+        // turns a constraint error into something actionable.
+        if (email) {
+          const clash = await findContactByEmail(email);
+          if (clash) throw new TRPCError({ code: 'CONFLICT', message: `${email} already belongs to contact #${clash.id}` });
+        }
+        if (phone) {
+          const clash = await findContactByPhone(phone);
+          if (clash) throw new TRPCError({ code: 'CONFLICT', message: `${phone} already belongs to contact #${clash.id}` });
+        }
+        const id = await createContact({
+          ...input,
+          email,
+          phone,
+          isInternal: input.isInternal || isInternalEmail(email),
+          consentAt: input.consentBasis === 'none' ? null : new Date(),
+        });
+        logUserActivity({ openId: ctx.user.openId, action: 'create_contact', meta: email ?? phone ?? String(id) }).catch(() => {});
+        return { id };
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        organisationId: z.number().nullish(),
+        firstName: z.string().nullish(),
+        lastName: z.string().nullish(),
+        email: z.string().nullish(),
+        phone: z.string().nullish(),
+        role: z.string().nullish(),
+        isPrimary: z.boolean().optional(),
+        isInternal: z.boolean().optional(),
+        consentBasis: z.enum(['none', 'existing_customer', 'explicit_optin']).optional(),
+        consentSource: z.string().nullish(),
+        notes: z.string().nullish(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...rest } = input;
+        const existing = await getContactById(id);
+        if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Contact not found' });
+
+        const data: Record<string, unknown> = { ...rest };
+        if ('email' in rest) {
+          const email = rest.email ? rest.email.trim().toLowerCase() : null;
+          if (email && !isValidEmail(email)) {
+            throw new TRPCError({ code: 'BAD_REQUEST', message: `"${email}" is not a valid email address` });
+          }
+          if (email && email !== existing.email) {
+            const clash = await findContactByEmail(email);
+            if (clash) throw new TRPCError({ code: 'CONFLICT', message: `${email} already belongs to contact #${clash.id}` });
+          }
+          data.email = email;
+        }
+        if ('phone' in rest) {
+          const phone = normalisePhone(rest.phone);
+          if (rest.phone && !phone) {
+            throw new TRPCError({ code: 'BAD_REQUEST', message: `"${rest.phone}" is not a usable phone number` });
+          }
+          if (phone && phone !== existing.phone) {
+            const clash = await findContactByPhone(phone);
+            if (clash) throw new TRPCError({ code: 'CONFLICT', message: `${phone} already belongs to contact #${clash.id}` });
+          }
+          data.phone = phone;
+        }
+        // Recording a basis records when — an undated consent claim is not one.
+        if (rest.consentBasis && rest.consentBasis !== existing.consentBasis) {
+          data.consentAt = rest.consentBasis === 'none' ? null : new Date();
+        }
+        await updateContact(id, data);
+        return { success: true };
+      }),
+
+    setOptOut: adminProcedure
+      .input(z.object({ id: z.number(), optedOut: z.boolean() }))
+      .mutation(async ({ input }) => {
+        await updateContact(input.id, { optedOutAt: input.optedOut ? new Date() : null });
+        return { success: true };
+      }),
+
+    setWhatsappOptIn: adminProcedure
+      .input(z.object({ id: z.number(), optedIn: z.boolean() }))
+      .mutation(async ({ input }) => {
+        await updateContact(input.id, { whatsappOptInAt: input.optedIn ? new Date() : null });
+        return { success: true };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteContact(input.id);
         return { success: true };
       }),
   }),

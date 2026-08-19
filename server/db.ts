@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem, flyApps, FlyApp, InsertFlyApp, manualApps, ManualApp, InsertManualApp } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem, flyApps, FlyApp, InsertFlyApp, manualApps, ManualApp, InsertManualApp, organisations, Organisation, InsertOrganisation, contacts, Contact, InsertContact } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { DEFAULT_COMPANY_INFO, type CompanyInfo } from "@shared/const";
 
@@ -3030,4 +3030,140 @@ export async function deleteManualApp(id: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
   await db.delete(manualApps).where(eq(manualApps.id, id));
+}
+
+// ── Organisations & contacts ──
+
+export async function getOrganisations() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(organisations).orderBy(asc(organisations.name));
+}
+
+export async function getOrganisationBySlug(slug: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(organisations).where(eq(organisations.slug, slug)).limit(1);
+  return row ?? null;
+}
+
+export async function upsertOrganisation(data: InsertOrganisation): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  const existing = await getOrganisationBySlug(data.slug);
+  if (existing) {
+    const set: Record<string, unknown> = {};
+    for (const key of ['name', 'stage', 'website', 'industry', 'address', 'notes'] as const) {
+      if (key in data && data[key] !== undefined) set[key] = data[key] ?? null;
+    }
+    if (Object.keys(set).length) {
+      await db.update(organisations).set(set).where(eq(organisations.id, existing.id));
+    }
+    return existing.id;
+  }
+  const [result] = await db.insert(organisations).values(data);
+  return result.insertId as number;
+}
+
+export async function updateOrganisation(id: number, data: Partial<InsertOrganisation>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  const set: Record<string, unknown> = {};
+  for (const key of ['slug', 'name', 'stage', 'website', 'industry', 'address', 'notes'] as const) {
+    if (key in data) set[key] = data[key] ?? null;
+  }
+  if (!Object.keys(set).length) return;
+  await db.update(organisations).set(set).where(eq(organisations.id, id));
+}
+
+/**
+ * Every contact with its organisation joined on. One query because the contacts
+ * page is always a list of people-with-company, never people alone.
+ */
+export async function getContacts() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: contacts.id,
+      organisationId: contacts.organisationId,
+      organisationName: organisations.name,
+      organisationSlug: organisations.slug,
+      organisationStage: organisations.stage,
+      firstName: contacts.firstName,
+      lastName: contacts.lastName,
+      email: contacts.email,
+      phone: contacts.phone,
+      role: contacts.role,
+      isPrimary: contacts.isPrimary,
+      isInternal: contacts.isInternal,
+      consentBasis: contacts.consentBasis,
+      consentSource: contacts.consentSource,
+      consentAt: contacts.consentAt,
+      whatsappOptInAt: contacts.whatsappOptInAt,
+      optedOutAt: contacts.optedOutAt,
+      doNotContact: contacts.doNotContact,
+      source: contacts.source,
+      engageContactId: contacts.engageContactId,
+      notes: contacts.notes,
+      createdAt: contacts.createdAt,
+      updatedAt: contacts.updatedAt,
+    })
+    .from(contacts)
+    .leftJoin(organisations, eq(contacts.organisationId, organisations.id))
+    .orderBy(asc(organisations.name), desc(contacts.isPrimary), asc(contacts.firstName));
+}
+
+export async function getContactById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(contacts).where(eq(contacts.id, id)).limit(1);
+  return row ?? null;
+}
+
+export async function findContactByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(contacts).where(eq(contacts.email, email.toLowerCase())).limit(1);
+  return row ?? null;
+}
+
+export async function findContactByPhone(phone: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(contacts).where(eq(contacts.phone, phone)).limit(1);
+  return row ?? null;
+}
+
+export async function createContact(data: InsertContact): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  const [result] = await db.insert(contacts).values({
+    ...data,
+    email: data.email ? data.email.toLowerCase() : null,
+  });
+  return result.insertId as number;
+}
+
+export async function updateContact(id: number, data: Partial<InsertContact>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  const set: Record<string, unknown> = {};
+  const keys = [
+    'organisationId', 'firstName', 'lastName', 'email', 'phone', 'role', 'isPrimary', 'isInternal',
+    'consentBasis', 'consentSource', 'consentAt', 'whatsappOptInAt', 'optedOutAt', 'doNotContact',
+    'source', 'engageContactId', 'notes',
+  ] as const;
+  for (const key of keys) {
+    if (key in data) set[key] = data[key] ?? null;
+  }
+  if ('email' in set && typeof set.email === 'string') set.email = set.email.toLowerCase();
+  if (!Object.keys(set).length) return;
+  await db.update(contacts).set(set).where(eq(contacts.id, id));
+}
+
+export async function deleteContact(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(contacts).where(eq(contacts.id, id));
 }

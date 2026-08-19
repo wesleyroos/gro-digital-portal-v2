@@ -146,6 +146,7 @@ export type ClientProfile = typeof clientProfiles.$inferSelect;
  */
 export const leads = mysqlTable("leads", {
   id: int("id").autoincrement().primaryKey(),
+  organisationId: int("organisationId"),
   name: varchar("name", { length: 255 }).notNull(),
   contactName: varchar("contactName", { length: 255 }),
   contactEmail: varchar("contactEmail", { length: 320 }),
@@ -400,6 +401,7 @@ export type InsertMediaFile = typeof mediaFiles.$inferInsert;
  */
 export const outreachProspects = mysqlTable("outreachProspects", {
   id: int("id").autoincrement().primaryKey(),
+  organisationId: int("organisationId"),
   businessName: varchar("businessName", { length: 255 }).notNull(),
   contactName: varchar("contactName", { length: 255 }),
   contactEmail: varchar("contactEmail", { length: 320 }),
@@ -630,3 +632,75 @@ export const manualApps = mysqlTable("manualApps", {
 
 export type ManualApp = typeof manualApps.$inferSelect;
 export type InsertManualApp = typeof manualApps.$inferInsert;
+
+/**
+ * Organisations — the company, whatever stage it is at.
+ *
+ * Before this table a company had no record of its own: clients were an
+ * aggregate over invoice headers (see getDistinctClients), while leads and
+ * outreachProspects each carried their own free-text business name. A company
+ * that moved prospect → lead → client therefore existed as three unrelated
+ * rows, which is why Bison, IGL, Addex, Exotic Jams and Fundi each appear
+ * twice. One row per company, and stage moves.
+ *
+ * clientSlug stays the join key for the twelve tables that already use it, so
+ * this is additive: slug matches clientProfiles.clientSlug where the company is
+ * a client, and is generated for the ones that are not.
+ */
+export const organisations = mysqlTable("organisations", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  stage: mysqlEnum("stage", ["prospect", "lead", "client", "past_client"]).default("prospect").notNull(),
+  website: varchar("website", { length: 512 }),
+  industry: varchar("industry", { length: 255 }),
+  address: text("address"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Organisation = typeof organisations.$inferSelect;
+export type InsertOrganisation = typeof organisations.$inferInsert;
+
+/**
+ * Contacts — people. The master list every channel sends to.
+ *
+ * email and phone are unique so a duplicate is a decision at import time
+ * rather than a double-send later. phone is stored E.164 (+27…) because that
+ * is what WhatsApp and SMS require and because four different formats were in
+ * use, one of them wrapped in Unicode direction marks.
+ *
+ * Consent is recorded as a basis with a source and a date, not a boolean:
+ * - existing_customer — POPIA s69(3)(a), marketing to an existing customer for
+ *   similar services, lawful while every message carries an opt-out
+ * - explicit_optin — they asked to hear from us
+ * whatsappOptInAt is separate and stricter: Meta requires a WhatsApp-specific
+ * opt-in for marketing templates and enforces it through quality rating, so a
+ * lawful basis under POPIA is not on its own enough to send one.
+ */
+export const contacts = mysqlTable("contacts", {
+  id: int("id").autoincrement().primaryKey(),
+  organisationId: int("organisationId"),
+  firstName: varchar("firstName", { length: 128 }),
+  lastName: varchar("lastName", { length: 128 }),
+  email: varchar("email", { length: 320 }).unique(),
+  phone: varchar("phone", { length: 32 }).unique(),
+  role: varchar("role", { length: 128 }),
+  isPrimary: boolean("isPrimary").default(false).notNull(),
+  isInternal: boolean("isInternal").default(false).notNull(),
+  consentBasis: mysqlEnum("consentBasis", ["none", "existing_customer", "explicit_optin"]).default("none").notNull(),
+  consentSource: varchar("consentSource", { length: 255 }),
+  consentAt: timestamp("consentAt"),
+  whatsappOptInAt: timestamp("whatsappOptInAt"),
+  optedOutAt: timestamp("optedOutAt"),
+  doNotContact: boolean("doNotContact").default(false).notNull(),
+  source: varchar("source", { length: 64 }),
+  engageContactId: varchar("engageContactId", { length: 64 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Contact = typeof contacts.$inferSelect;
+export type InsertContact = typeof contacts.$inferInsert;

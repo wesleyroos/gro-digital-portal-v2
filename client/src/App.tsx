@@ -13,6 +13,7 @@ import MandateSetup from "./pages/MandateSetup";
 import ClientPortal from "./pages/ClientPortal";
 import CreateInvoice from "./pages/CreateInvoice";
 import EditInvoice from "./pages/EditInvoice";
+import Contacts from "@/pages/Contacts";
 import Leads from "./pages/Leads";
 import Clients from "./pages/Clients";
 import Invoices from "./pages/Invoices";
@@ -112,6 +113,7 @@ function Router() {
                     <Route path={"/"} component={Home} />
                     <Route path={"/clients"} component={Clients} />
                     <Route path={"/invoices"} component={Invoices} />
+                    <Route path={"/contacts"} component={Contacts} />
                     <Route path={"/leads"} component={Leads} />
                     <Route path={"/outreach"} component={Outreach} />
                     <Route path={"/media"} component={Media} />
