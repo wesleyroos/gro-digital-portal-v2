@@ -3,6 +3,16 @@ import { buildAndSendRecurringInvoice, runMandateBillingTick } from './scheduler
 import sharp from 'sharp';
 import { COOKIE_NAME } from "@shared/const";
 import { isInternalEmail, isValidEmail, normalisePhone } from "@shared/contacts";
+import {
+  engageKeyPresent,
+  isEngageEnabled,
+  setEngageEnabled,
+  getEngageWallet,
+  getEngageChannels,
+  getEngageTemplates,
+  countEngageContacts,
+  syncContactsToEngage,
+} from "./engage";
 import { ENV } from "./_core/env";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -846,6 +856,59 @@ export const appRouter = router({
         await updateOrganisation(id, data);
         return { success: true };
       }),
+  }),
+
+  engage: router({
+    /**
+     * One call for the whole panel. Every remote read is caught individually so
+     * an Engage outage renders a page reporting the outage rather than a portal
+     * error — the toggle has to stay reachable exactly when Engage is unwell.
+     */
+    status: adminProcedure.query(async () => {
+      const keyPresent = engageKeyPresent();
+      const enabled = await isEngageEnabled();
+      if (!keyPresent) {
+        return { keyPresent, enabled, wallet: null, channels: null, contactCount: null, error: null as string | null };
+      }
+      const settle = async <T>(f: () => Promise<T>): Promise<{ v: T | null; e: string | null }> => {
+        try { return { v: await f(), e: null }; } catch (err) { return { v: null, e: err instanceof Error ? err.message : String(err) }; }
+      };
+      const [w, ch, n] = await Promise.all([
+        settle(getEngageWallet),
+        settle(getEngageChannels),
+        settle(countEngageContacts),
+      ]);
+      return {
+        keyPresent,
+        enabled,
+        wallet: w.v,
+        channels: ch.v,
+        contactCount: n.v,
+        error: w.e ?? ch.e ?? n.e,
+      };
+    }),
+
+    templates: adminProcedure.query(async () => {
+      if (!engageKeyPresent()) return [];
+      try { return await getEngageTemplates(); } catch { return []; }
+    }),
+
+    setEnabled: adminProcedure
+      .input(z.object({ enabled: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        await setEngageEnabled(input.enabled);
+        logUserActivity({ openId: ctx.user.openId, action: 'engage_toggle', meta: String(input.enabled) }).catch(() => {});
+        return { success: true };
+      }),
+
+    syncContacts: adminProcedure.mutation(async ({ ctx }) => {
+      if (!(await isEngageEnabled())) {
+        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Engage is switched off — turn it on in Settings first' });
+      }
+      const r = await syncContactsToEngage();
+      logUserActivity({ openId: ctx.user.openId, action: 'engage_sync', meta: `${r.sent} sent` }).catch(() => {});
+      return r;
+    }),
   }),
 
   contact: router({

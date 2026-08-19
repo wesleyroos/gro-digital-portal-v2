@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Target, Contact, Plus, Building2, FileText, Settings2, Repeat, ScrollText, Megaphone, Rocket, Images, Users, Brain, FolderGit2, ClipboardSignature, Server, ShieldCheck, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Target, Contact, Send, Plus, Building2, FileText, Settings2, Repeat, ScrollText, Megaphone, Rocket, Images, Users, Brain, FolderGit2, ClipboardSignature, Server, ShieldCheck, type LucideIcon } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -54,6 +54,7 @@ const menuGroups: NavGroup[] = [
     label: "Growth",
     items: [
       { icon: Contact, label: "Contacts", path: "/contacts" },
+      { icon: Send, label: "Engage", path: "/engage" },
       { icon: Rocket, label: "Outreach", path: "/outreach" },
       { icon: Target, label: "Leads", path: "/leads" },
       { icon: ScrollText, label: "Proposals", path: "/proposals" },
