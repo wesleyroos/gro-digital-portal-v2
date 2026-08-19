@@ -681,13 +681,10 @@ export type InsertOrganisation = typeof organisations.$inferInsert;
  */
 export const contacts = mysqlTable("contacts", {
   id: int("id").autoincrement().primaryKey(),
-  organisationId: int("organisationId"),
   firstName: varchar("firstName", { length: 128 }),
   lastName: varchar("lastName", { length: 128 }),
   email: varchar("email", { length: 320 }).unique(),
   phone: varchar("phone", { length: 32 }).unique(),
-  role: varchar("role", { length: 128 }),
-  isPrimary: boolean("isPrimary").default(false).notNull(),
   isInternal: boolean("isInternal").default(false).notNull(),
   consentBasis: mysqlEnum("consentBasis", ["none", "existing_customer", "explicit_optin"]).default("none").notNull(),
   consentSource: varchar("consentSource", { length: 255 }),
@@ -704,3 +701,29 @@ export const contacts = mysqlTable("contacts", {
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = typeof contacts.$inferInsert;
+
+/**
+ * Which companies a person acts for. Many-to-many because one person genuinely
+ * acts for several: the admin who runs reception for both the ENT and the
+ * audiologist at the same practice, and Wesley, who is the named contact on Gro
+ * Digital, Proply and Better Home Group.
+ *
+ * The alternative was one contact row per company, which would have meant
+ * dropping the unique index on email — and then sending that admin every
+ * campaign twice. Deduplication for sending and accuracy for the CRM are the
+ * same requirement, met by one row per person and a link per company.
+ *
+ * role lives here rather than on the contact: the same person is "practice
+ * manager" at one and "bookkeeper" at another.
+ */
+export const contactOrganisations = mysqlTable("contactOrganisations", {
+  id: int("id").autoincrement().primaryKey(),
+  contactId: int("contactId").notNull(),
+  organisationId: int("organisationId").notNull(),
+  role: varchar("role", { length: 128 }),
+  isPrimary: boolean("isPrimary").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ContactOrganisation = typeof contactOrganisations.$inferSelect;
+export type InsertContactOrganisation = typeof contactOrganisations.$inferInsert;

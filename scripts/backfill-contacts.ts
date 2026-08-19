@@ -208,53 +208,68 @@ for (const l of leadRows) {
  */
 const prospectRows: { id: number; businessName: string }[] = [];
 
-// ── Dedupe. Email and phone are unique, so a clash is a decision. ───────────
+// ── Dedupe. One row per person; a collision adds a company, not a conflict. ──
 
-type Merged = Candidate & { stage: Org['stage'] };
+type Merged = {
+  orgSlugs: Set<string>;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  source: string;
+};
+
 const byEmail = new Map<string, Merged>();
 const byPhone = new Map<string, Merged>();
 const final: Merged[] = [];
 
 for (const c of candidates) {
-  const stage = c.orgSlug ? (orgs.get(c.orgSlug)?.stage ?? 'prospect') : 'prospect';
   const emailHit = c.email ? byEmail.get(c.email) : undefined;
   const phoneHit = c.phone ? byPhone.get(c.phone) : undefined;
   const hit = emailHit ?? phoneHit;
 
   if (hit) {
-    if (hit.orgSlug !== c.orgSlug) {
-      // Prefer the organisation the address actually belongs to over whichever
-      // source happened to be read first.
-      const domain = (c.email ?? '').split('@')[1] ?? '';
-      const domainSlug = slugify(domain.replace(/\.(co\.za|com|net|org)$/, ''));
-      const better = domainSlug && c.orgSlug === domainSlug ? c.orgSlug
-        : domainSlug && hit.orgSlug === domainSlug ? hit.orgSlug
-        : hit.orgSlug;
-      if (better !== hit.orgSlug) hit.orgSlug = better;
+    // The same address on two companies is usually one person acting for both —
+    // the practice admin who runs reception for the ENT and for the audiologist,
+    // or Wesley across Gro Digital, Proply and Better Home Group. Recorded as a
+    // second link, so there stays one row per person and nobody is sent a
+    // campaign twice.
+    if (c.orgSlug && !hit.orgSlugs.has(c.orgSlug)) {
+      hit.orgSlugs.add(c.orgSlug);
       problems.push(
-        `DUPE ${c.email ?? c.phone} appears on both ${hit.orgSlug} (${hit.source}) and ${c.orgSlug} (${c.source}) — kept on ${better}`,
+        `LINK ${c.email ?? c.phone} acts for ${Array.from(hit.orgSlugs).join(' + ')} — one contact, ${hit.orgSlugs.size} companies`,
       );
     }
     hit.firstName ??= c.firstName;
     hit.lastName ??= c.lastName;
     hit.phone ??= c.phone;
     hit.email ??= c.email;
-    hit.isPrimary ||= c.isPrimary;
     if (hit.email) byEmail.set(hit.email, hit);
     if (hit.phone) byPhone.set(hit.phone, hit);
     continue;
   }
 
-  const merged: Merged = { ...c, stage };
+  const merged: Merged = {
+    orgSlugs: new Set(c.orgSlug ? [c.orgSlug] : []),
+    firstName: c.firstName,
+    lastName: c.lastName,
+    email: c.email,
+    phone: c.phone,
+    source: c.source,
+  };
   final.push(merged);
   if (merged.email) byEmail.set(merged.email, merged);
   if (merged.phone) byPhone.set(merged.phone, merged);
 }
 
+/** Marketable if any company they act for is a client. */
+const isClientContact = (c: Merged) =>
+  Array.from(c.orgSlugs).some((slug) => orgs.get(slug)?.stage === 'client');
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 const internal = final.filter((c) => isInternalEmail(c.email));
-const marketable = final.filter((c) => c.stage === 'client' && !isInternalEmail(c.email));
+const marketable = final.filter((c) => isClientContact(c) && !isInternalEmail(c.email));
 const noPhone = final.filter((c) => !c.phone && !isInternalEmail(c.email));
 const noEmail = final.filter((c) => !c.email && !isInternalEmail(c.email));
 
@@ -277,7 +292,8 @@ if (problems.length) {
 if (noPhone.length) {
   console.log('\nNo cell number yet:');
   for (const c of noPhone) {
-    console.log(`  ${(c.orgSlug ?? '—').padEnd(28)} ${[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email}`);
+    const where = Array.from(c.orgSlugs).join(', ') || '—';
+    console.log(`  ${where.padEnd(30)} ${[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email}`);
   }
 }
 
@@ -307,46 +323,60 @@ console.log(`\n✓ ${orgIds.size} organisations`);
 
 let inserted = 0;
 let updated = 0;
+let links = 0;
 for (const c of final) {
   const isInternal = isInternalEmail(c.email);
-  const basis = isInternal ? 'none' : c.stage === 'client' ? 'existing_customer' : 'none';
+  const basis = isInternal ? 'none' : isClientContact(c) ? 'existing_customer' : 'none';
   const existing = c.email
     ? await q<{ id: number }>(`SELECT id FROM contacts WHERE email = ?`, [c.email])
     : c.phone
       ? await q<{ id: number }>(`SELECT id FROM contacts WHERE phone = ?`, [c.phone])
       : [];
 
+  let contactId: number;
   if (existing.length) {
+    contactId = existing[0].id;
     await conn.execute(
       `UPDATE contacts SET
-         organisationId = COALESCE(organisationId, ?),
          firstName = COALESCE(firstName, ?), lastName = COALESCE(lastName, ?),
          email = COALESCE(email, ?), phone = COALESCE(phone, ?)
        WHERE id = ?`,
-      [c.orgSlug ? orgIds.get(c.orgSlug) ?? null : null, c.firstName, c.lastName, c.email, c.phone, existing[0].id],
+      [c.firstName, c.lastName, c.email, c.phone, contactId],
     );
     updated++;
-    continue;
+  } else {
+    const [res] = await conn.execute(
+      `INSERT INTO contacts
+        (firstName, lastName, email, phone, isInternal,
+         consentBasis, consentSource, consentAt, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        c.firstName, c.lastName, c.email, c.phone, isInternal ? 1 : 0,
+        basis,
+        basis === 'none' ? null : CONSENT_SOURCE,
+        basis === 'none' ? null : new Date(),
+        c.source,
+      ],
+    );
+    contactId = (res as { insertId: number }).insertId;
+    inserted++;
   }
 
-  await conn.execute(
-    `INSERT INTO contacts
-      (organisationId, firstName, lastName, email, phone, isPrimary, isInternal,
-       consentBasis, consentSource, consentAt, source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      c.orgSlug ? orgIds.get(c.orgSlug) ?? null : null,
-      c.firstName, c.lastName, c.email, c.phone,
-      c.isPrimary ? 1 : 0, isInternal ? 1 : 0,
-      basis,
-      basis === 'none' ? null : CONSENT_SOURCE,
-      basis === 'none' ? null : new Date(),
-      c.source,
-    ],
-  );
-  inserted++;
+  let first = true;
+  for (const slug of c.orgSlugs) {
+    const orgId = orgIds.get(slug);
+    if (!orgId) continue;
+    await conn.execute(
+      `INSERT INTO contactOrganisations (contactId, organisationId, role, isPrimary)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE role = COALESCE(contactOrganisations.role, VALUES(role))`,
+      [contactId, orgId, null, first ? 1 : 0],
+    );
+    links++;
+    first = false;
+  }
 }
-console.log(`✓ ${inserted} contacts inserted, ${updated} updated`);
+console.log(`✓ ${inserted} contacts inserted, ${updated} updated, ${links} company links`);
 
 for (const l of leadRows) {
   const slug = MANUAL_ORG_MATCHES[l.name.trim().toLowerCase()] ?? slugify(l.name);

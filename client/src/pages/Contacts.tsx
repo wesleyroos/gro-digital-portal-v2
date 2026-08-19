@@ -18,24 +18,24 @@ const BASIS_LABEL: Record<Basis, string> = {
   explicit_optin: "Opted in",
 };
 
+type OrgLink = { organisationId: number; role: string };
+
 type ContactForm = {
-  organisationId: string;
+  organisations: OrgLink[];
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  role: string;
   consentBasis: Basis;
   notes: string;
 };
 
 const emptyForm = (): ContactForm => ({
-  organisationId: "",
+  organisations: [],
   firstName: "",
   lastName: "",
   email: "",
   phone: "",
-  role: "",
   consentBasis: "none",
   notes: "",
 });
@@ -98,12 +98,12 @@ export default function Contacts() {
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
     return contacts.filter((c) => {
-      if (orgFilter !== "all" && String(c.organisationId ?? "") !== orgFilter) return false;
+      if (orgFilter !== "all" && !c.organisations.some((o) => String(o.id) === orgFilter)) return false;
       if (view === "no-phone" && (c.phone || c.isInternal)) return false;
       if (view === "no-email" && (c.email || c.isInternal)) return false;
       if (view === "marketable" && !canMarket(c, "email")) return false;
       if (!term) return true;
-      return [c.firstName, c.lastName, c.email, c.phone, c.organisationName, c.role]
+      return [c.firstName, c.lastName, c.email, c.phone, ...c.organisations.map((o) => o.name), ...c.organisations.map((o) => o.role)]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(term));
     });
@@ -118,12 +118,11 @@ export default function Contacts() {
   function openEdit(c: Row) {
     setEditing(c);
     setForm({
-      organisationId: c.organisationId ? String(c.organisationId) : "",
+      organisations: c.organisations.map((o) => ({ organisationId: o.id, role: o.role ?? "" })),
       firstName: c.firstName ?? "",
       lastName: c.lastName ?? "",
       email: c.email ?? "",
       phone: c.phone ?? "",
-      role: c.role ?? "",
       consentBasis: c.consentBasis as Basis,
       notes: c.notes ?? "",
     });
@@ -132,12 +131,11 @@ export default function Contacts() {
 
   function submit() {
     const payload = {
-      organisationId: form.organisationId ? Number(form.organisationId) : null,
+      organisations: form.organisations.map((o) => ({ organisationId: o.organisationId, role: o.role.trim() || null })),
       firstName: form.firstName.trim() || null,
       lastName: form.lastName.trim() || null,
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
-      role: form.role.trim() || null,
       consentBasis: form.consentBasis,
       notes: form.notes.trim() || null,
     };
@@ -226,23 +224,26 @@ export default function Contacts() {
                     <tr key={c.id} className="hover:bg-muted/30">
                       <td className="px-4 py-2.5">
                         <span className="font-medium">{displayName(c)}</span>
-                        {c.isPrimary && <span className="ml-2 text-xs text-muted-foreground">primary</span>}
                         {c.isInternal && (
                           <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
                             internal
                           </span>
                         )}
-                        {c.role && <p className="text-xs text-muted-foreground">{c.role}</p>}
                       </td>
                       <td className="px-4 py-2.5">
-                        {c.organisationName ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                            {c.organisationName}
-                            <span className="text-xs text-muted-foreground">{c.organisationStage}</span>
-                          </span>
-                        ) : (
+                        {c.organisations.length === 0 ? (
                           <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <div className="space-y-0.5">
+                            {c.organisations.map((o) => (
+                              <span key={o.id} className="flex items-center gap-1.5">
+                                <Building2 className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                                {o.name}
+                                {o.role && <span className="text-xs text-muted-foreground">{o.role}</span>}
+                                <span className="text-xs text-muted-foreground">{o.stage}</span>
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-2.5">
@@ -306,15 +307,60 @@ export default function Contacts() {
             <Input placeholder="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
             <Input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <Input placeholder="Cell (082… or +27…)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <Input placeholder="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
-            <Select value={form.organisationId} onValueChange={(v) => setForm({ ...form, organisationId: v })}>
-              <SelectTrigger><SelectValue placeholder="Company" /></SelectTrigger>
-              <SelectContent>
-                {organisations.map((o) => (
-                  <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="sm:col-span-2 space-y-2">
+              <p className="text-sm font-medium">Companies they act for</p>
+              {form.organisations.map((link, i) => (
+                <div key={i} className="flex gap-2">
+                  <Select
+                    value={String(link.organisationId)}
+                    onValueChange={(v) => {
+                      const next = [...form.organisations];
+                      next[i] = { ...next[i], organisationId: Number(v) };
+                      setForm({ ...form, organisations: next });
+                    }}
+                  >
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Company" /></SelectTrigger>
+                    <SelectContent>
+                      {organisations.map((o) => (
+                        <SelectItem key={o.id} value={String(o.id)}>{o.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="w-40"
+                    placeholder="Role there"
+                    value={link.role}
+                    onChange={(e) => {
+                      const next = [...form.organisations];
+                      next[i] = { ...next[i], role: e.target.value };
+                      setForm({ ...form, organisations: next });
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setForm({ ...form, organisations: form.organisations.filter((_, j) => j !== i) })}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={organisations.length === 0}
+                onClick={() => setForm({
+                  ...form,
+                  organisations: [...form.organisations, { organisationId: organisations[0].id, role: "" }],
+                })}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add a company
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                One person, one row, however many companies they act for — so the same admin is never
+                sent a campaign twice.
+              </p>
+            </div>
             <div className="sm:col-span-2">
               <Select value={form.consentBasis} onValueChange={(v) => setForm({ ...form, consentBasis: v as Basis })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

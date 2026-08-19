@@ -32,6 +32,7 @@ const SAFE_MIGRATIONS = [
   'drizzle/0046_quotes_signer_email.sql',
   'drizzle/0047_feedback_approvals.sql',
   'drizzle/0052_contacts_organisations.sql',
+  'drizzle/0053_contact_organisations.sql',
 ];
 
 for (const relPath of SAFE_MIGRATIONS) {
@@ -76,7 +77,7 @@ for (const relPath of SAFE_MIGRATIONS) {
     try {
       await connection.execute(stmt);
     } catch (err) {
-      if (err.errno === 1060 || err.errno === 1061 || err.code === 'ER_DUP_FIELDNAME' || err.code === 'ER_DUP_KEYNAME') {
+      if (err.errno === 1060 || err.errno === 1061 || err.errno === 1091 || err.code === 'ER_DUP_FIELDNAME' || err.code === 'ER_DUP_KEYNAME' || err.code === 'ER_CANT_DROP_FIELD_OR_KEY') {
         console.log(`  Skipped (already exists): ${stmt.substring(0, 80)}`);
         continue;
       }

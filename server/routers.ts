@@ -50,6 +50,7 @@ import {
   findContactByPhone,
   createContact,
   updateContact,
+  setContactOrganisations,
   deleteContact,
   updateLead,
   deleteLead,
@@ -843,17 +844,18 @@ export const appRouter = router({
 
     create: adminProcedure
       .input(z.object({
-        organisationId: z.number().nullish(),
         firstName: z.string().nullish(),
         lastName: z.string().nullish(),
         email: z.string().nullish(),
         phone: z.string().nullish(),
-        role: z.string().nullish(),
-        isPrimary: z.boolean().default(false),
         isInternal: z.boolean().default(false),
         consentBasis: z.enum(['none', 'existing_customer', 'explicit_optin']).default('none'),
         consentSource: z.string().nullish(),
         notes: z.string().nullish(),
+        organisations: z.array(z.object({
+          organisationId: z.number(),
+          role: z.string().nullish(),
+        })).default([]),
       }))
       .mutation(async ({ ctx, input }) => {
         const email = input.email ? input.email.trim().toLowerCase() : null;
@@ -877,13 +879,15 @@ export const appRouter = router({
           const clash = await findContactByPhone(phone);
           if (clash) throw new TRPCError({ code: 'CONFLICT', message: `${phone} already belongs to contact #${clash.id}` });
         }
+        const { organisations: orgLinks, ...fields } = input;
         const id = await createContact({
-          ...input,
+          ...fields,
           email,
           phone,
-          isInternal: input.isInternal || isInternalEmail(email),
-          consentAt: input.consentBasis === 'none' ? null : new Date(),
+          isInternal: fields.isInternal || isInternalEmail(email),
+          consentAt: fields.consentBasis === 'none' ? null : new Date(),
         });
+        await setContactOrganisations(id, orgLinks);
         logUserActivity({ openId: ctx.user.openId, action: 'create_contact', meta: email ?? phone ?? String(id) }).catch(() => {});
         return { id };
       }),
@@ -891,20 +895,21 @@ export const appRouter = router({
     update: adminProcedure
       .input(z.object({
         id: z.number(),
-        organisationId: z.number().nullish(),
         firstName: z.string().nullish(),
         lastName: z.string().nullish(),
         email: z.string().nullish(),
         phone: z.string().nullish(),
-        role: z.string().nullish(),
-        isPrimary: z.boolean().optional(),
         isInternal: z.boolean().optional(),
         consentBasis: z.enum(['none', 'existing_customer', 'explicit_optin']).optional(),
         consentSource: z.string().nullish(),
         notes: z.string().nullish(),
+        organisations: z.array(z.object({
+          organisationId: z.number(),
+          role: z.string().nullish(),
+        })).optional(),
       }))
       .mutation(async ({ input }) => {
-        const { id, ...rest } = input;
+        const { id, organisations: orgLinks, ...rest } = input;
         const existing = await getContactById(id);
         if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Contact not found' });
 
@@ -936,6 +941,7 @@ export const appRouter = router({
           data.consentAt = rest.consentBasis === 'none' ? null : new Date();
         }
         await updateContact(id, data);
+        if (orgLinks) await setContactOrganisations(id, orgLinks);
         return { success: true };
       }),
 

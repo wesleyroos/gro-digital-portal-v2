@@ -1,7 +1,7 @@
 import { eq, inArray, sql, asc, desc, and, isNotNull, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem, flyApps, FlyApp, InsertFlyApp, manualApps, ManualApp, InsertManualApp, organisations, Organisation, InsertOrganisation, contacts, Contact, InsertContact } from "../drizzle/schema";
+import { InsertUser, InsertInvoice, InsertInvoiceItem, users, invoices, invoiceItems, tasks, clientProfiles, leads, henryMessages, subscriptions, agentMessages, proposals, proposalViews, marketingCampaigns, marketingPosts, campaignMessages, campaignAssets, campaignMailers, InsertMarketingPost, portalSettings, mailerChatMessages, mailerEvents, outreachProspects, InsertOutreachProspect, mediaFiles, InsertMediaFile, userActivity, recurringInvoiceConfig, InsertRecurringInvoiceConfig, aiInteractions, projects, quotes, InsertQuote, feedbackApprovals, FeedbackApproval, billingMandates, mandateLineItems, InsertBillingMandate, InsertMandateLineItem, flyApps, FlyApp, InsertFlyApp, manualApps, ManualApp, InsertManualApp, organisations, Organisation, InsertOrganisation, contacts, Contact, InsertContact, contactOrganisations, InsertContactOrganisation } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { DEFAULT_COMPANY_INFO, type CompanyInfo } from "@shared/const";
 
@@ -3077,41 +3077,51 @@ export async function updateOrganisation(id: number, data: Partial<InsertOrganis
 }
 
 /**
- * Every contact with its organisation joined on. One query because the contacts
- * page is always a list of people-with-company, never people alone.
+ * Every contact with the companies it acts for. Two queries and a stitch rather
+ * than GROUP_CONCAT — a person can act for several companies, and parsing a
+ * concatenated string back apart is how that turns into a bug.
  */
 export async function getContacts() {
   const db = await getDb();
   if (!db) return [];
-  return db
-    .select({
-      id: contacts.id,
-      organisationId: contacts.organisationId,
-      organisationName: organisations.name,
-      organisationSlug: organisations.slug,
-      organisationStage: organisations.stage,
-      firstName: contacts.firstName,
-      lastName: contacts.lastName,
-      email: contacts.email,
-      phone: contacts.phone,
-      role: contacts.role,
-      isPrimary: contacts.isPrimary,
-      isInternal: contacts.isInternal,
-      consentBasis: contacts.consentBasis,
-      consentSource: contacts.consentSource,
-      consentAt: contacts.consentAt,
-      whatsappOptInAt: contacts.whatsappOptInAt,
-      optedOutAt: contacts.optedOutAt,
-      doNotContact: contacts.doNotContact,
-      source: contacts.source,
-      engageContactId: contacts.engageContactId,
-      notes: contacts.notes,
-      createdAt: contacts.createdAt,
-      updatedAt: contacts.updatedAt,
-    })
-    .from(contacts)
-    .leftJoin(organisations, eq(contacts.organisationId, organisations.id))
-    .orderBy(asc(organisations.name), desc(contacts.isPrimary), asc(contacts.firstName));
+
+  const [rows, links] = await Promise.all([
+    db.select().from(contacts).orderBy(asc(contacts.firstName), asc(contacts.lastName)),
+    db
+      .select({
+        contactId: contactOrganisations.contactId,
+        organisationId: contactOrganisations.organisationId,
+        role: contactOrganisations.role,
+        isPrimary: contactOrganisations.isPrimary,
+        name: organisations.name,
+        slug: organisations.slug,
+        stage: organisations.stage,
+      })
+      .from(contactOrganisations)
+      .leftJoin(organisations, eq(contactOrganisations.organisationId, organisations.id)),
+  ]);
+
+  const byContact = new Map<number, typeof links>();
+  for (const l of links) {
+    const list = byContact.get(l.contactId);
+    if (list) list.push(l);
+    else byContact.set(l.contactId, [l]);
+  }
+
+  return rows.map((c) => {
+    const orgs = (byContact.get(c.id) ?? []).sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
+    return {
+      ...c,
+      organisations: orgs.map((o) => ({
+        id: o.organisationId,
+        name: o.name,
+        slug: o.slug,
+        stage: o.stage,
+        role: o.role,
+        isPrimary: o.isPrimary,
+      })),
+    };
+  });
 }
 
 export async function getContactById(id: number) {
@@ -3150,7 +3160,7 @@ export async function updateContact(id: number, data: Partial<InsertContact>): P
   if (!db) throw new Error('DB not available');
   const set: Record<string, unknown> = {};
   const keys = [
-    'organisationId', 'firstName', 'lastName', 'email', 'phone', 'role', 'isPrimary', 'isInternal',
+    'firstName', 'lastName', 'email', 'phone', 'isInternal',
     'consentBasis', 'consentSource', 'consentAt', 'whatsappOptInAt', 'optedOutAt', 'doNotContact',
     'source', 'engageContactId', 'notes',
   ] as const;
@@ -3160,6 +3170,25 @@ export async function updateContact(id: number, data: Partial<InsertContact>): P
   if ('email' in set && typeof set.email === 'string') set.email = set.email.toLowerCase();
   if (!Object.keys(set).length) return;
   await db.update(contacts).set(set).where(eq(contacts.id, id));
+}
+
+/** Replace the whole set of companies a contact acts for. */
+export async function setContactOrganisations(
+  contactId: number,
+  orgs: { organisationId: number; role?: string | null; isPrimary?: boolean }[],
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(contactOrganisations).where(eq(contactOrganisations.contactId, contactId));
+  if (!orgs.length) return;
+  await db.insert(contactOrganisations).values(
+    orgs.map((o, i) => ({
+      contactId,
+      organisationId: o.organisationId,
+      role: o.role ?? null,
+      isPrimary: o.isPrimary ?? i === 0,
+    })),
+  );
 }
 
 export async function deleteContact(id: number): Promise<void> {
