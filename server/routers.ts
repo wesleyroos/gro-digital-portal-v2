@@ -51,6 +51,7 @@ import {
   createContact,
   updateContact,
   setContactOrganisations,
+  optInAllWhatsapp,
   deleteContact,
   updateLead,
   deleteLead,
@@ -821,11 +822,19 @@ export const appRouter = router({
         return { id };
       }),
 
+    setExcludeFromMarketing: adminProcedure
+      .input(z.object({ id: z.number(), excluded: z.boolean() }))
+      .mutation(async ({ input }) => {
+        await updateOrganisation(input.id, { excludeFromMarketing: input.excluded });
+        return { success: true };
+      }),
+
     update: adminProcedure
       .input(z.object({
         id: z.number(),
         slug: z.string().min(1).optional(),
         name: z.string().min(1).optional(),
+        excludeFromMarketing: z.boolean().optional(),
         stage: z.enum(['prospect', 'lead', 'client', 'past_client']).optional(),
         website: z.string().nullish(),
         industry: z.string().nullish(),
@@ -951,6 +960,11 @@ export const appRouter = router({
         await updateContact(input.id, { optedOutAt: input.optedOut ? new Date() : null });
         return { success: true };
       }),
+
+    optInAllWhatsapp: adminProcedure.mutation(async () => {
+      const n = await optInAllWhatsapp();
+      return { count: n };
+    }),
 
     setWhatsappOptIn: adminProcedure
       .input(z.object({ id: z.number(), optedIn: z.boolean() }))

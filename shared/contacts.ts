@@ -107,10 +107,16 @@ export function canMarket(
     isInternal: boolean;
     email: string | null;
     phone: string | null;
+    organisations?: { excludeFromMarketing?: boolean | null }[];
   },
   channel: 'email' | 'sms' | 'whatsapp',
 ): boolean {
   if (c.isInternal || c.doNotContact || c.optedOutAt) return false;
+  // Any excluded company excludes the person. Deliberately the cautious reading:
+  // someone acting for both an excluded client and an ordinary one drops out of
+  // marketing entirely. Over-excluding is a missed send; under-excluding is a
+  // message to someone we promised would not get one.
+  if (c.organisations?.some((o) => o.excludeFromMarketing)) return false;
   if (c.consentBasis === 'none') return false;
   if (channel === 'email') return !!c.email;
   if (channel === 'sms') return !!c.phone;

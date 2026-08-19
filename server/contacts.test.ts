@@ -109,3 +109,31 @@ describe("isInternalEmail", () => {
     expect(isInternalEmail(null)).toBe(false);
   });
 });
+
+describe("canMarket with an excluded company", () => {
+  const base = {
+    consentBasis: "existing_customer" as const,
+    doNotContact: false,
+    optedOutAt: null,
+    whatsappOptInAt: new Date(),
+    isInternal: false,
+    email: "a@b.co.za",
+    phone: "+27823316651",
+  };
+
+  it("excludes a person acting for an excluded company", () => {
+    expect(canMarket({ ...base, organisations: [{ excludeFromMarketing: true }] }, "email")).toBe(false);
+    expect(canMarket({ ...base, organisations: [{ excludeFromMarketing: true }] }, "whatsapp")).toBe(false);
+  });
+
+  it("excludes if any one of several companies is excluded", () => {
+    expect(
+      canMarket({ ...base, organisations: [{ excludeFromMarketing: false }, { excludeFromMarketing: true }] }, "email"),
+    ).toBe(false);
+  });
+
+  it("leaves ordinary companies alone", () => {
+    expect(canMarket({ ...base, organisations: [{ excludeFromMarketing: false }] }, "email")).toBe(true);
+    expect(canMarket({ ...base, organisations: [] }, "email")).toBe(true);
+  });
+});

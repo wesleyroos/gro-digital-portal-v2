@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Mail, Phone, MessageCircle, Ban, ShieldCheck, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Mail, Phone, MessageCircle, Ban, ShieldCheck, Building2, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { canMarket, displayName } from "@shared/contacts";
 
@@ -60,7 +60,7 @@ export default function Contacts() {
 
   const [search, setSearch] = useState("");
   const [orgFilter, setOrgFilter] = useState("all");
-  const [view, setView] = useState<"all" | "no-phone" | "no-email" | "marketable">("all");
+  const [view, setView] = useState<"all" | "no-phone" | "no-email" | "marketable" | "excluded">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<ContactForm>(emptyForm());
@@ -82,6 +82,14 @@ export default function Contacts() {
     onError: fail,
   });
   const waMutation = trpc.contact.setWhatsappOptIn.useMutation({ onSuccess: invalidate, onError: fail });
+  const optInAllMutation = trpc.contact.optInAllWhatsapp.useMutation({
+    onSuccess: (r) => { invalidate(); toast.success(`${r.count} contacts opted in for WhatsApp marketing`); },
+    onError: fail,
+  });
+  const excludeMutation = trpc.organisation.setExcludeFromMarketing.useMutation({
+    onSuccess: () => { invalidate(); utils.organisation.list.invalidate(); toast.success("Marketing exclusion updated"); },
+    onError: fail,
+  });
   const optOutMutation = trpc.contact.setOptOut.useMutation({ onSuccess: invalidate, onError: fail });
 
   const stats = useMemo(() => {
@@ -102,6 +110,7 @@ export default function Contacts() {
       if (view === "no-phone" && (c.phone || c.isInternal)) return false;
       if (view === "no-email" && (c.email || c.isInternal)) return false;
       if (view === "marketable" && !canMarket(c, "email")) return false;
+      if (view === "excluded" && !c.organisations.some((o) => o.excludeFromMarketing)) return false;
       if (!term) return true;
       return [c.firstName, c.lastName, c.email, c.phone, ...c.organisations.map((o) => o.name), ...c.organisations.map((o) => o.role)]
         .filter(Boolean)
@@ -152,9 +161,19 @@ export default function Contacts() {
             The master list. One row per person, one number format, a consent basis on each.
           </p>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" /> Add contact
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => optInAllMutation.mutate()}
+            disabled={optInAllMutation.isPending}
+            title="Record a WhatsApp marketing opt-in for everyone who has a cell number"
+          >
+            <MessageCircle className="mr-2 h-4 w-4" /> Opt everyone in
+          </Button>
+          <Button onClick={openNew}>
+            <Plus className="mr-2 h-4 w-4" /> Add contact
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -188,6 +207,7 @@ export default function Contacts() {
             <SelectItem value="no-phone">Missing a cell number</SelectItem>
             <SelectItem value="no-email">Missing an email</SelectItem>
             <SelectItem value="marketable">Marketable on email</SelectItem>
+            <SelectItem value="excluded">Excluded from marketing</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -238,9 +258,17 @@ export default function Contacts() {
                             {c.organisations.map((o) => (
                               <span key={o.id} className="flex items-center gap-1.5">
                                 <Building2 className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                                {o.name}
+                                <span className={o.excludeFromMarketing ? "line-through decoration-red-400" : ""}>{o.name}</span>
                                 {o.role && <span className="text-xs text-muted-foreground">{o.role}</span>}
                                 <span className="text-xs text-muted-foreground">{o.stage}</span>
+                                <button
+                                  title={o.excludeFromMarketing
+                                    ? `${o.name} is excluded from all marketing — click to allow`
+                                    : `Exclude ${o.name} from all marketing`}
+                                  onClick={() => excludeMutation.mutate({ id: o.id, excluded: !o.excludeFromMarketing })}
+                                >
+                                  <EyeOff className={`h-3.5 w-3.5 ${o.excludeFromMarketing ? "text-red-600" : "text-muted-foreground/25"}`} />
+                                </button>
                               </span>
                             ))}
                           </div>

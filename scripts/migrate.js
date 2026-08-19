@@ -33,6 +33,7 @@ const SAFE_MIGRATIONS = [
   'drizzle/0047_feedback_approvals.sql',
   'drizzle/0052_contacts_organisations.sql',
   'drizzle/0053_contact_organisations.sql',
+  'drizzle/0054_org_exclude_marketing.sql',
 ];
 
 for (const relPath of SAFE_MIGRATIONS) {

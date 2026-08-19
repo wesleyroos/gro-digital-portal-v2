@@ -3069,7 +3069,7 @@ export async function updateOrganisation(id: number, data: Partial<InsertOrganis
   const db = await getDb();
   if (!db) throw new Error('DB not available');
   const set: Record<string, unknown> = {};
-  for (const key of ['slug', 'name', 'stage', 'website', 'industry', 'address', 'notes'] as const) {
+  for (const key of ['slug', 'name', 'stage', 'excludeFromMarketing', 'website', 'industry', 'address', 'notes'] as const) {
     if (key in data) set[key] = data[key] ?? null;
   }
   if (!Object.keys(set).length) return;
@@ -3096,6 +3096,7 @@ export async function getContacts() {
         name: organisations.name,
         slug: organisations.slug,
         stage: organisations.stage,
+        excludeFromMarketing: organisations.excludeFromMarketing,
       })
       .from(contactOrganisations)
       .leftJoin(organisations, eq(contactOrganisations.organisationId, organisations.id)),
@@ -3119,6 +3120,7 @@ export async function getContacts() {
         stage: o.stage,
         role: o.role,
         isPrimary: o.isPrimary,
+        excludeFromMarketing: o.excludeFromMarketing,
       })),
     };
   });
@@ -3195,4 +3197,21 @@ export async function deleteContact(id: number): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error('DB not available');
   await db.delete(contacts).where(eq(contacts.id, id));
+}
+
+/** Record a WhatsApp marketing opt-in for every contact that can receive one. */
+export async function optInAllWhatsapp(): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  const rows = await db
+    .select({ id: contacts.id })
+    .from(contacts)
+    .where(and(isNotNull(contacts.phone), eq(contacts.isInternal, false)));
+  const ids = rows.map((r) => r.id);
+  if (!ids.length) return 0;
+  await db
+    .update(contacts)
+    .set({ whatsappOptInAt: new Date() })
+    .where(and(inArray(contacts.id, ids), eq(contacts.doNotContact, false)));
+  return ids.length;
 }

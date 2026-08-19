@@ -652,6 +652,11 @@ export const organisations = mysqlTable("organisations", {
   slug: varchar("slug", { length: 128 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   stage: mysqlEnum("stage", ["prospect", "lead", "client", "past_client"]).default("prospect").notNull(),
+  // A standing "never market to this company". Kept here rather than as a
+  // per-campaign segment rule, because a rule you have to remember every time is
+  // one you will eventually forget — and the client who must not be marketed to
+  // is exactly the one where forgetting matters.
+  excludeFromMarketing: boolean("excludeFromMarketing").default(false).notNull(),
   website: varchar("website", { length: 512 }),
   industry: varchar("industry", { length: 255 }),
   address: text("address"),
