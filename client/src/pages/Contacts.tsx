@@ -54,7 +54,7 @@ function Tile({ label, value, hint }: { label: string; value: string | number; h
 
 export default function Contacts() {
   const utils = trpc.useUtils();
-  const { data: contacts = [], isLoading } = trpc.contact.list.useQuery();
+  const { data: contacts = [], isLoading, error } = trpc.contact.list.useQuery();
   const { data: organisations = [] } = trpc.organisation.list.useQuery();
   type Row = (typeof contacts)[0];
 
@@ -198,6 +198,11 @@ export default function Contacts() {
         <CardContent className="p-0">
           {isLoading ? (
             <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+          ) : error ? (
+            <div className="p-6">
+              <p className="text-sm font-medium text-red-600">Could not load contacts.</p>
+              <p className="mt-1 text-sm text-muted-foreground">{error.message}</p>
+            </div>
           ) : rows.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">
               Nothing here. {contacts.length === 0 && "Run scripts/backfill-contacts.ts to populate from the existing data."}
