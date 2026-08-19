@@ -226,7 +226,20 @@ const final: Merged[] = [];
 for (const c of candidates) {
   const emailHit = c.email ? byEmail.get(c.email) : undefined;
   const phoneHit = c.phone ? byPhone.get(c.phone) : undefined;
-  const hit = emailHit ?? phoneHit;
+
+  // Matching on email means the same person. Matching only on phone does not:
+  // two people at one company share a landline, and collapsing them would lose
+  // one of them silently. Where both sides carry a different address, keep them
+  // apart and let the first hold the number — phone is unique, so the second
+  // cannot also have it, and a human decides whether they are one person.
+  const phoneConflict =
+    !emailHit && !!phoneHit && !!c.email && !!phoneHit.email && phoneHit.email !== c.email;
+  if (phoneConflict) {
+    problems.push(
+      `SHARED ${c.phone} is on both ${phoneHit!.email} and ${c.email} — kept on the first, ${c.email} has no number. Same person?`,
+    );
+  }
+  const hit = phoneConflict ? undefined : (emailHit ?? phoneHit);
 
   if (hit) {
     // The same address on two companies is usually one person acting for both —
@@ -237,7 +250,7 @@ for (const c of candidates) {
     if (c.orgSlug && !hit.orgSlugs.has(c.orgSlug)) {
       hit.orgSlugs.add(c.orgSlug);
       problems.push(
-        `LINK ${c.email ?? c.phone} acts for ${Array.from(hit.orgSlugs).join(' + ')} — one contact, ${hit.orgSlugs.size} companies`,
+        `LINK ${hit.email ?? hit.phone} acts for ${Array.from(hit.orgSlugs).join(' + ')} — one contact, ${hit.orgSlugs.size} companies`,
       );
     }
     hit.firstName ??= c.firstName;
@@ -254,12 +267,29 @@ for (const c of candidates) {
     firstName: c.firstName,
     lastName: c.lastName,
     email: c.email,
-    phone: c.phone,
+    phone: phoneConflict ? null : c.phone,
     source: c.source,
   };
   final.push(merged);
   if (merged.email) byEmail.set(merged.email, merged);
   if (merged.phone) byPhone.set(merged.phone, merged);
+}
+
+// Same name, overlapping company, different address: almost certainly one
+// person the unique indexes cannot catch. Reported rather than merged, because
+// two people at one company genuinely do share a first name.
+const seenNames = new Map<string, Merged>();
+for (const c of final) {
+  const name = [c.firstName, c.lastName].filter(Boolean).join(' ').toLowerCase();
+  if (!name) continue;
+  const prior = seenNames.get(name);
+  if (prior && prior !== c && Array.from(c.orgSlugs).some((s) => prior.orgSlugs.has(s))) {
+    problems.push(
+      `SAME? "${name}" appears twice at the same company — ${prior.email ?? prior.phone} and ${c.email ?? c.phone}`,
+    );
+  } else if (!prior) {
+    seenNames.set(name, c);
+  }
 }
 
 /** Marketable if any company they act for is a client. */
