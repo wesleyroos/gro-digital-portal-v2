@@ -140,7 +140,10 @@ for (const c of invoiceClients) {
     address: null, website: null, industry: null,
   });
   const { firstName, lastName } = splitName(c.clientContact);
-  const emails = splitEmails(c.clientEmail);
+  // An internal address typed onto a client's invoice is our own billing contact
+  // for that document, not a person at the client. wesley@grodigital.co.za
+  // reached both bison-mining-supplies and fundi-capital this way.
+  const emails = splitEmails(c.clientEmail).filter((e) => !isInternalEmail(e));
   const phone = normalisePhone(c.clientPhone);
   emails.forEach((email, i) => {
     candidates.push({
@@ -195,22 +198,15 @@ for (const l of leadRows) {
   }
 }
 
-const prospectRows = await q(`
-  SELECT id, businessName, contactName, contactEmail, contactPhone, website, industry FROM outreachProspects
-`);
-for (const p of prospectRows) {
-  const orgSlug = resolveOrg(p.businessName, 'prospect', { website: p.website || null, industry: p.industry || null });
-  const { firstName, lastName } = splitName(p.contactName);
-  const emails = splitEmails(p.contactEmail);
-  const phone = normalisePhone(p.contactPhone);
-  emails.forEach((email, i) => candidates.push({
-    orgSlug, firstName: i === 0 ? firstName : null, lastName: i === 0 ? lastName : null,
-    email, phone: i === 0 ? phone : null, role: null, isPrimary: false, source: `prospect:${p.id}`,
-  }));
-  if (!emails.length && phone) {
-    candidates.push({ orgSlug, firstName, lastName, email: null, phone, role: null, isPrimary: false, source: `prospect:${p.id}` });
-  }
-}
+/**
+ * Cold outreach prospects are deliberately NOT imported. The first dry run
+ * turned 156 scraped businesses into organisations — including US hardware
+ * stores from an old scrape — which made the company filter unusable and left
+ * the contact list 85% cold rows with no consent basis. outreachProspects stays
+ * the working list it already is; a prospect earns an organisation when it
+ * converts to a lead, which is what its leadId column is for.
+ */
+const prospectRows: { id: number; businessName: string }[] = [];
 
 // ── Dedupe. Email and phone are unique, so a clash is a decision. ───────────
 
@@ -227,8 +223,16 @@ for (const c of candidates) {
 
   if (hit) {
     if (hit.orgSlug !== c.orgSlug) {
+      // Prefer the organisation the address actually belongs to over whichever
+      // source happened to be read first.
+      const domain = (c.email ?? '').split('@')[1] ?? '';
+      const domainSlug = slugify(domain.replace(/\.(co\.za|com|net|org)$/, ''));
+      const better = domainSlug && c.orgSlug === domainSlug ? c.orgSlug
+        : domainSlug && hit.orgSlug === domainSlug ? hit.orgSlug
+        : hit.orgSlug;
+      if (better !== hit.orgSlug) hit.orgSlug = better;
       problems.push(
-        `DUPE ${c.email ?? c.phone} appears on both ${hit.orgSlug} (${hit.source}) and ${c.orgSlug} (${c.source}) — kept on ${hit.orgSlug}`,
+        `DUPE ${c.email ?? c.phone} appears on both ${hit.orgSlug} (${hit.source}) and ${c.orgSlug} (${c.source}) — kept on ${better}`,
       );
     }
     hit.firstName ??= c.firstName;

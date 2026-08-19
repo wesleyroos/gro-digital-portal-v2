@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canMarket, normalisePhone, splitEmails, splitName } from "../shared/contacts";
+import { canMarket, isInternalEmail, normalisePhone, splitEmails, splitName } from "../shared/contacts";
 
 describe("normalisePhone", () => {
   it("reads every format that was already in the portal", () => {
@@ -93,5 +93,19 @@ describe("canMarket", () => {
   it("refuses a rail the contact has no address for", () => {
     expect(canMarket({ ...base, phone: null }, "sms")).toBe(false);
     expect(canMarket({ ...base, email: null }, "email")).toBe(false);
+  });
+});
+
+describe("isInternalEmail", () => {
+  it("catches our own addresses on domains we do not own", () => {
+    expect(isInternalEmail("wesley@grodigital.co.za")).toBe(true);
+    expect(isInternalEmail("simon@grodigital.co.za")).toBe(true);
+    expect(isInternalEmail("wesley@proply.co.za")).toBe(true);
+    expect(isInternalEmail("wesley.roos@betterhome.co.za")).toBe(true);
+  });
+
+  it("leaves real client addresses alone", () => {
+    expect(isInternalEmail("benedictj@fundi.co.za")).toBe(false);
+    expect(isInternalEmail(null)).toBe(false);
   });
 });

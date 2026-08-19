@@ -6,6 +6,16 @@
 /** GD's own people — never marketing targets, whatever list they turn up on. */
 export const INTERNAL_EMAIL_DOMAINS = ['grodigital.co.za'];
 
+/**
+ * Our own addresses on domains we don't own. Wesley is the named contact on
+ * several client records while wearing that company's hat, so the domain rule
+ * alone misses them and they read as ordinary marketable contacts.
+ */
+export const INTERNAL_EMAILS = [
+  'wesley@proply.co.za',
+  'wesley.roos@betterhome.co.za',
+];
+
 const EMAIL_RE = /^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/;
 
 /**
@@ -55,7 +65,9 @@ export function isValidEmail(raw: string | null | undefined): boolean {
 
 export function isInternalEmail(email: string | null | undefined): boolean {
   if (!email) return false;
-  const domain = email.toLowerCase().split('@')[1];
+  const addr = email.toLowerCase().trim();
+  if (INTERNAL_EMAILS.includes(addr)) return true;
+  const domain = addr.split('@')[1];
   return !!domain && INTERNAL_EMAIL_DOMAINS.includes(domain);
 }
 
