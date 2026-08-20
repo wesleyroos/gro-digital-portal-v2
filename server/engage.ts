@@ -289,3 +289,12 @@ export async function optOutAtEngage(contactId: number): Promise<void> {
     console.warn(`[engage] opt-out on delete failed for ${contactId}: ${String(err)}`);
   }
 }
+
+/** Fire-and-forget whole-list push, for bulk actions that change many people. */
+export function syncAllContactsToEngage(): void {
+  void (async () => {
+    if (!(await isEngageEnabled())) return;
+    const r = await syncContactsToEngage();
+    if (r.errors.length) console.warn(`[engage] bulk sync: ${r.errors.length} failed, first: ${r.errors[0]}`);
+  })().catch((err) => console.warn(`[engage] bulk sync threw: ${String(err)}`));
+}

@@ -13,6 +13,7 @@ import {
   countEngageContacts,
   syncContactsToEngage,
   syncContactToEngage,
+  syncAllContactsToEngage,
   syncOrganisationContactsToEngage,
   optOutAtEngage,
 } from "./engage";
@@ -832,6 +833,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         const id = await upsertOrganisation(input);
+        syncOrganisationContactsToEngage(id);
         return { id };
       }),
 
@@ -858,6 +860,7 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
         await updateOrganisation(id, data);
+        syncOrganisationContactsToEngage(id);
         return { success: true };
       }),
   }),
@@ -1033,6 +1036,7 @@ export const appRouter = router({
 
     optInAllWhatsapp: adminProcedure.mutation(async () => {
       const n = await optInAllWhatsapp();
+      syncAllContactsToEngage();
       return { count: n };
     }),
 

@@ -4,6 +4,7 @@ import { ENV } from './_core/env';
 import { createMediaContainer, createVideoMediaContainer, publishMedia, refreshLongLivedToken } from './instagram';
 import { postImageToPage, postVideoToPage } from './facebook';
 import { ensureFreshToken, initializeImageUpload, uploadImageBinary, createImagePost, createTextPost } from './linkedin';
+import { isEngageEnabled, syncContactsToEngage } from "./engage";
 
 async function runSchedulerTick() {
   let posts: Awaited<ReturnType<typeof getPostsDueForPublishing>>;
@@ -151,6 +152,28 @@ async function runInstagramTokenRefreshTick() {
   }
 }
 
+/**
+ * Reconcile the contact list with Engage nightly.
+ *
+ * Every contact change already pushes on write, so this is not the delivery
+ * mechanism — it is the backstop. Those pushes are fire-and-forget by design, so
+ * a failed one is silent: Engage would keep an opt-out it never received, and
+ * nothing anywhere would say so. A nightly full push means the worst case is a
+ * day stale rather than permanently wrong.
+ *
+ * Cheap at this size — one batched request for the whole list.
+ */
+async function runEngageReconcileTick() {
+  if (!(await isEngageEnabled())) return;
+  try {
+    const r = await syncContactsToEngage();
+    console.log(`[Scheduler] Engage reconcile: ${r.created} created, ${r.updated} updated, ${r.skipped} skipped, ${r.errors.length} failed`);
+    if (r.errors.length) console.error('[Scheduler] Engage reconcile errors:', r.errors.slice(0, 3));
+  } catch (e) {
+    console.error('[Scheduler] Engage reconcile failed:', e);
+  }
+}
+
 export function startScheduler() {
   runSchedulerTick().catch(console.error);
   setInterval(() => runSchedulerTick().catch(console.error), 60_000);
@@ -159,6 +182,9 @@ export function startScheduler() {
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   runInstagramTokenRefreshTick().catch(console.error);
   setInterval(() => runInstagramTokenRefreshTick().catch(console.error), ONE_DAY_MS);
+
+  // Backstop for the on-write pushes, which fail silently by design.
+  setInterval(() => runEngageReconcileTick().catch(console.error), ONE_DAY_MS);
 
   console.log('[Scheduler] Started');
 }
