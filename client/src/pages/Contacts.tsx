@@ -27,6 +27,7 @@ type ContactForm = {
   email: string;
   phone: string;
   consentBasis: Basis;
+  consentSource: string;
   notes: string;
 };
 
@@ -37,6 +38,7 @@ const emptyForm = (): ContactForm => ({
   email: "",
   phone: "",
   consentBasis: "none",
+  consentSource: "",
   notes: "",
 });
 
@@ -133,6 +135,7 @@ export default function Contacts() {
       email: c.email ?? "",
       phone: c.phone ?? "",
       consentBasis: c.consentBasis as Basis,
+      consentSource: c.consentSource ?? "",
       notes: c.notes ?? "",
     });
     setDialogOpen(true);
@@ -146,6 +149,7 @@ export default function Contacts() {
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       consentBasis: form.consentBasis,
+      consentSource: form.consentSource.trim() || null,
       notes: form.notes.trim() || null,
     };
     if (editing) updateMutation.mutate({ id: editing.id, ...payload });
@@ -398,8 +402,15 @@ export default function Contacts() {
                   <SelectItem value="explicit_optin">Explicitly opted in</SelectItem>
                 </SelectContent>
               </Select>
+              <Input
+                className="mt-2"
+                placeholder="How was it obtained? e.g. replied to the July email asking to be kept in"
+                value={form.consentSource}
+                onChange={(e) => setForm({ ...form, consentSource: e.target.value })}
+              />
               <p className="mt-1.5 text-xs text-muted-foreground">
-                WhatsApp marketing needs its own opt-in on top of this — toggle it on the row.
+                A basis with no source is the one that fails when someone asks why we messaged them.
+                WhatsApp marketing also needs its own opt-in — toggle it on the row.
               </p>
             </div>
             <Textarea

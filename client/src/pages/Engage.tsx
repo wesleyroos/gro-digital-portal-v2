@@ -156,8 +156,9 @@ export default function Engage() {
             <div>
               <p className="font-semibold">Contact sync</p>
               <p className="text-sm text-muted-foreground">
-                Pushes the master list to Engage with each person's companies as traits, which is what
-                makes segments possible there. Our own team is never sent.
+                Changes push to Engage on their own now — every consent edit, opt-out and company
+                exclusion syncs as it happens. This button is for a full reconciliation, or after
+                Engage has been unreachable. Our own team is never sent.
               </p>
             </div>
             <Button onClick={() => sync.mutate()} disabled={sync.isPending || !status.enabled}>

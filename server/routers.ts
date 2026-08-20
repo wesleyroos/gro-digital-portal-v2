@@ -12,6 +12,9 @@ import {
   getEngageTemplates,
   countEngageContacts,
   syncContactsToEngage,
+  syncContactToEngage,
+  syncOrganisationContactsToEngage,
+  optOutAtEngage,
 } from "./engage";
 import { ENV } from "./_core/env";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -836,6 +839,7 @@ export const appRouter = router({
       .input(z.object({ id: z.number(), excluded: z.boolean() }))
       .mutation(async ({ input }) => {
         await updateOrganisation(input.id, { excludeFromMarketing: input.excluded });
+        syncOrganisationContactsToEngage(input.id);
         return { success: true };
       }),
 
@@ -960,6 +964,7 @@ export const appRouter = router({
           consentAt: fields.consentBasis === 'none' ? null : new Date(),
         });
         await setContactOrganisations(id, orgLinks);
+        syncContactToEngage(id);
         logUserActivity({ openId: ctx.user.openId, action: 'create_contact', meta: email ?? phone ?? String(id) }).catch(() => {});
         return { id };
       }),
@@ -1014,6 +1019,7 @@ export const appRouter = router({
         }
         await updateContact(id, data);
         if (orgLinks) await setContactOrganisations(id, orgLinks);
+        syncContactToEngage(id);
         return { success: true };
       }),
 
@@ -1021,6 +1027,7 @@ export const appRouter = router({
       .input(z.object({ id: z.number(), optedOut: z.boolean() }))
       .mutation(async ({ input }) => {
         await updateContact(input.id, { optedOutAt: input.optedOut ? new Date() : null });
+        syncContactToEngage(input.id);
         return { success: true };
       }),
 
@@ -1033,12 +1040,14 @@ export const appRouter = router({
       .input(z.object({ id: z.number(), optedIn: z.boolean() }))
       .mutation(async ({ input }) => {
         await updateContact(input.id, { whatsappOptInAt: input.optedIn ? new Date() : null });
+        syncContactToEngage(input.id);
         return { success: true };
       }),
 
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
+        await optOutAtEngage(input.id);
         await deleteContact(input.id);
         return { success: true };
       }),

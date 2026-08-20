@@ -211,3 +211,81 @@ export async function syncContactsToEngage(): Promise<SyncResult> {
   }
   return result;
 }
+
+/**
+ * Push one contact after it changes. Fire-and-forget: never throws, never
+ * blocks the write that triggered it.
+ *
+ * This exists because the manual sync button is the wrong safety model for
+ * consent. An opt-in that arrives late is a missed send; an OPT-OUT that never
+ * arrives means Engage keeps sending to someone who asked us to stop, until
+ * somebody remembers to press a button. The asymmetry is the whole argument.
+ *
+ * Engage re-applies its own consent gate on send, but only against what it
+ * knows — so what it knows has to keep up.
+ */
+export function syncContactToEngage(contactId: number): void {
+  void (async () => {
+    if (!(await isEngageEnabled())) return;
+    const all = await getContacts();
+    const c = all.find((x) => x.id === contactId);
+    if (!c) return;
+    if (c.isInternal || (!c.email && !c.phone)) return;
+    const res = await engageFetch('/api/v1/contacts', {
+      method: 'POST',
+      body: JSON.stringify(portalContactToEngage(c)),
+    });
+    if (!res.ok) {
+      console.warn(`[engage] contact ${contactId} sync failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+    }
+  })().catch((err) => console.warn(`[engage] contact ${contactId} sync threw: ${String(err)}`));
+}
+
+/**
+ * Re-push every contact acting for one organisation.
+ *
+ * Excluding a company changes marketability for all of its people at once, and
+ * that change has to reach Engage for the same reason a single opt-out does.
+ */
+export function syncOrganisationContactsToEngage(organisationId: number): void {
+  void (async () => {
+    if (!(await isEngageEnabled())) return;
+    const all = await getContacts();
+    const affected = all.filter(
+      (c) => !c.isInternal && (c.email || c.phone) && c.organisations.some((o) => o.id === organisationId),
+    );
+    if (!affected.length) return;
+    const res = await engageFetch('/api/v1/contacts', {
+      method: 'POST',
+      body: JSON.stringify(affected.map(portalContactToEngage)),
+    });
+    if (!res.ok) {
+      console.warn(`[engage] org ${organisationId} sync failed: ${res.status}`);
+    }
+  })().catch((err) => console.warn(`[engage] org ${organisationId} sync threw: ${String(err)}`));
+}
+
+/**
+ * Opt a contact out at Engage before deleting it here.
+ *
+ * The v1 API has no delete, so removing someone from the portal would otherwise
+ * leave them in Engage exactly as they were — still marketable, and now with no
+ * record here to explain why. Opting them out is the closest honest equivalent.
+ */
+export async function optOutAtEngage(contactId: number): Promise<void> {
+  if (!(await isEngageEnabled())) return;
+  const all = await getContacts();
+  const c = all.find((x) => x.id === contactId);
+  if (!c || c.isInternal || (!c.email && !c.phone)) return;
+  try {
+    await engageFetch('/api/v1/contacts', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...portalContactToEngage(c),
+        consent: { marketing: 'opt_out' as const },
+      }),
+    });
+  } catch (err) {
+    console.warn(`[engage] opt-out on delete failed for ${contactId}: ${String(err)}`);
+  }
+}
