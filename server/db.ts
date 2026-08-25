@@ -403,6 +403,16 @@ export async function updateInvoiceStatus(id: number, status: 'draft' | 'sent' |
   await db.update(invoices).set({ status }).where(eq(invoices.id, id));
 }
 
+/**
+ * Clear the record of an invoice having been emailed. For an invoice that went
+ * out in error: the send is undone in the ledger, not in the client's inbox.
+ */
+export async function clearInvoiceSentAt(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(invoices).set({ sentAt: null }).where(eq(invoices.id, id));
+}
+
 export async function updateInvoicePaymentUrl(id: number, paymentUrl: string | null, paymentToken: string | null = null) {
   const db = await getDb();
   if (!db) return;

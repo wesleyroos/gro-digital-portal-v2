@@ -37,6 +37,7 @@ import {
   getDistinctClients,
   updateInvoicePaymentUrl,
   updateInvoiceStatus,
+  clearInvoiceSentAt,
   createInvoice,
   getMetrics,
   getTasks,
@@ -549,6 +550,14 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         await updateInvoiceStatus(input.invoiceId, input.status);
+        return { success: true };
+      }),
+
+    // Admin-only: clear the sent record for an invoice emailed in error
+    markNotSent: adminProcedure
+      .input(z.object({ invoiceId: z.number() }))
+      .mutation(async ({ input }) => {
+        await clearInvoiceSentAt(input.invoiceId);
         return { success: true };
       }),
 

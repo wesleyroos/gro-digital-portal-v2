@@ -344,6 +344,14 @@ export default function ClientPortal() {
     onError: () => toast.error("Failed to update status"),
   });
 
+  const markInvoiceNotSent = trpc.invoice.markNotSent.useMutation({
+    onSuccess: () => {
+      utils.invoice.listByClient.invalidate({ clientSlug: slug });
+      toast.success("Marked as not sent");
+    },
+    onError: () => toast.error("Failed to mark as not sent"),
+  });
+
   const duplicateInvoice = trpc.invoice.duplicate.useMutation({
     onSuccess: (res) => {
       utils.invoice.listByClient.invalidate({ clientSlug: slug });
@@ -1872,6 +1880,12 @@ export default function ClientPortal() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => updateInvoiceStatus.mutate({ invoiceId: inv.id, status: "overdue" })} disabled={inv.status === "overdue"}>
                                   Mark as Overdue
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => markInvoiceNotSent.mutate({ invoiceId: inv.id })}
+                                  disabled={!(inv as any).sentAt || markInvoiceNotSent.isPending}
+                                >
+                                  Mark as Not Sent
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteInvoiceTarget({ number: inv.invoiceNumber })}>
