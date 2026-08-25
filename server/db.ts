@@ -1330,6 +1330,10 @@ export async function sendInvoiceEmail(invoiceId: number, recipientEmail: string
     `,
     });
   }
+
+  // Only reached once every recipient send resolved — a throw above leaves
+  // sentAt untouched, so it never claims a delivery that did not happen.
+  await db.update(invoices).set({ sentAt: new Date() }).where(eq(invoices.id, invoice.id));
 }
 
 export async function markOverdueInvoices() {
@@ -1396,7 +1400,10 @@ export async function cloneInvoiceAsDraft(
     branchCode: invoice.branchCode,
     notes: invoice.notes,
     clientAddress: invoice.clientAddress,
-    invoiceDate: new Date(),
+    // Date the clone for the day it will actually be sent, not the day it is
+    // created. Otherwise every scheduled draft carries last month's date and
+    // reads as "this month's invoice that failed to send".
+    invoiceDate: new Date(`${nextScheduledSendDate}T00:00:00Z`),
     dueDate: null,
     scheduledSendDate: nextScheduledSendDate,
     repeatMonthly: 1,

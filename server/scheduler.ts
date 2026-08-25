@@ -372,10 +372,17 @@ export async function runScheduledInvoiceSendTick() {
         continue;
       }
 
-      await sendInvoiceEmail(invoice.id, recipientEmail, baseUrl);
-      await updateInvoiceStatus(invoice.id, 'sent');
+      // An invoice already marked paid must not be re-sent: that emails the
+      // client a duplicate and resets their status back to 'sent'. The schedule
+      // is still rolled forward below so the monthly chain survives.
+      if (invoice.status === 'paid') {
+        console.log(`[ScheduledSend] ${invoice.invoiceNumber} is already paid, skipping send`);
+      } else {
+        await sendInvoiceEmail(invoice.id, recipientEmail, baseUrl);
+        await updateInvoiceStatus(invoice.id, 'sent');
+        console.log(`[ScheduledSend] Sent invoice ${invoice.invoiceNumber} to ${recipientEmail}`);
+      }
       await clearInvoiceScheduledSendDate(invoice.id);
-      console.log(`[ScheduledSend] Sent invoice ${invoice.invoiceNumber} to ${recipientEmail}`);
 
       if (invoice.repeatMonthly) {
         // Advance date by one month (same day)

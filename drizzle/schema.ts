@@ -61,6 +61,10 @@ export const invoices = mysqlTable("invoices", {
   dueDate: timestamp("dueDate"),
   scheduledSendDate: date("scheduledSendDate"),
   repeatMonthly: tinyint("repeatMonthly").default(0),
+  // When the invoice was last actually emailed to the client. NULL means it has
+  // never been sent. `status` alone cannot answer this: a draft can be marked
+  // sent by hand, and a scheduled draft looks identical to one already out.
+  sentAt: timestamp("sentAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

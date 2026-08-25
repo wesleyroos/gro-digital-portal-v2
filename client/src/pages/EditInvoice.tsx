@@ -95,6 +95,7 @@ export default function EditInvoice() {
   const watchedItems = useWatch({ control, name: "items" });
   const discountPercent = useWatch({ control, name: "discountPercent" }) || 0;
   const invoiceType = useWatch({ control, name: "invoiceType" });
+  const status = useWatch({ control, name: "status" });
 
   // Pre-fill form once data loads
   useEffect(() => {
@@ -137,7 +138,7 @@ export default function EditInvoice() {
   }, 0);
   const discountAmount = subtotal * (Number(discountPercent) / 100);
   const totalAmount = subtotal - discountAmount;
-  const amountDue = data?.invoice.status === "paid" ? 0 : totalAmount;
+  const amountDue = status === "paid" ? 0 : totalAmount;
 
   const update = trpc.invoice.update.useMutation({
     onSuccess: () => {
@@ -266,7 +267,7 @@ export default function EditInvoice() {
                 <div className="space-y-1.5">
                   <Label className="text-xs">Status</Label>
                   <Select
-                    value={data.invoice.status}
+                    value={status}
                     onValueChange={(v) => setValue("status", v as FormData["status"])}
                   >
                     <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>

@@ -106,6 +106,21 @@ function StatusBadge({ status, scheduledSendDate }: { status: string; scheduledS
   );
 }
 
+/**
+ * Whether the invoice has actually been emailed to the client. Distinct from
+ * `status`, which only records where it sits in the billing cycle.
+ */
+function SentCell({ sentAt }: { sentAt?: string | null }) {
+  if (!sentAt) {
+    return <span className="text-xs font-medium text-muted-foreground">Not sent</span>;
+  }
+  return (
+    <span className="text-xs text-muted-foreground" title={new Date(sentAt).toLocaleString("en-ZA")}>
+      {new Date(sentAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+    </span>
+  );
+}
+
 function TypeIcon({ type }: { type: string }) {
   if (type === "monthly") return <Repeat className="w-5 h-5 text-blue-500" />;
   if (type === "annual") return <CalendarDays className="w-5 h-5 text-purple-500" />;
@@ -1792,6 +1807,7 @@ export default function ClientPortal() {
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Description</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Date</th>
                       <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Amount</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Sent</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Actions</th>
                     </tr>
@@ -1817,6 +1833,7 @@ export default function ClientPortal() {
                             {new Date(inv.invoiceDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                           </td>
                           <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-foreground whitespace-nowrap">{formatCurrency(inv.totalAmount)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap"><SentCell sentAt={(inv as any).sentAt} /></td>
                           <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
                           <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                             <DropdownMenu>
