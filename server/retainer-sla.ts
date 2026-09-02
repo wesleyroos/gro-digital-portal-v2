@@ -29,6 +29,12 @@ export type Tier =
   | "fundi-gd-staging"
   /** Fundi-hosted. Listed for context. No SLA attaches (clause 14.1). */
   | "fundi-external"
+  /**
+   * GRO-hosted, Fundi-branded, but NOT named in clause 4.1 — so no SLA and no
+   * place in the report. Monitored and alerted on because we host it; kept out
+   * of the figures because Fundi has not bought a service level on it.
+   */
+  | "fundi-out-of-scope"
   /** GD's own products and other clients. Never in the Fundi report. */
   | "gd-other";
 
@@ -82,6 +88,22 @@ export const MONITORS: MonitorEntry[] = [
 
   // ---- Fundi, externally hosted (context only, no SLA — 14.1) ----
   { id: 803713395, platform: "shop.fundi.co.za", tier: "fundi-external", db: "none" },
+  {
+    id: 803750003,
+    platform: "fundi.co.za",
+    tier: "fundi-external",
+    db: "none",
+    note: "Fundi's corporate site, hosted by Fundi on Azure. Watched because it is one of the SEO properties; no availability commitment attaches to it.",
+  },
+
+  // ---- Fundi-branded, GRO-hosted, outside clause 4.1 (deliberately not reported) ----
+  {
+    id: 803826564,
+    platform: "FundiVerify",
+    tier: "fundi-out-of-scope",
+    db: "none",
+    note: "Live on fundiverify.co.za and hosted by GRO, but not a clause 4.1 platform. Static site with no database, so the keyword monitor watches the shallow /api/health. Move to fundi-gd-production only once Fundi brings it into scope by Change Request.",
+  },
 
   // ---- GD's own products and other clients (never in the Fundi report) ----
   { id: 803713520, platform: "Engage (console)", tier: "gd-other", db: "postgres" },
@@ -98,13 +120,6 @@ export const MONITORS: MonitorEntry[] = [
     tier: "gd-other",
     db: "mysql",
     note: "Keyword monitor on /api/health/deep. This app — it reports on itself, which is fine: if it is down there is no report to be wrong.",
-  },
-  {
-    id: 803724000,
-    platform: "GD Portal (HTTP)",
-    tier: "gd-other",
-    db: "mysql",
-    note: "Same endpoint as 803724048, plain HTTP. Deliberate belt-and-braces: a 503 trips this one, a missing \"db\":\"ok\" trips the keyword monitor. Expect two alerts per failure.",
   },
 ];
 
@@ -265,7 +280,9 @@ export async function buildSlaSection(month: string): Promise<SlaSection> {
   const mapped: PlatformUptime[] = [];
   for (const m of json.monitors) {
     const entry = BY_ID.get(m.id);
-    if (!entry || entry.tier === "gd-other") continue; // GD's own estate is not Fundi's report
+    // GD's own estate is not Fundi's report, and neither is a Fundi platform
+    // Fundi has not contracted a service level on.
+    if (!entry || entry.tier === "gd-other" || entry.tier === "fundi-out-of-scope") continue;
 
     const uptimePercent = Number.parseFloat(m.custom_uptime_ranges ?? "0");
     const createdAt = m.create_datetime ?? 0;
