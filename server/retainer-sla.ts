@@ -57,7 +57,7 @@ export const MONITORS: MonitorEntry[] = [
     platform: "MyFundi",
     tier: "fundi-gd-production",
     db: "postgres",
-    note: "Watches myfundi.fly.dev — DNS cutover to the customer-facing domain still pending with Fundi.",
+    note: "Watches myfundi.fly.dev. DNS cutover completed 2026-09-03 to my-fundi.co.za (hyphenated \u2014 myfundi.co.za without the hyphen is an unrelated WordPress site). \u26a0\ufe0f Add a second monitor on the real domain: a .fly.dev check passes while DNS, the certificate or the edge is broken, which is exactly what users hit.",
   },
   { id: 803092806, platform: "bursaries.co.za", tier: "fundi-gd-production", db: "postgres" },
   { id: 803096932, platform: "FundiConnect", tier: "fundi-gd-production", db: "postgres" },
